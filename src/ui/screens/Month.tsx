@@ -1,13 +1,145 @@
-import { useMemo } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useApp } from "../../state/store";
-import { balances, castMonth, dayTotals, missingDays, monthTotals, pct } from "../../domain/calc";
-import { dayLabel, jp, shiftDay, shiftMonth, todayISO, yen } from "../../domain/format";
-import { C, Calendar, CastChart, CompositionChart, DailyChart } from "../charts";
+import { balances, castContribution, castMonth, dayTotals, missingDays, monthTotals, pct, weekdaySales, yearTotals } from "../../domain/calc";
+import { WD, dayLabel, jp, shiftDay, shiftMonth, todayISO, yen } from "../../domain/format";
+import { C, Calendar, CastChart, CompositionChart, DailyChart, PALETTE, PieChart, YearChart, type PiePart } from "../charts";
 import { MonthBar } from "../components/MonthBar";
 import { ChevRight } from "../icons";
 import { csvFilename, monthCSV, offerFile } from "../../data/backup";
 
+type PieKind = "bar" | "use" | "cast" | "dow";
+
+/** 売上の使われ方カードの中身（横棒／円 3 種） */
+function BreakdownCard({ a, L, m }: { a: ReturnType<typeof monthTotals>; L: ReturnType<typeof useApp.getState>["ledger"]; m: string }) {
+  const [kind, setKind] = useState<PieKind>("bar");
+  const contrib = useMemo(() => castContribution(L, m), [L, m]);
+  const dow = useMemo(() => weekdaySales(a.series), [a]);
+  const useParts: PiePart[] = [
+    { label: "人件費", value: a.laborAll, color: C.labor },
+    { label: "経費・手数料", value: a.costAll, color: C.cost },
+    { label: "営業利益", value: Math.max(0, a.profit), color: C.rest },
+  ];
+  const top = contrib.rows.slice(0, 7);
+  const rest = contrib.rows.slice(7).reduce((s, r) => s + r.value, 0);
+  const castParts: PiePart[] = [...top.map((r, i) => ({ label: r.name, value: r.value, color: PALETTE[i % PALETTE.length] })), ...(rest > 0 ? [{ label: "その他", value: rest, color: C.rest }] : [])];
+  const dowColors = ["#d64f8a", C.cash, C.cash, C.cash, C.cash, C.labor, "var(--accent)"];
+  const dowParts: PiePart[] = dow.map((v, i) => ({ label: WD[i] + "曜", value: v, color: dowColors[i] }));
+  const sub = kind === "bar" ? `今月の売上 ${yen(a.sales)} の内訳`
+    : kind === "use" ? `売上 ${yen(a.sales)} が何に使われたか`
+    : kind === "cast" ? (contrib.basis === "target" ? "売上%型バック（ボトルなど）の対象売上で見た貢献" : "バック額で見た貢献（売上%型の項目が無いため）")
+    : "曜日ごとの売上合計。どの曜日が強いか";
+  return (
+    <div className="card">
+      <div className="cardhead">
+        <h2>売上の使われ方</h2>
+        <div className="seg" role="group" aria-label="内訳の種類">
+          <button type="button" aria-pressed={kind === "bar"} onClick={() => setKind("bar")}>棒</button>
+          <button type="button" aria-pressed={kind === "use"} onClick={() => setKind("use")}>円</button>
+          <button type="button" aria-pressed={kind === "cast"} onClick={() => setKind("cast")}>キャスト</button>
+          <button type="button" aria-pressed={kind === "dow"} onClick={() => setKind("dow")}>曜日</button>
+        </div>
+      </div>
+      <p className="sub">{sub}</p>
+      {kind === "bar" && <CompositionChart a={a} />}
+      {kind === "use" && <PieChart parts={a.sales > 0 ? useParts : []} center={a.sales > 0 ? `${pct(a.profit, a.sales).toFixed(0)}%` : undefined} empty="売上が入ると内訳が出ます" />}
+      {kind === "cast" && <PieChart parts={castParts} empty="出勤とバックが入ると貢献が出ます" />}
+      {kind === "dow" && <PieChart parts={dowParts} empty="売上が入ると曜日別が出ます" />}
+      {kind === "bar" && (
+        <div className="tw"><table><tbody>
+          <tr><td><span className="swatch" style={{ background: C.labor }} /> 人件費</td><td className="n">{yen(a.laborAll)}</td><td className="n">{pct(a.laborAll, a.sales).toFixed(1)}%</td></tr>
+          <tr className="muted"><td style={{ paddingLeft: 20 }}>在籍</td><td className="n">{yen(a.laborR)}</td><td className="n">{pct(a.laborR, a.sales).toFixed(1)}%</td></tr>
+          <tr className="muted"><td style={{ paddingLeft: 20 }}>派遣</td><td className="n">{yen(a.laborD)}</td><td className="n">{pct(a.laborD, a.sales).toFixed(1)}%</td></tr>
+          {a.paidLump > 0 && <tr className="muted"><td style={{ paddingLeft: 20 }}>まとめ日払い</td><td className="n">{yen(a.paidLump)}</td><td className="n">{pct(a.paidLump, a.sales).toFixed(1)}%</td></tr>}
+          <tr className="tr-link muted" tabIndex={0} onClick={() => useApp.getState().goSettings("fixed")}><td style={{ paddingLeft: 20 }}>固定人件費 ›</td><td className="n">{yen(a.fixedLabor)}</td><td className="n">{pct(a.fixedLabor, a.sales).toFixed(1)}%</td></tr>
+          <tr><td><span className="swatch" style={{ background: C.cost }} /> 経費・手数料</td><td className="n">{yen(a.costAll)}</td><td className="n">{pct(a.costAll, a.sales).toFixed(1)}%</td></tr>
+          <tr><td><span className="swatch" style={{ background: C.rest }} /> 営業利益</td><td className="n">{yen(a.profit)}</td><td className="n">{pct(a.profit, a.sales).toFixed(1)}%</td></tr>
+        </tbody></table></div>
+      )}
+    </div>
+  );
+}
+
+/** 年表示 */
+function YearView() {
+  const L = useApp((s) => s.ledger);
+  const ui = useApp((s) => s.ui);
+  const setUI = useApp((s) => s.setUI);
+  const year = ui.month.slice(0, 4);
+  const y = useMemo(() => yearTotals(L, year), [L, year]);
+  const laborRate = pct(y.laborAll, y.sales);
+  const useParts: PiePart[] = [
+    { label: "人件費", value: y.laborAll, color: C.labor },
+    { label: "経費・手数料", value: y.costAll, color: C.cost },
+    { label: "営業利益", value: Math.max(0, y.profit), color: C.rest },
+  ];
+  const pickMonth = (m: string) => { setUI({ month: m, monthView: "month", calDay: null, castDetail: null }); window.scrollTo(0, 0); };
+  return (
+    <>
+      <div className="hero">
+        <div className="label"><span className="eyebrow">{year}年の営業利益</span></div>
+        <div className={`big num ${y.profit < 0 ? "neg" : ""}`}>{yen(y.profit)}</div>
+        <div className="meta">売上 {yen(y.sales)} − 人件費 {yen(y.laborAll)} − 経費 {yen(y.costAll)}</div>
+        <div className="heroSplit cols3">
+          <div><div className="k">人件費率</div><div className="v">{laborRate.toFixed(1)}<span style={{ fontSize: 13 }}>%</span></div></div>
+          <div><div className="k">客単価</div><div className="v">{y.guests > 0 ? yen(y.avgSpend) : "—"}</div></div>
+          <div><div className="k">営業日</div><div className="v">{y.days}<span style={{ fontSize: 13 }}>日</span></div></div>
+        </div>
+      </div>
+
+      <div className="card">
+        <h2>月別の売上と利益</h2><p className="sub">棒が売上（下が現金、上がカード）、線が営業利益。棒をタップするとその月へ。</p>
+        <YearChart months={y.months} onPick={pickMonth} />
+      </div>
+
+      <div className="card">
+        <h2>月別の明細</h2><p className="sub">行をタップするとその月の画面が開きます。固定費は日報のある月だけ引いています。</p>
+        <div className="tw"><table>
+          <thead><tr><th>月</th><th>日数</th><th>売上</th><th>人件費</th><th>経費</th><th>利益</th></tr></thead>
+          <tbody>{y.months.map((x) => (
+            <tr key={x.m} className={`tr-link ${x.days ? "" : "muted"}`} tabIndex={0} onClick={() => pickMonth(x.m)} onKeyDown={(e) => { if (e.key === "Enter") pickMonth(x.m); }}>
+              <td>{Number(x.m.slice(5, 7))}月</td>
+              <td className="n">{x.days || "—"}</td>
+              <td className="n">{x.sales ? jp(x.sales) : "—"}</td>
+              <td className="n">{x.laborAll ? jp(x.laborAll) : "—"}</td>
+              <td className="n">{x.costAll ? jp(x.costAll) : "—"}</td>
+              <td className={`n ${x.profit < 0 ? "neg" : ""}`}>{x.days ? jp(x.profit) : "—"}</td>
+            </tr>
+          ))}</tbody>
+          <tfoot><tr><td>合計</td><td className="n">{y.days}</td><td className="n">{jp(y.sales)}</td><td className="n">{jp(y.laborAll)}</td><td className="n">{jp(y.costAll)}</td><td className={`n ${y.profit < 0 ? "neg" : ""}`}>{jp(y.profit)}</td></tr></tfoot>
+        </table></div>
+      </div>
+
+      <div className="card">
+        <h2>年の売上の使われ方</h2><p className="sub">売上 {yen(y.sales)} が何に使われたか</p>
+        <PieChart parts={y.sales > 0 ? useParts : []} center={y.sales > 0 ? `${pct(y.profit, y.sales).toFixed(0)}%` : undefined} empty="売上が入ると内訳が出ます" />
+      </div>
+    </>
+  );
+}
+
 export function Month() {
+  const ui = useApp((s) => s.ui);
+  const setUI = useApp((s) => s.setUI);
+  const L = useApp((s) => s.ledger);
+  const defaultCalDay = (mm: string) => { const k = Object.keys(L.days).sort().filter((d) => d.startsWith(mm) && dayTotals(L, d).sales > 0); return k.length ? k[k.length - 1] : null; };
+  const seg = (
+    <span className="seg" role="group" aria-label="月と年の切替">
+      <button type="button" aria-pressed={ui.monthView !== "year"} onClick={() => setUI({ monthView: "month" })}>月</button>
+      <button type="button" aria-pressed={ui.monthView === "year"} onClick={() => setUI({ monthView: "year" })}>年</button>
+    </span>
+  );
+  if (ui.monthView === "year") {
+    return (
+      <>
+        <MonthBar month={ui.month} yearMode onChange={(mm) => setUI({ month: mm, calDay: null, castDetail: null })} right={seg} />
+        <YearView />
+      </>
+    );
+  }
+  return <MonthView seg={seg} defaultCalDay={defaultCalDay} />;
+}
+
+function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: string) => string | null }) {
   const L = useApp((s) => s.ledger);
   const ui = useApp((s) => s.ui);
   const setUI = useApp((s) => s.setUI);
@@ -29,7 +161,6 @@ export function Month() {
   const missing = isCur ? missingDays(L, today, shiftDay) : [];
   const todayDone = !!L.days[today];
 
-  const defaultCalDay = (mm: string) => { const k = Object.keys(L.days).sort().filter((d) => d.startsWith(mm) && dayTotals(L, d).sales > 0); return k.length ? k[k.length - 1] : null; };
   const setMonth = (mm: string) => setUI({ month: mm, calDay: defaultCalDay(mm), castDetail: null });
   const setMode = (mode: "chart" | "cal") => {
     try { localStorage.setItem("shimedaicho.mode", mode); } catch { /* ignore */ }
@@ -44,7 +175,7 @@ export function Month() {
 
   return (
     <>
-      <MonthBar month={m} onChange={setMonth} right={<span className="num">{a.days}日 入力済み</span>} />
+      <MonthBar month={m} onChange={setMonth} right={<><span className="num" style={{ marginRight: 8 }}>{a.days}日</span>{seg}</>} />
 
       {!L.casts.length && !a.days && (
         <div className="banner">まず<b>設定</b>でバック単価と時給を決めて、<b>キャスト</b>に在籍者を登録してください。あとは<b>日報</b>を毎日つけるだけで、ここが埋まります。</div>
@@ -124,19 +255,7 @@ export function Month() {
         ) : <div className="empty" style={{ padding: "20px 12px" }}>日付をタップすると、その日の収支が出ます</div>)}
       </div>
 
-      <div className="card">
-        <h2>売上の使われ方</h2><p className="sub">今月の売上 {yen(a.sales)} の内訳</p>
-        <CompositionChart a={a} />
-        <div className="tw"><table><tbody>
-          <tr><td><span className="swatch" style={{ background: C.labor }} /> 人件費</td><td className="n">{yen(a.laborAll)}</td><td className="n">{pct(a.laborAll, a.sales).toFixed(1)}%</td></tr>
-          <tr className="muted"><td style={{ paddingLeft: 20 }}>在籍</td><td className="n">{yen(a.laborR)}</td><td className="n">{pct(a.laborR, a.sales).toFixed(1)}%</td></tr>
-          <tr className="muted"><td style={{ paddingLeft: 20 }}>派遣</td><td className="n">{yen(a.laborD)}</td><td className="n">{pct(a.laborD, a.sales).toFixed(1)}%</td></tr>
-          {a.paidLump > 0 && <tr className="muted"><td style={{ paddingLeft: 20 }}>まとめ日払い</td><td className="n">{yen(a.paidLump)}</td><td className="n">{pct(a.paidLump, a.sales).toFixed(1)}%</td></tr>}
-          <tr className="tr-link muted" tabIndex={0} onClick={() => goSet("fixed")}><td style={{ paddingLeft: 20 }}>固定人件費 ›</td><td className="n">{yen(a.fixedLabor)}</td><td className="n">{pct(a.fixedLabor, a.sales).toFixed(1)}%</td></tr>
-          <tr><td><span className="swatch" style={{ background: C.cost }} /> 経費・手数料</td><td className="n">{yen(a.costAll)}</td><td className="n">{pct(a.costAll, a.sales).toFixed(1)}%</td></tr>
-          <tr><td><span className="swatch" style={{ background: C.rest }} /> 営業利益</td><td className="n">{yen(a.profit)}</td><td className="n">{pct(a.profit, a.sales).toFixed(1)}%</td></tr>
-        </tbody></table></div>
-      </div>
+      <BreakdownCard a={a} L={L} m={m} />
 
       <div className="card">
         <h2>在籍キャスト別の給料</h2><p className="sub">時給＋バック−控除。多い順に最大8名。派遣はキャスト画面に出ます。</p>

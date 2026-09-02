@@ -15,6 +15,8 @@ export type Sheet = { kind: "cast"; id: string } | { kind: "disp"; id: string } 
 export interface UIState {
   tab: Tab;
   month: string;
+  /** 今月画面の表示: 月 or 年 */
+  monthView: "month" | "year";
   day: string;
   /** 日報ウィザードのステップ 0..4 */
   step: number;
@@ -101,7 +103,7 @@ export function createAppStore(repo: Repository) {
       save: "loading",
       lastSavedAt: null,
       lastBackupAt: null,
-      ui: { tab: "month", month: t.slice(0, 7), day: t, step: 0, monthMode: "chart", calDay: null, castDetail: null, setFocus: null, sheet: null },
+      ui: { tab: "month", month: t.slice(0, 7), monthView: "month", day: t, step: 0, monthMode: "chart", calDay: null, castDetail: null, setFocus: null, sheet: null },
       toast: null,
 
       async init() {

@@ -182,3 +182,48 @@ describe("旧コードとの同値性", () => {
     expect(migrate({ backItems: [{ id: "b1", name: "ドリンクバック" }, {}, {}, {}], days: {} }).backItems.map((b) => b.id)).toEqual(["d1", "d2", "d3", "b2", "b3", "b4"]);
   });
 });
+
+describe("円グラフ・年表示の集計", () => {
+  const S = {
+    v: 2,
+    shop: { cardFeeRate: "5", fixedLabor: "100000", fixedCost: "50000", defaultWage: "2000", roundMinutes: "15", dispatchGuarantee: "10000", openingDate: "2026-01-01" },
+    backItems: [{ id: "d1", name: "D", type: "count", rate: "500", rateD: "500" }, { id: "b4", name: "B", type: "amount", rate: "20", rateD: "10" }],
+    casts: [{ id: "a", name: "A" }, { id: "b", name: "B" }],
+    days: {
+      "2026-03-02": { cashSales: "100000", cardSales: "0", shifts: { a: { on: true, in: "20:00", out: "01:00", backs: { b4: "30000", d1: "2" } } }, dispatch: [{ id: "x", name: "ゆき", backs: { b4: "10000" } }], expenses: [], settle: [] },
+      "2026-03-07": { cashSales: "50000", cardSales: "50000", shifts: { b: { on: true, in: "20:00", out: "01:00", backs: { d1: "5" } } }, dispatch: [], expenses: [{ amount: "2000", method: "cash" }], settle: [] },
+      "2026-05-01": { cashSales: "80000", cardSales: "20000", shifts: {}, dispatch: [], expenses: [], settle: [] },
+    },
+  };
+  const L = migrate(S);
+
+  it("castContribution は売上%型があれば対象売上、無ければバック額", () => {
+    const { rows, basis } = C.castContribution(L, "2026-03");
+    expect(basis).toBe("target");
+    expect(rows.map((r) => [r.name, r.value])).toEqual([["A", 30000], ["ゆき（派遣）", 10000]]);
+    const L2 = { ...L, backItems: L.backItems.filter((b) => b.type !== "amount") };
+    const r2 = C.castContribution(L2, "2026-03");
+    expect(r2.basis).toBe("back");
+    expect(r2.rows.map((r) => [r.name, r.value])).toEqual([["B", 2500], ["A", 1000]]);
+  });
+
+  it("weekdaySales は曜日ごとに売上を足す", () => {
+    const w = C.weekdaySales(C.monthTotals(L, "2026-03").series);
+    expect(w[1]).toBe(100000); // 3/2 は月曜
+    expect(w[6]).toBe(100000); // 3/7 は土曜
+    expect(w.reduce((s, x) => s + x, 0)).toBe(200000);
+  });
+
+  it("yearTotals は日報のある月だけ固定費を足す", () => {
+    const y = C.yearTotals(L, "2026");
+    expect(y.months.length).toBe(12);
+    expect(y.sales).toBe(300000);
+    expect(y.days).toBe(3);
+    const mar = y.months[2], apr = y.months[3], may = y.months[4];
+    expect(apr.laborAll).toBe(0); expect(apr.costAll).toBe(0); expect(apr.profit).toBe(0);
+    expect(mar.laborAll).toBe(C.monthTotals(L, "2026-03").laborAll);
+    expect(may.costAll).toBe(50000 + 20000 * 0.05);
+    expect(y.profit).toBe(y.months.reduce((s, x) => s + x.profit, 0));
+    expect(y.laborAll).toBe(mar.laborAll + may.laborAll);
+  });
+});

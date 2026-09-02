@@ -187,3 +187,109 @@ export function CastChart({ rows }: { rows: CastMonthRow[] }) {
     </div>
   );
 }
+
+/* ============================================================
+   円グラフ・年グラフ
+   ============================================================ */
+
+export interface PiePart { label: string; value: number; color: string }
+/** 割当用の色（順に使う） */
+export const PALETTE = [C.cash, C.card, C.labor, C.cost, "var(--accent)", "#8e6bd6", "#d64f8a", C.rest];
+
+function arcPath(cx: number, cy: number, r0: number, r1: number, a0: number, a1: number): string {
+  const p = (r: number, a: number) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  const [x0, y0] = p(r1, a0), [x1, y1] = p(r1, a1), [x2, y2] = p(r0, a1), [x3, y3] = p(r0, a0);
+  const large = a1 - a0 > Math.PI ? 1 : 0;
+  return `M${x0} ${y0} A${r1} ${r1} 0 ${large} 1 ${x1} ${y1} L${x2} ${y2} A${r0} ${r0} 0 ${large} 0 ${x3} ${y3} Z`;
+}
+
+/** ドーナツ型の円グラフ。値 0 の部品は描かず、凡例に金額と割合を出す */
+export function PieChart({ parts, center, empty = "データがありません" }: { parts: PiePart[]; center?: string; empty?: string }) {
+  const list = parts.filter((p) => p.value > 0);
+  const total = list.reduce((s, p) => s + p.value, 0);
+  if (!total) return <div className="empty">{empty}</div>;
+  let a = -Math.PI / 2;
+  const cx = 100, cy = 100, r1 = 90, r0 = 56;
+  return (
+    <div className="pie">
+      <svg viewBox="0 0 200 200" role="img" aria-label={list.map((p) => `${p.label} ${pct(p.value, total).toFixed(0)}%`).join("、")}>
+        {list.length === 1
+          ? <circle cx={cx} cy={cy} r={(r0 + r1) / 2} fill="none" stroke={list[0].color} strokeWidth={r1 - r0} />
+          : list.map((p) => {
+            const a0 = a, a1 = a + (p.value / total) * Math.PI * 2 - 0.02;
+            a += (p.value / total) * Math.PI * 2;
+            return <path key={p.label} d={arcPath(cx, cy, r0, r1, a0, Math.max(a0 + 0.001, a1))} fill={p.color} />;
+          })}
+        {center && <text x={cx} y={cy + 5} textAnchor="middle" fontSize={15} className="ctr" fill="var(--ink)">{center}</text>}
+      </svg>
+      <div className="legend">
+        {list.map((p) => (
+          <span key={p.label}><i style={{ background: p.color }} /><span className="nm">{p.label}</span><em>{pct(p.value, total).toFixed(0)}%</em><b>{yenShort(p.value)}</b></span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** 年の月別売上：現金／カードの積み上げ棒 ＋ 利益の折れ線 */
+export function YearChart({ months, onPick }: { months: { m: string; cash: number; card: number; sales: number; profit: number; days: number }[]; onPick?: (m: string) => void }) {
+  const [tip, setTip] = useState<{ i: number; x: number } | null>(null);
+  if (!months.some((x) => x.sales > 0)) return <div className="empty">この年の売上はまだ入っていません</div>;
+  const W = 340, H = 180, L = 40, R = 8, T = 14, B = 22;
+  const pw = W - L - R, ph = H - T - B;
+  const max = niceMax(Math.max(10000, ...months.map((x) => Math.max(x.sales, x.profit))));
+  const min = Math.min(0, ...months.map((x) => x.profit));
+  const minN = min < 0 ? -niceMax(-min) : 0;
+  const yOf = (v: number) => T + ph - (ph * (v - minN)) / (max - minN);
+  const step = pw / 12, bw = step * 0.62;
+  const zero = yOf(0);
+  const onMove = (e: PointerEvent<HTMLDivElement>) => {
+    const el = (e.target as Element).closest?.(".hit") as SVGRectElement | null;
+    if (!el) { setTip(null); return; }
+    const i = Number(el.dataset.i);
+    const wrap = e.currentTarget.getBoundingClientRect(), b = el.getBoundingClientRect();
+    setTip({ i, x: b.left - wrap.left + b.width / 2 });
+  };
+  const line = months.map((x, i) => `${(L + step * i + step / 2).toFixed(1)},${yOf(x.profit).toFixed(1)}`).join(" ");
+  const tm = tip ? months[tip.i] : null;
+  return (
+    <>
+      <div className="chart" onPointerMove={onMove} onPointerDown={onMove} onPointerLeave={() => setTip(null)}>
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="月別の売上と利益">
+          {[minN, 0, max / 2, max].filter((v, i, arr) => arr.indexOf(v) === i).map((v) => (
+            <g key={v}>
+              <line x1={L} y1={yOf(v)} x2={W - R} y2={yOf(v)} stroke={v === 0 ? "var(--axis)" : "var(--grid)"} strokeWidth={1} />
+              <text x={L - 6} y={yOf(v) + 3.5} textAnchor="end" fontSize={9} fill="var(--ink-3)" fontFamily="Archivo,sans-serif">{v === 0 ? "0" : yenShort(v)}</text>
+            </g>
+          ))}
+          {months.map((x, i) => {
+            const bx = L + step * i + (step - bw) / 2;
+            const hCash = (ph * x.cash) / (max - minN), hCard = (ph * x.card) / (max - minN);
+            const yCash = zero - hCash, yCard = yCash - hCard;
+            return (
+              <g key={x.m}>
+                {hCard > 0.5 && <path d={topRect(bx, yCard, bw, hCard, 2.5)} fill={C.card} />}
+                {hCash > 0.5 && (hCard > 0.5 ? <rect x={bx} y={yCash} width={bw} height={hCash} fill={C.cash} /> : <path d={topRect(bx, yCash, bw, hCash, 2.5)} fill={C.cash} />)}
+                <text x={bx + bw / 2} y={H - 7} textAnchor="middle" fontSize={9} fill="var(--ink-3)" fontFamily="Archivo,sans-serif">{i + 1}</text>
+              </g>
+            );
+          })}
+          <polyline points={line} fill="none" stroke="var(--ink)" strokeWidth={1.6} strokeLinejoin="round" />
+          {months.map((x, i) => x.days > 0 && <circle key={x.m} cx={L + step * i + step / 2} cy={yOf(x.profit)} r={2.6} fill={x.profit < 0 ? "var(--crit)" : "var(--ink)"} stroke="var(--surface)" strokeWidth={1} />)}
+          {months.map((x, i) => <rect key={x.m} className="hit" x={L + step * i} y={T} width={step} height={ph} fill="transparent" data-i={i} style={{ cursor: onPick ? "pointer" : undefined }} onClick={() => onPick?.(x.m)} />)}
+        </svg>
+        <div className={`tip ${tip ? "on" : ""}`} style={{ left: tip ? `clamp(0px, calc(${tip.x}px - 60px), calc(100% - 124px))` : 0, top: 2 }}>
+          {tm && (
+            <>
+              <div className="d">{Number(tm.m.slice(5, 7))}月{tm.days ? ` ・ ${tm.days}日` : ""}</div>
+              <div className="r"><span className="swatch" style={{ background: C.cash }} /><span>現金</span><span>{yen(tm.cash)}</span></div>
+              <div className="r"><span className="swatch" style={{ background: C.card }} /><span>カード</span><span>{yen(tm.card)}</span></div>
+              <div className="r" style={{ marginTop: 3, borderTop: "1px solid var(--line)", paddingTop: 3 }}><span>利益</span><span>{yen(tm.profit)}</span></div>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="legend"><span><i style={{ background: C.cash }} />現金</span><span><i style={{ background: C.card }} />カード</span><span><i style={{ background: "var(--ink)", borderRadius: "50%" }} />営業利益</span></div>
+    </>
+  );
+}

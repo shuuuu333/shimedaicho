@@ -233,7 +233,8 @@ function DispatchStep({ L, d, dk, edit, t, openSheet, updateWithUndo }: { L: Led
       {d.dispatch.map((row, i) => {
         const p = dispatchPay(L, row);
         return (
-          <div key={row.id} className="wrow" style={{ padding: "6px 6px 6px 12px" }}>
+          <div key={row.id}>
+          <div className="wrow" style={{ padding: "6px 6px 6px 12px", marginBottom: 6 }}>
             <button type="button" className="g" style={{ all: "unset", flex: 1, minWidth: 0, cursor: "pointer", display: "block" }} onClick={() => openSheet(row.id)}>
               <span className="t" style={{ display: "block" }}><span className="tag" style={{ fontSize: 10, color: "var(--accent)", marginRight: 6 }}>派遣</span>{(row.name || "").trim() || <span className="warn">名前を入れる</span>}</span>
               <span className="s" style={{ display: "block" }}>日給 {jp(p.guarantee)}{p.backTotal ? ` ・ バック ${jp(p.backTotal)}` : ""}{p.paid ? ` ・ 日払い ${jp(p.paid)}` : ""}</span>
@@ -241,13 +242,25 @@ function DispatchStep({ L, d, dk, edit, t, openSheet, updateWithUndo }: { L: Led
             <span className="a num" onClick={() => openSheet(row.id)}>{yen(p.gross)}</span>
             <button type="button" className="iconbtn" aria-label={`${row.name || "派遣の行"}を削除`} onClick={() => del(i)}><Trash /></button>
           </div>
+          <div className="payrow">
+            <span className="lbl">支払い</span>
+            <NumberField value={row.paid} placeholder="渡した額" aria-label={`${row.name || "派遣"}への支払い`} onChange={(v) => edit((dd) => { const r = dd.dispatch.find((x) => x.id === row.id); if (r) r.paid = v; })} />
+            {p.unpaid <= 0 && p.paid > 0
+              ? <span className="pill ok">全額払い済み</span>
+              : <button type="button" className="btn sm primary" onClick={() => edit((dd) => { const r = dd.dispatch.find((x) => x.id === row.id); if (r) r.paid = p.gross; })}>全額払う</button>}
+            {p.unpaid > 0 && p.paid > 0 && <span className="pill bad">未払い {yen(p.unpaid)}</span>}
+          </div>
+          </div>
         );
       })}
       {!d.dispatch.length && <div className="empty" style={{ padding: 14 }}>この日は派遣なし</div>}
       <div className="btnrow" style={{ marginTop: 10, alignItems: "center" }}>
         <button type="button" className="btn sm" onClick={add}>＋ 派遣を足す</button>
-        {d.dispatch.length > 0 && <span className="hint" style={{ margin: "0 0 0 auto" }}>派遣 {t.workersD}名 ／ 支給計 <b>{yen(t.laborD)}</b></span>}
       </div>
+      {d.dispatch.length > 0 && (() => {
+        const paidD = d.dispatch.reduce((s, r) => s + dispatchPay(L, r).paid, 0);
+        return <div className="hint" style={{ marginTop: 8 }}>派遣 {t.workersD}名 ／ 支給計 <b>{yen(t.laborD)}</b> ／ 今日払った額 <b>{yen(paidD)}</b>{t.laborD - paidD > 0 ? <> ／ 未払い <b className="neg">{yen(t.laborD - paidD)}</b></> : ""}</div>;
+      })()}
     </div>
   );
 }

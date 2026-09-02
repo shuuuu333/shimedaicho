@@ -299,3 +299,73 @@ export function missingDays(L: Ledger, today: string, shiftDay: (d: string, n: n
   }
   return out;
 }
+
+/* ============================================================
+   円グラフ・年表示用の集計
+   ============================================================ */
+
+export interface Contribution { id: string; name: string; value: number }
+
+/** キャスト別の売上貢献。売上% 型のバック項目があれば「対象売上」、無ければバック額で見る。派遣も名前で含める */
+export function castContribution(L: Ledger, m: string): { rows: Contribution[]; basis: "target" | "back" } {
+  const amountIds = L.backItems.filter((b) => b.type === "amount").map((b) => b.id);
+  const basis: "target" | "back" = amountIds.length ? "target" : "back";
+  const map = new Map<string, Contribution>();
+  const add = (id: string, name: string, p: Pay) => {
+    const v = basis === "target" ? amountIds.reduce((s, bid) => s + p.backs[bid].qty, 0) : p.backTotal;
+    const cur = map.get(id) ?? { id, name, value: 0 };
+    cur.value += v;
+    map.set(id, cur);
+  };
+  for (const k of monthKeys(L, m)) {
+    const d = L.days[k];
+    for (const cid of Object.keys(d.shifts ?? {})) {
+      const sh = d.shifts[cid];
+      if (!sh?.on) continue;
+      const c = castById(L, cid);
+      add("c:" + cid, c ? c.name || "（名前なし）" : "（削除済み）", payOf(L, cid, sh));
+    }
+    for (const row of d.dispatch ?? []) {
+      const name = (row.name ?? "").trim() || "（名前なし）";
+      add("d:" + name, name + "（派遣）", dispatchPay(L, row));
+    }
+  }
+  const rows = [...map.values()].filter((r) => r.value > 0).sort((a, b) => b.value - a.value);
+  return { rows, basis };
+}
+
+/** 曜日別の売上合計（0=日 … 6=土） */
+export function weekdaySales(series: DayTotals[]): number[] {
+  const out = [0, 0, 0, 0, 0, 0, 0];
+  for (const t of series) out[new Date(t.date + "T00:00:00").getDay()] += t.sales;
+  return out;
+}
+
+export interface YearMonth {
+  m: string; days: number; cash: number; card: number; sales: number; guests: number;
+  labor: number; laborAll: number; exp: number; costAll: number; profit: number;
+}
+export interface YearTotals {
+  year: string; months: YearMonth[]; days: number; cash: number; card: number; sales: number; guests: number;
+  labor: number; laborAll: number; exp: number; costAll: number; profit: number; avgSpend: number;
+}
+
+/** 年の集計。固定費（固定人件費・家賃ほか）は日報のある月だけ加える */
+export function yearTotals(L: Ledger, year: string): YearTotals {
+  const months: YearMonth[] = [];
+  for (let i = 1; i <= 12; i++) {
+    const m = `${year}-${String(i).padStart(2, "0")}`;
+    const a = monthTotals(L, m);
+    const active = a.days > 0;
+    const laborAll = a.labor + (active ? a.fixedLabor : 0);
+    const costAll = a.exp + a.fee + (active ? a.fixedCost : 0);
+    months.push({ m, days: a.days, cash: a.cash, card: a.card, sales: a.sales, guests: a.guests, labor: a.labor, laborAll, exp: a.exp, costAll, profit: a.sales - laborAll - costAll });
+  }
+  const y: YearTotals = { year, months, days: 0, cash: 0, card: 0, sales: 0, guests: 0, labor: 0, laborAll: 0, exp: 0, costAll: 0, profit: 0, avgSpend: 0 };
+  for (const x of months) {
+    y.days += x.days; y.cash += x.cash; y.card += x.card; y.sales += x.sales; y.guests += x.guests;
+    y.labor += x.labor; y.laborAll += x.laborAll; y.exp += x.exp; y.costAll += x.costAll; y.profit += x.profit;
+  }
+  y.avgSpend = y.guests > 0 ? y.sales / y.guests : 0;
+  return y;
+}

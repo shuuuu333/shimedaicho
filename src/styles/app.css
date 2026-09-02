@@ -76,3 +76,21 @@
 .snap:last-child{border-bottom:0}
 .snap .g{flex:1; min-width:0}
 .snap .s{font-size:11px; color:var(--ink-3)}
+
+/* 派遣の支払い行 */
+.payrow{display:flex; align-items:center; gap:8px; margin:-4px 0 10px; padding:0 4px}
+.payrow .lbl{font-size:11.5px; color:var(--ink-2); font-weight:500; flex:none}
+.payrow .numwrap{flex:1; min-width:0}
+.payrow .btn{flex:none}
+.payrow .pill{flex:none}
+
+/* 円グラフ */
+.pie{display:flex; align-items:center; gap:14px}
+.pie svg{width:150px; height:150px; flex:none}
+.pie .legend{flex:1; min-width:0; flex-direction:column; gap:5px; margin:0}
+.pie .legend span{display:flex; align-items:center; gap:6px; font-size:12px}
+.pie .legend span b{margin-left:auto; font-family:"Archivo",system-ui,sans-serif; font-variant-numeric:tabular-nums; font-weight:600}
+.pie .legend span em{font-style:normal; color:var(--ink-3); font-size:11px; min-width:34px; text-align:right}
+.pie .legend span .nm{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0}
+.pie .ctr{font-family:"Archivo",system-ui,sans-serif; font-weight:700}
+.seg.wrap{flex-wrap:wrap}
