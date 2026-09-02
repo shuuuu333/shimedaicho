@@ -1,0 +1,176 @@
+import { useMemo } from "react";
+import { useApp } from "../../state/store";
+import { balances, castMonth, dayTotals, missingDays, monthTotals, pct } from "../../domain/calc";
+import { dayLabel, jp, shiftDay, shiftMonth, todayISO, yen } from "../../domain/format";
+import { C, Calendar, CastChart, CompositionChart, DailyChart } from "../charts";
+import { MonthBar } from "../components/MonthBar";
+import { ChevRight } from "../icons";
+import { csvFilename, monthCSV, offerFile } from "../../data/backup";
+
+export function Month() {
+  const L = useApp((s) => s.ledger);
+  const ui = useApp((s) => s.ui);
+  const setUI = useApp((s) => s.setUI);
+  const openDay = useApp((s) => s.openDay);
+  const goSet = useApp((s) => s.goSettings);
+  const showToast = useApp((s) => s.showToast);
+  const m = ui.month;
+
+  const a = useMemo(() => monthTotals(L, m), [L, m]);
+  const prev = useMemo(() => monthTotals(L, shiftMonth(m, -1)), [L, m]);
+  const b = useMemo(() => balances(L), [L]);
+  const rows = useMemo(() => castMonth(L, m), [L, m]);
+
+  const today = todayISO(), isCur = m === today.slice(0, 7);
+  const laborRate = pct(a.laborAll, a.sales);
+  const diff = b.lastCount != null ? b.lastCount - b.cash : null;
+  const dProfit = a.profit - prev.profit;
+  const salesDelta = prev.sales > 0 ? (a.sales / prev.sales - 1) * 100 : null;
+  const missing = isCur ? missingDays(L, today, shiftDay) : [];
+  const todayDone = !!L.days[today];
+
+  const defaultCalDay = (mm: string) => { const k = Object.keys(L.days).sort().filter((d) => d.startsWith(mm) && dayTotals(L, d).sales > 0); return k.length ? k[k.length - 1] : null; };
+  const setMonth = (mm: string) => setUI({ month: mm, calDay: defaultCalDay(mm), castDetail: null });
+  const setMode = (mode: "chart" | "cal") => {
+    try { localStorage.setItem("shimedaicho.mode", mode); } catch { /* ignore */ }
+    setUI({ monthMode: mode, calDay: mode === "cal" && (!ui.calDay || !ui.calDay.startsWith(m)) ? defaultCalDay(m) : ui.calDay });
+  };
+  const exportCsv = async () => {
+    try { await offerFile(csvFilename(m), monthCSV(L, m), "text/csv"); showToast("書き出しました"); }
+    catch (e) { if ((e as Error).name !== "AbortError") showToast("書き出せませんでした"); }
+  };
+
+  const calT = ui.calDay && L.days[ui.calDay] ? dayTotals(L, ui.calDay) : null;
+
+  return (
+    <>
+      <MonthBar month={m} onChange={setMonth} right={<span className="num">{a.days}日 入力済み</span>} />
+
+      {!L.casts.length && !a.days && (
+        <div className="banner">まず<b>設定</b>でバック単価と時給を決めて、<b>キャスト</b>に在籍者を登録してください。あとは<b>日報</b>を毎日つけるだけで、ここが埋まります。</div>
+      )}
+
+      {isCur && (!todayDone || missing.length > 0) && (
+        <div className="todo">
+          {!todayDone && (
+            <button type="button" className="btn primary wide" onClick={() => openDay(today, 0)}>
+              今日の日報をつける<span className="num" style={{ fontWeight: 500, opacity: 0.85 }}>{dayLabel(today)}</span>
+            </button>
+          )}
+          {missing.length > 0 && (
+            <div className="chips"><span className="chiplbl">未入力の日</span>
+              {missing.map((k) => <button key={k} type="button" className="chip num" onClick={() => openDay(k, 0)}>{dayLabel(k)}</button>)}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="hero">
+        <div className="label"><span className="eyebrow">{isCur ? "今月" : Number(m.slice(5, 7)) + "月"}の営業利益</span></div>
+        <div className={`big num ${a.profit < 0 ? "neg" : ""}`}>{yen(a.profit)}</div>
+        <div className="meta">売上 {yen(a.sales)} − 人件費 {yen(a.laborAll)} − 経費 {yen(a.costAll)}</div>
+        {prev.days > 0 && (
+          <div className="cmp"><span>前月 <span className="num">{yen(prev.profit)}</span></span>
+            <span className={`pill ${dProfit >= 0 ? "ok" : "bad"} num`}>{dProfit >= 0 ? "+" : ""}{yen(dProfit)}</span></div>
+        )}
+        <div className={`heroSplit ${salesDelta != null ? "cols3" : ""}`}>
+          <div><div className="k">人件費率</div><div className="v">{laborRate.toFixed(1)}<span style={{ fontSize: 13 }}>%</span></div></div>
+          <div><div className="k">客単価</div><div className="v">{a.guests > 0 ? yen(a.avgSpend) : "—"}</div></div>
+          {salesDelta != null && (
+            <div><div className="k">売上 前月比</div><div className="v" style={salesDelta < 0 ? { color: "var(--crit)" } : undefined}>{salesDelta >= 0 ? "+" : ""}{salesDelta.toFixed(0)}<span style={{ fontSize: 13 }}>%</span></div></div>
+          )}
+        </div>
+      </div>
+
+      <div className="tiles">
+        <button type="button" className="tile link" onClick={() => { setUI({ tab: "cast" }); window.scrollTo(0, 0); }}>
+          <ChevRight size={13} className="chevt" /><div className="k">未払いの女子給料</div><div className="v">{yen(a.unpaid)}</div>
+          <div className="n">{a.settledFor ? `精算 ${yen(a.settledFor)} ／ ` : ""}日払い {yen(a.paidDetail + a.paidLump)}</div>
+        </button>
+        <button type="button" className="tile link" onClick={() => goSet("cash")}>
+          <ChevRight size={13} className="chevt" /><div className="k">手元の現金</div><div className="v">{yen(b.cash)}</div>
+          <div className="n">{diff == null ? "起点の現金を直す" : diff === 0 ? `${b.lastCountDate!.slice(5)} 実査と一致` : `${b.lastCountDate!.slice(5)} ${diff > 0 ? "過剰" : "不足"} ${yen(Math.abs(diff))}`}</div>
+        </button>
+        <button type="button" className="tile link" onClick={() => goSet("shop")}>
+          <ChevRight size={13} className="chevt" /><div className="k">カード未回収</div><div className="v">{yen(b.cardOut)}</div><div className="n">手数料 {L.shop.cardFeeRate}% を直す</div>
+        </button>
+        <button type="button" className="tile link" onClick={() => goSet("fixed")}>
+          <ChevRight size={13} className="chevt" /><div className="k">今月の経費</div><div className="v">{yen(a.exp)}</div><div className="n">固定費 {yen(a.fixedCost)} を直す</div>
+        </button>
+      </div>
+
+      <div className="card">
+        <div className="cardhead">
+          <h2>日別の売上</h2>
+          <div className="seg" role="group" aria-label="表示切替">
+            <button type="button" aria-pressed={ui.monthMode !== "cal"} onClick={() => setMode("chart")}>グラフ</button>
+            <button type="button" aria-pressed={ui.monthMode === "cal"} onClick={() => setMode("cal")}>カレンダー</button>
+          </div>
+        </div>
+        <p className="sub" style={{ margin: "0 0 12px" }}>{ui.monthMode === "cal" ? "日付をタップすると、下にその日の収支が出ます" : "棒の高さが1日の売上。下が現金、上がカード。"}</p>
+        {ui.monthMode === "cal"
+          ? <Calendar month={m} series={a.series} selected={ui.calDay} onPick={(k) => setUI({ calDay: ui.calDay === k ? null : k })} />
+          : <DailyChart month={m} series={a.series} />}
+        {ui.monthMode === "cal" && (calT ? (
+          <div className="caldetail">
+            <div className="cdhead"><b>{dayLabel(calT.date)}</b><span className={`num ${calT.profit < 0 ? "neg" : ""}`}>{yen(calT.profit)}</span></div>
+            <div className="lrow"><div className="g"><div className="t">売上</div><div className="s">現金 {jp(calT.cash)} ・ カード {jp(calT.card)}{calT.guests ? ` ・ ${calT.guests}名` : ""}</div></div><div className="a num">{yen(calT.sales)}</div></div>
+            <div className="lrow"><div className="g"><div className="t">人件費</div><div className="s">在籍 {jp(calT.laborR)} ・ 派遣 {jp(calT.laborD)}{calT.paidLump ? ` ・ まとめ ${jp(calT.paidLump)}` : ""}</div></div><div className="a num">−{yen(calT.labor)}</div></div>
+            <div className="lrow"><div className="g"><div className="t">経費</div><div className="s">うち現金 {jp(calT.expCash)}</div></div><div className="a num">−{yen(calT.exp)}</div></div>
+            <div className="lrow"><div className="g"><div className="t">カード手数料</div><div className="s">{L.shop.cardFeeRate}%</div></div><div className="a num">−{yen(calT.fee)}</div></div>
+            <div className="lrow total"><div className="g"><div className="t">差引</div><div className="s">日払い {jp(calT.paidCash)} ／ 未払い {jp(calT.unpaid)}</div></div><div className={`a num ${calT.profit < 0 ? "neg" : ""}`}>{yen(calT.profit)}</div></div>
+            <div className="btnrow" style={{ marginTop: 12 }}><button type="button" className="btn sm" onClick={() => openDay(calT.date, 0)}>この日の日報を開く</button></div>
+          </div>
+        ) : <div className="empty" style={{ padding: "20px 12px" }}>日付をタップすると、その日の収支が出ます</div>)}
+      </div>
+
+      <div className="card">
+        <h2>売上の使われ方</h2><p className="sub">今月の売上 {yen(a.sales)} の内訳</p>
+        <CompositionChart a={a} />
+        <div className="tw"><table><tbody>
+          <tr><td><span className="swatch" style={{ background: C.labor }} /> 人件費</td><td className="n">{yen(a.laborAll)}</td><td className="n">{pct(a.laborAll, a.sales).toFixed(1)}%</td></tr>
+          <tr className="muted"><td style={{ paddingLeft: 20 }}>在籍</td><td className="n">{yen(a.laborR)}</td><td className="n">{pct(a.laborR, a.sales).toFixed(1)}%</td></tr>
+          <tr className="muted"><td style={{ paddingLeft: 20 }}>派遣</td><td className="n">{yen(a.laborD)}</td><td className="n">{pct(a.laborD, a.sales).toFixed(1)}%</td></tr>
+          {a.paidLump > 0 && <tr className="muted"><td style={{ paddingLeft: 20 }}>まとめ日払い</td><td className="n">{yen(a.paidLump)}</td><td className="n">{pct(a.paidLump, a.sales).toFixed(1)}%</td></tr>}
+          <tr className="tr-link muted" tabIndex={0} onClick={() => goSet("fixed")}><td style={{ paddingLeft: 20 }}>固定人件費 ›</td><td className="n">{yen(a.fixedLabor)}</td><td className="n">{pct(a.fixedLabor, a.sales).toFixed(1)}%</td></tr>
+          <tr><td><span className="swatch" style={{ background: C.cost }} /> 経費・手数料</td><td className="n">{yen(a.costAll)}</td><td className="n">{pct(a.costAll, a.sales).toFixed(1)}%</td></tr>
+          <tr><td><span className="swatch" style={{ background: C.rest }} /> 営業利益</td><td className="n">{yen(a.profit)}</td><td className="n">{pct(a.profit, a.sales).toFixed(1)}%</td></tr>
+        </tbody></table></div>
+      </div>
+
+      <div className="card">
+        <h2>在籍キャスト別の給料</h2><p className="sub">時給＋バック−控除。多い順に最大8名。派遣はキャスト画面に出ます。</p>
+        <CastChart rows={rows} />
+      </div>
+
+      <div className="card">
+        <h2>日別の明細</h2><p className="sub">行をタップするとその日の日報が開きます。横にスクロールできます。</p>
+        {a.series.length ? (
+          <div className="tw"><table>
+            <thead><tr><th>日</th><th>現金</th><th>カード</th><th>人件費</th><th>経費</th><th>差引</th></tr></thead>
+            <tbody>{a.series.map((t) => (
+              <tr key={t.date} className="tr-link" tabIndex={0} onClick={() => openDay(t.date, 4)} onKeyDown={(e) => { if (e.key === "Enter") openDay(t.date, 4); }}>
+                <td>{dayLabel(t.date)}</td>
+                <td className="n">{t.cash ? jp(t.cash) : "—"}</td>
+                <td className="n">{t.card ? jp(t.card) : "—"}</td>
+                <td className="n">{t.labor ? jp(t.labor) : "—"}</td>
+                <td className="n">{t.exp ? jp(t.exp) : "—"}</td>
+                <td className={`n ${t.profit < 0 ? "neg" : ""}`}>{jp(t.profit)}</td>
+              </tr>
+            ))}</tbody>
+            <tfoot><tr><td>合計</td><td className="n">{jp(a.cash)}</td><td className="n">{jp(a.card)}</td><td className="n">{jp(a.labor)}</td><td className="n">{jp(a.exp)}</td><td className="n">{jp(a.sales - a.labor - a.exp - a.fee)}</td></tr></tfoot>
+          </table></div>
+        ) : <div className="empty">まだ日報がありません</div>}
+        <div className="btnrow" style={{ marginTop: 12 }}><button type="button" className="btn sm" onClick={exportCsv}>CSVで書き出す</button></div>
+      </div>
+
+      <div className="card">
+        <h2>金額の設定</h2><p className="sub">タップすると設定画面のその場所へ飛びます</p>
+        <button type="button" className="setrow" onClick={() => goSet("shop")}><span className="g"><span className="t">基本時給・カード手数料</span><span className="s">時給 {yen(L.shop.defaultWage)} ／ 手数料 {L.shop.cardFeeRate}% ／ 派遣日給 {yen(L.shop.dispatchGuarantee)}</span></span><ChevRight className="chevi" /></button>
+        <button type="button" className="setrow" onClick={() => goSet("backs")}><span className="g"><span className="t">バックの単価</span><span className="s">{L.backItems.slice(0, 3).map((x) => x.name).join("・")}{L.backItems.length > 3 ? ` ほか${L.backItems.length - 3}件` : ""}</span></span><ChevRight className="chevi" /></button>
+        <button type="button" className="setrow" onClick={() => goSet("cash")}><span className="g"><span className="t">現金の起点</span><span className="s">{L.shop.openingDate} に {yen(L.shop.openingCash)}</span></span><ChevRight className="chevi" /></button>
+        <button type="button" className="setrow" onClick={() => goSet("fixed")}><span className="g"><span className="t">月の固定費</span><span className="s">固定人件費 {yen(L.shop.fixedLabor)} ／ 家賃ほか {yen(L.shop.fixedCost)}</span></span><ChevRight className="chevi" /></button>
+      </div>
+    </>
+  );
+}

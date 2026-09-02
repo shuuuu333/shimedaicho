@@ -1,0 +1,39 @@
+/* デザイントークン（旧アーティファクトから移植。ライト/ダーク両対応） */
+:root{
+  color-scheme: light;
+  --bg:#EFEBE3; --surface:#FCFBF8; --surface-2:#F5F1E9; --surface-3:#EDE8DE;
+  --ink:#16130E; --ink-2:#5B5449; --ink-3:#8C8577;
+  --line:#E2DCCF; --line-strong:#CFC7B6;
+  --accent:#9C6F1C; --accent-ink:#FFFFFF; --accent-soft:#F2E7CF;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b; --good-text:#006300;
+  --s-cash:#2a78d6; --s-card:#eb6834; --s-labor:#1baf7a; --s-cost:#eda100;
+  --s-rest:#C6BEAC;
+  --grid:#E6E1D5; --axis:#CFC7B6;
+  --shadow:0 1px 2px rgba(22,19,14,.05), 0 8px 24px -12px rgba(22,19,14,.18);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --bg:#0E0D0C; --surface:#1A1917; --surface-2:#232120; --surface-3:#2B2926;
+    --ink:#F4F0E7; --ink-2:#ABA294; --ink-3:#7B7466;
+    --line:#2C2A26; --line-strong:#3B382F;
+    --accent:#D9AE5C; --accent-ink:#1A1917; --accent-soft:#332A18;
+    --good:#0ca30c; --warn:#fab219; --crit:#d03b3b; --good-text:#0ca30c;
+    --s-cash:#3987e5; --s-card:#d95926; --s-labor:#199e70; --s-cost:#c98500;
+    --s-rest:#4A463D;
+    --grid:#262421; --axis:#3B382F;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --bg:#0E0D0C; --surface:#1A1917; --surface-2:#232120; --surface-3:#2B2926;
+  --ink:#F4F0E7; --ink-2:#ABA294; --ink-3:#7B7466;
+  --line:#2C2A26; --line-strong:#3B382F;
+  --accent:#D9AE5C; --accent-ink:#1A1917; --accent-soft:#332A18;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b; --good-text:#0ca30c;
+  --s-cash:#3987e5; --s-card:#d95926; --s-labor:#199e70; --s-cost:#c98500;
+  --s-rest:#4A463D;
+  --grid:#262421; --axis:#3B382F;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.7);
+}
