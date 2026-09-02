@@ -47,6 +47,8 @@ export interface AppStore {
   updateWithUndo(msg: string, mut: (L: Ledger) => void): void;
   /** 取り込み・復元など台帳を丸ごと置き換える */
   replaceLedger(L: Ledger, reason: string): Promise<void>;
+  /** クラウドから届いた台帳を反映する（履歴は残さず端末にも保存） */
+  applyExternal(L: Ledger): void;
   showToast(msg: string): void;
   hideToast(): void;
   undo(): void;
@@ -147,6 +149,10 @@ export function createAppStore(repo: Repository) {
           console.error(e);
           set({ save: "error" });
         }
+      },
+      applyExternal(L) {
+        set({ ledger: L });
+        schedule();
       },
       showToast(msg) { toast(msg, null, 2200); },
       hideToast() { if (toastTimer) clearTimeout(toastTimer); set({ toast: null }); },

@@ -1,5 +1,6 @@
 import { useEffect, type ComponentType } from "react";
 import { useApp, type Tab } from "./state/store";
+import { useCloud } from "./state/cloud";
 import { SaveStatus } from "./ui/components/SaveStatus";
 import { Toast } from "./ui/components/Toast";
 import { IcoCast, IcoDay, IcoMonth, IcoSet } from "./ui/icons";
@@ -21,7 +22,8 @@ export default function App() {
   const tab = useApp((s) => s.ui.tab);
   const setUI = useApp((s) => s.setUI);
   const name = useApp((s) => s.ledger.shop.name);
-  useEffect(() => { void init(); }, [init]);
+  const cloudInit = useCloud((s) => s.init);
+  useEffect(() => { void init().then(() => cloudInit()); }, [init, cloudInit]);
 
   const Screen = TABS.find((t) => t.id === tab)!.Screen;
   return (
