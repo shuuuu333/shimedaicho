@@ -119,6 +119,12 @@ export const useCloud = create<CloudState>()((set, get) => {
         return;
       }
       const remoteL = migrate(remote.data);
+      // この端末で初めて同期するときは、端末にある日報をクラウドに足す（消さない）
+      if (version == null) {
+        for (const k of Object.keys(local.days)) dirty.days.add(k);
+        if ((local.casts.length || Object.keys(local.days).length) && !remoteL.casts.length && !Object.keys(remoteL.days).length) dirty.meta = true;
+        saveDirty();
+      }
       if (remote.version !== version || dirty.days.size || dirty.meta) {
         try { await snapshotRepo.snapshot(local, "before-sync"); } catch { /* ignore */ }
         const merged = mergeLedger(remoteL, local, dirty);
