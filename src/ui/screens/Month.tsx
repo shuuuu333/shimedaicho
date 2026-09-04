@@ -175,16 +175,15 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
   return (
     <>
       <div className="titlebar">
-        <div>
+        <div className="t">
           <div className="y">{m.slice(0, 4)}</div>
           <div className="m">{Number(m.slice(5, 7))}月</div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 8, marginBottom: 5 }}>
-          <button type="button" className="mb" aria-label="前の月" style={{ width: 34, height: 34 }} onClick={() => setMonth(shiftMonth(m, -1))}><ChevLeft size={15} /></button>
-          <button type="button" className="mb" aria-label="次の月" style={{ width: 34, height: 34 }} onClick={() => setMonth(shiftMonth(m, 1))}><ChevRight size={15} /></button>
+        <div className="nav">
+          <button type="button" className="mb" aria-label="前の月" onClick={() => setMonth(shiftMonth(m, -1))}><ChevLeft size={17} /></button>
+          <button type="button" className="mb" aria-label="次の月" onClick={() => setMonth(shiftMonth(m, 1))}><ChevRight size={17} /></button>
         </div>
-        <div style={{ flex: 1 }} />
-        <div style={{ marginBottom: 4 }}>{seg}</div>
+        {seg}
       </div>
 
       {!L.casts.length && !a.days && (
@@ -264,7 +263,7 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
             <button type="button" aria-pressed={ui.monthMode === "cal"} onClick={() => setMode("cal")}>カレンダー</button>
           </div>
         </div>
-        <p className="sub" style={{ margin: "0 0 12px" }}>{ui.monthMode === "cal" ? "日付をタップすると、下にその日の収支が出ます" : "棒の高さが1日の売上。下が現金、上がカード。"}</p>
+        <p className="sub" style={{ margin: "0 0 12px" }}>{ui.monthMode === "cal" ? "日付をタップすると、下にその日の収支が出ます。まだの日はそのまま日報をつけられます" : "棒の高さが1日の売上。下が現金、上がカード。"}</p>
         {ui.monthMode === "cal"
           ? <Calendar month={m} series={a.series} selected={ui.calDay} onPick={(k) => setUI({ calDay: ui.calDay === k ? null : k })} />
           : <DailyChart month={m} series={a.series} />}
@@ -276,7 +275,13 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
             <div className="lrow"><div className="g"><div className="t">経費</div><div className="s">うち現金 {jp(calT.expCash)}</div></div><div className="a num">−{yen(calT.exp)}</div></div>
             <div className="lrow"><div className="g"><div className="t">カード手数料</div><div className="s">{L.shop.cardFeeRate}%</div></div><div className="a num">−{yen(calT.fee)}</div></div>
             <div className="lrow total"><div className="g"><div className="t">差引</div><div className="s">日払い {jp(calT.paidCash)} ／ 未払い {jp(calT.unpaid)}</div></div><div className={`a num ${calT.profit < 0 ? "neg" : ""}`}>{yen(calT.profit)}</div></div>
-            <div className="btnrow" style={{ marginTop: 12 }}><button type="button" className="btn sm" onClick={() => openDay(calT.date, 0)}>この日の日報を開く</button></div>
+            <div className="btnrow" style={{ marginTop: 12 }}><button type="button" className="btn sm primary wide" onClick={() => openDay(calT.date, 0)}>この日の日報を開く</button></div>
+          </div>
+        ) : ui.calDay ? (
+          <div className="caldetail">
+            <div className="cdhead"><b>{dayLabel(ui.calDay)}</b><span className="muted" style={{ marginLeft: "auto", fontSize: 12.5 }}>まだ日報がありません</span></div>
+            <div className="hint" style={{ marginTop: 0 }}>この日の売上・出勤をここから入れられます。</div>
+            <div className="btnrow" style={{ marginTop: 12 }}><button type="button" className="btn sm primary wide" onClick={() => openDay(ui.calDay!, 0)}><Plus size={16} />この日の日報をつける</button></div>
           </div>
         ) : <div className="empty" style={{ padding: "20px 12px" }}>日付をタップすると、その日の収支が出ます</div>)}
       </div>

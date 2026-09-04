@@ -87,19 +87,25 @@ main{padding:0 var(--gutter)}
 .swatch{width:8px;height:8px;border-radius:2px;flex:none;display:inline-block}
 
 /* ---------- 見出しの月・日付 ---------- */
-.titlebar{display:flex; align-items:flex-end; gap:10px; padding:2px 0 14px}
+.titlebar{display:flex; align-items:center; gap:10px; padding:2px 0 14px}
+.titlebar .t{min-width:0}
 .titlebar .y{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:12px; color:var(--ink-3); font-weight:500}
 .titlebar .m{font-size:30px; font-weight:700; letter-spacing:-.01em; line-height:1.1}
+.titlebar .nav{display:flex; align-items:center; gap:6px; flex:none}
+.titlebar .seg{margin-left:auto}
 .titlebar .sp{margin-left:auto; font-size:11.5px; color:var(--ink-3)}
 .monthbar{display:flex; align-items:center; gap:10px; margin-bottom:12px}
-.monthbar .mb{background:var(--surface-2); border:0; border-radius:11px;
-  width:38px;height:38px;display:grid;place-items:center;cursor:pointer;color:var(--ink-2)}
-.monthbar .mb:active{background:var(--surface-3)}
-.monthbar .lbl{font-weight:700; font-size:21px; letter-spacing:-.01em}
-.monthbar .sp{margin-left:auto; font-size:11.5px; color:var(--ink-3); text-align:right}
+.monthbar .lbl{flex:1; min-width:0; text-align:center; font-weight:700; font-size:21px; letter-spacing:-.01em}
+.monthbar .sp{flex:none; font-size:11.5px; color:var(--ink-3); text-align:right}
 .monthbar .sp b{display:block; font-size:19px; font-weight:600; color:var(--ink);
   font-family:"IBM Plex Mono",ui-monospace,monospace}
-.mb.today{width:auto; padding:0 13px; font-size:12.5px; font-weight:600; color:var(--accent); background:var(--accent-soft)}
+/* 送りボタン。月バー・見出し・日付バーで共通に使う（class を入れ子に頼らない） */
+.mb{flex:none; background:var(--surface-2); border:0; border-radius:11px;
+  width:38px; height:38px; display:grid; place-items:center; cursor:pointer; color:var(--ink-2);
+  -webkit-tap-highlight-color:transparent}
+.mb:active{background:var(--surface-3)}
+.mb.today{width:auto; height:38px; padding:0 13px; font-size:12.5px; font-weight:600;
+  color:var(--accent); background:var(--accent-soft)}
 
 /* 切替（セグメント） */
 .seg{display:flex; flex:none; background:var(--surface-2); border-radius:11px; padding:3px}
@@ -117,7 +123,23 @@ main{padding:0 var(--gutter)}
 .inp:focus{border-color:var(--accent); background:var(--surface)}
 .inp.num{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums; text-align:right; font-weight:500}
 .inp:disabled{opacity:.5}
+/* 日付・時刻。ブラウザ標準のままだと文字の位置・大きさ・アイコンが他の欄と揃わないので整える */
+.inp[type="time"], .inp[type="date"]{
+  -webkit-appearance:none; appearance:none; display:flex; align-items:center;
+  font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-variant-numeric:tabular-nums; font-weight:500; letter-spacing:-.01em;
+  padding:12px 11px; line-height:1.2}
+.inp[type="time"]::-webkit-datetime-edit, .inp[type="date"]::-webkit-datetime-edit{padding:0; flex:1}
+.inp[type="time"]::-webkit-date-and-time-value, .inp[type="date"]::-webkit-date-and-time-value{
+  margin:0; text-align:left}
+.inp[type="time"]::-webkit-datetime-edit-ampm-field{font-size:.8em; padding-left:2px}
+.inp[type="time"]::-webkit-calendar-picker-indicator, .inp[type="date"]::-webkit-calendar-picker-indicator{
+  margin:0 0 0 auto; padding:0; width:17px; height:17px; opacity:.45; cursor:pointer; flex:none}
+.inp[type="time"]::-webkit-inner-spin-button, .inp[type="date"]::-webkit-inner-spin-button{display:none}
+
 .row2{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px}
+/* 2列に並べたときは、文字入力・数値・時刻・選択の高さを揃える */
+.row2 .inp{min-height:50px}
 .row3{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px}
 .row3 .inp{font-size:15px; padding:11px 9px}
 .hint{font-size:11.5px; color:var(--ink-3); margin-top:6px; line-height:1.45}
