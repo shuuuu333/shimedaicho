@@ -36,7 +36,7 @@ export function CloudCard() {
       {!c.session ? (
         c.linkSent && c.pendingEmail ? (
           <>
-            <div className="lrow"><div className="g"><div className="t">{c.pendingEmail}</div><div className="s">にメールを送りました。届いたメールの 6 桁のコードを入れてください（リンクを開いてもログインできます）</div></div></div>
+            <div className="lrow"><div className="g"><div className="t">{c.pendingEmail}</div><div className="s">にメールを送りました。メールに 6 桁のコードがあればここに入力、無ければメールのリンクをこの端末で開いてください</div></div></div>
             <label className="field" style={{ marginTop: 10 }}><span className="lbl">6 桁のコード</span>
               <input className="inp num big" style={{ textAlign: "center", letterSpacing: ".3em" }} type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="123456" value={code} autoFocus
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
@@ -54,10 +54,10 @@ export function CloudCard() {
               <input className="inp" type="email" inputMode="email" autoComplete="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && email.includes("@")) void c.signIn(email); }} /></label>
             <div className="btnrow" style={{ alignItems: "center" }}>
-              <button type="button" className="btn sm primary" disabled={c.busy || !email.includes("@")} onClick={() => c.signIn(email)}>ログイン用のコードを送る</button>
+              <button type="button" className="btn sm primary" disabled={c.busy || !email.includes("@")} onClick={() => c.signIn(email)}>ログイン用のメールを送る</button>
             </div>
             {c.error && <div className="banner" style={{ marginTop: 8 }}>{c.error}</div>}
-            <div className="hint" style={{ marginTop: 8 }}>パスワードはありません。届いたメールの 6 桁のコードを入れるだけでログインできます。</div>
+            <div className="hint" style={{ marginTop: 8 }}>パスワードはありません。届いたメールのコードを入れるか、リンクを開くだけでログインできます。</div>
           </>
         )
       ) : (

@@ -38,3 +38,39 @@ service_role key はアプリに入れない（誰でも全データを読めて
 - 入力すると 1.5 秒後にクラウドへ送る。同時に他の端末が変えていた場合は、変えた日だけを重ねて（日単位のマージ）保存し直す
 - 他の端末の変更は Realtime で数秒以内に届く
 - 誰が見られるかは Postgres の RLS（`is_member`）で決まる。アプリ側の細工では回避できない
+
+## 5. メール送信を自前にする（1 時間 2 通の上限を外す・6 桁コードを使う）
+
+Supabase 付属のメール送信は 1 時間に 2 通までで、メール文面も変えられません。
+Gmail から送るようにすると 1 日 500 通まで送れ、文面に 6 桁コードを入れられます。
+
+### 5-1. Gmail の「アプリ パスワード」を作る（あなたが行う）
+1. https://myaccount.google.com/security で **2 段階認証プロセス** をオンにする（まだなら）
+2. https://myaccount.google.com/apppasswords を開き、アプリ名に「締め台帳」と入れて **作成**
+3. 表示された 16 文字のパスワードを控える（この画面を閉じると二度と見られません）
+
+### 5-2. Supabase に SMTP を設定する（あなたが行う。パスワードを扱うため）
+Authentication → Emails → **SMTP Settings** → Enable Custom SMTP を ON にして:
+
+| 項目 | 値 |
+|---|---|
+| Sender email | あなたの Gmail アドレス |
+| Sender name | 締め台帳 |
+| Host | smtp.gmail.com |
+| Port number | 465 |
+| Username | あなたの Gmail アドレス |
+| Password | 5-1 で作った 16 文字 |
+
+保存したら、Authentication → Rate Limits の「Rate limit for sending emails」を 30 などに上げる。
+
+### 5-3. メールの文面に 6 桁コードを入れる
+Authentication → Emails → Templates → **Magic link or OTP** を開き、本文を次のようにする（`{{ .Token }}` がコード、`{{ .ConfirmationURL }}` がリンク）:
+
+```html
+<h2>締め台帳のログイン</h2>
+<p>アプリに次の 6 桁のコードを入力してください。</p>
+<p style="font-size:28px;font-weight:bold;letter-spacing:.2em">{{ .Token }}</p>
+<p>または <a href="{{ .ConfirmationURL }}">このリンクを開く</a> とログインできます（開いた端末でログインされます）。</p>
+<p style="color:#888;font-size:12px">このメールに心当たりがなければ無視してください。</p>
+```
+件名は「締め台帳 ログインコード」など。
