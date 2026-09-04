@@ -36,13 +36,13 @@ export function CloudCard() {
       {!c.session ? (
         c.linkSent && c.pendingEmail ? (
           <>
-            <div className="lrow"><div className="g"><div className="t">{c.pendingEmail}</div><div className="s">にメールを送りました。メールに 6 桁のコードがあればここに入力、無ければメールのリンクをこの端末で開いてください</div></div></div>
-            <label className="field" style={{ marginTop: 10 }}><span className="lbl">6 桁のコード</span>
-              <input className="inp num big" style={{ textAlign: "center", letterSpacing: ".3em" }} type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="123456" value={code} autoFocus
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                onKeyDown={(e) => { if (e.key === "Enter" && code.length === 6) void c.verifyCode(code); }} /></label>
+            <div className="lrow"><div className="g"><div className="t">{c.pendingEmail}</div><div className="s">にメールを送りました。メールに書かれたコードをそのまま入れてください（メールのリンクを開いてもログインできます）</div></div></div>
+            <label className="field" style={{ marginTop: 10 }}><span className="lbl">メールのコード</span>
+              <input className="inp num big" style={{ textAlign: "center", letterSpacing: ".3em" }} type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={10} placeholder="コードを入力" value={code} autoFocus
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                onKeyDown={(e) => { if (e.key === "Enter" && code.length >= 6) void c.verifyCode(code); }} /></label>
             <div className="btnrow" style={{ alignItems: "center" }}>
-              <button type="button" className="btn sm primary" disabled={c.busy || code.length !== 6} onClick={() => c.verifyCode(code)}>ログイン</button>
+              <button type="button" className="btn sm primary" disabled={c.busy || code.length < 6} onClick={() => c.verifyCode(code)}>ログイン</button>
               <button type="button" className="btn sm ghost" disabled={c.busy} onClick={() => { useCloud.setState({ linkSent: false, pendingEmail: null, error: null }); setCode(""); }}>メールを入れ直す</button>
             </div>
             {c.error && <div className="banner" style={{ marginTop: 8 }}>{c.error}</div>}
