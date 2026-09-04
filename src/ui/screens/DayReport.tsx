@@ -3,7 +3,7 @@ import { useMemo, type ReactNode } from "react";
 import { useApp } from "../../state/store";
 import type { DayRecord, DispatchRow, Ledger, Shift } from "../../domain/types";
 import { emptyDay } from "../../domain/migrate";
-import { backRate, calcBacks, cashAsOf, castWage, dayTotals, dispatchNames, dispatchPay, num, payOf, unpaidFor, whoLabel } from "../../domain/calc";
+import { backRate, calcBacks, cashAsOf, castWageAt, dayTotals, dispatchNames, dispatchPay, num, payOf, unpaidFor, whoLabel } from "../../domain/calc";
 import { WD, addMinutes, dayLabel, jp, shiftDay, shiftMonth, todayISO, uid, yen } from "../../domain/format";
 import { NumberField } from "../components/NumberField";
 import { Stepper } from "../components/Stepper";
@@ -141,7 +141,7 @@ function AttendStep({ L, dk, d, edit, t, openSheet, showToast }: { L: Ledger; dk
       </div>
       {onList.map((c) => {
         const sh = d.shifts[c.id];
-        const p = payOf(L, c.id, sh);
+        const p = payOf(L, c.id, sh, dk);
         const hasBacks = Object.values(sh.backs).some((v) => num(v) > 0);
         return (
           <button key={c.id} type="button" className={`wrow ${hasBacks ? "" : "alert"}`} onClick={() => openSheet(c.id)}>
@@ -193,7 +193,7 @@ function CastSheet({ L, dk, d, castId, edit, onClose }: { L: Ledger; dk: string;
   const c = L.casts.find((x) => x.id === castId);
   const sh = d.shifts[castId];
   if (!c || !sh) return null;
-  const p = payOf(L, castId, sh);
+  const p = payOf(L, castId, sh, dk);
   const set = (mut: (s: Shift) => void) => edit((dd) => { mut(dd.shifts[castId]); });
   return (
     <BottomSheet open title={`${c.name || "（名前なし）"} ・ ${dayLabel(dk)}`} onClose={onClose}
@@ -210,7 +210,7 @@ function CastSheet({ L, dk, d, castId, edit, onClose }: { L: Ledger; dk: string;
         <button type="button" className="btn" onClick={() => set((s) => { s.out = addMinutes(s.out || L.shop.closeTime, -60); })}>−60分</button>
         <button type="button" className="btn" onClick={() => set((s) => { s.in = L.shop.openTime; s.out = L.shop.closeTime; })}>定時に戻す</button>
       </div>
-      <div className="hint" style={{ margin: "0 0 10px" }}>時給 {yen(castWage(c, L.shop))} × {p.hours.toFixed(2)}h ＝ <b>{yen(p.wage)}</b>（{L.shop.roundMinutes}分単位で切り捨て）</div>
+      <div className="hint" style={{ margin: "0 0 10px" }}>時給 {yen(castWageAt(c, L.shop, dk))} × {p.hours.toFixed(2)}h ＝ <b>{yen(p.wage)}</b>（{L.shop.roundMinutes}分単位で切り捨て）</div>
       <BackRows L={L} backs={sh.backs} isDispatch={false} onChange={(id, v) => set((s) => { s.backs[id] = v; })} />
       <div className="row3" style={{ marginTop: 11 }}>
         <label className="field" style={{ margin: 0 }}><span className="lbl">休憩 分</span><NumberField value={sh.breakMin} onChange={(v) => set((s) => { s.breakMin = v; })} /></label>

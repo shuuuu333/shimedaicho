@@ -1,10 +1,12 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useApp } from "../../state/store";
-import { castMonth, dispatchMonth, monthTotals, owedList, payOf, settleRowsFor, whoLabel } from "../../domain/calc";
-import { dayLabel, jp, monthLabel, todayISO, uid, yen } from "../../domain/format";
+import { castMonth, castWageAt, dispatchMonth, monthTotals, owedList, payOf, settleRowsFor, wageTimeline, whoLabel } from "../../domain/calc";
+import { dayLabel, jp, monthLabel, shiftMonth, todayISO, uid, yen } from "../../domain/format";
 import { emptyDay } from "../../domain/migrate";
 import { MonthBar } from "../components/MonthBar";
 import { NumberField } from "../components/NumberField";
+import { BottomSheet } from "../components/BottomSheet";
+import type { Cast } from "../../domain/types";
 import { ChevRight, Trash } from "../icons";
 
 export function Casts() {
@@ -22,6 +24,8 @@ export function Casts() {
   const mt = useMemo(() => monthTotals(L, m), [L, m]);
   const owed = useMemo(() => owedList(L, m), [L, m]);
   const det = ui.castDetail ? rows.find((r) => r.cast.id === ui.castDetail) : null;
+  const [wageFor, setWageFor] = useState<string | null>(null);
+  const wageCast = wageFor ? L.casts.find((c) => c.id === wageFor) ?? null : null;
 
   const settle = (list: { who: string; unpaid: number }[]) => {
     const dk = todayISO();
@@ -92,7 +96,7 @@ export function Casts() {
             <tbody>{Object.keys(L.days).sort().filter((k) => k.startsWith(m)).map((k) => {
               const sh = L.days[k].shifts?.[det.cast.id];
               if (!sh?.on) return null;
-              const p = payOf(L, det.cast.id, sh);
+              const p = payOf(L, det.cast.id, sh, k);
               return (
                 <tr key={k} className="tr-link" tabIndex={0} onClick={() => openDay(k, 1)}>
                   <td>{dayLabel(k)}</td><td className="n">{p.hours.toFixed(1)}</td><td className="n">{jp(p.wage)}</td><td className="n">{p.backTotal ? jp(p.backTotal) : "—"}</td><td className="n">{p.deduct ? jp(p.deduct) : "—"}</td><td className="n"><b>{jp(p.gross)}</b></td><td className="n">{p.paid ? jp(p.paid) : "—"}</td>
@@ -146,17 +150,108 @@ export function Casts() {
       </div>
 
       <div className="card" id="castList">
-        <h2>在籍キャストの登録</h2><p className="sub">時給が空欄なら店の基本時給 {yen(L.shop.defaultWage)} を使います</p>
+        <h2>在籍キャストの登録</h2><p className="sub">時給が空欄なら店の基本時給 {yen(L.shop.defaultWage)} を使います。時給をタップすると月ごとに変えられます。</p>
         {L.casts.length ? L.casts.map((c, i) => (
           <div key={c.id} className="backrow" style={{ gap: 8 }}>
             <input className="inp" style={{ flex: 1, minWidth: 0, padding: "8px 9px" }} placeholder="源氏名" value={c.name} autoFocus={!c.name} onChange={(e) => update((LL) => { LL.casts[i].name = e.target.value; })} />
-            <NumberField style={{ width: 96 }} value={c.wage} placeholder="時給" onChange={(v) => update((LL) => { LL.casts[i].wage = v; })} aria-label="時給" />
+            <button type="button" className="btn sm" style={{ minWidth: 104, justifyContent: "space-between" }}
+              aria-label={`${c.name || "キャスト"}の時給を変える`} onClick={() => setWageFor(c.id)}>
+              <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{jp(castWageAt(c, L.shop, m))}</span>
+              <span style={{ fontSize: 10.5, color: "var(--ink-3)" }}>
+                {(() => {
+                  const w = [...(c.wages ?? [])].sort((a, b) => a.from.localeCompare(b.from));
+                  const cur = [...w].reverse().find((x) => x.from <= m);
+                  return cur ? `${Number(cur.from.slice(5, 7))}月〜` : "時給";
+                })()}
+              </span>
+            </button>
             <button type="button" className={`btn sm ${c.active === false ? "ghost" : ""}`} onClick={() => update((LL) => { LL.casts[i].active = LL.casts[i].active === false; })}>{c.active === false ? "退店" : "在籍"}</button>
             <button type="button" className="iconbtn" aria-label={`${c.name || "キャスト"}を削除`} onClick={() => updateWithUndo(`${c.name.trim() || "キャスト"} を一覧から消しました`, (LL) => { LL.casts.splice(i, 1); })}><Trash /></button>
           </div>
         )) : <div className="empty" style={{ padding: 16 }}>まだ登録がありません</div>}
         <div className="btnrow" style={{ marginTop: 10 }}><button type="button" className="btn sm" onClick={() => update((LL) => { LL.casts.push({ id: uid(), name: "", wage: null, active: true }); })}>＋ キャストを追加</button></div>
+        <div className="hint" style={{ marginTop: 10 }}>時給をタップすると、いつから いくらに変えるかを決められます。過去の月は当時の時給のまま計算されます。</div>
       </div>
+
+      {wageCast && <WageSheet cast={wageCast} month={m} onClose={() => setWageFor(null)} />}
     </>
+  );
+}
+
+/** 時給の履歴を編集するシート */
+function WageSheet({ cast, month, onClose }: { cast: Cast; month: string; onClose: () => void }) {
+  const L = useApp((s) => s.ledger);
+  const update = useApp((s) => s.update);
+  const idx = L.casts.findIndex((c) => c.id === cast.id);
+  const timeline = wageTimeline(cast, L.shop);
+  const list = [...(cast.wages ?? [])].sort((a, b) => a.from.localeCompare(b.from));
+  const monthOpts = (() => {
+    const set = new Set<string>(list.map((w) => w.from));
+    for (let i = -11; i <= 3; i++) set.add(shiftMonth(month, i));
+    return [...set].sort();
+  })();
+  const addFrom = list.some((w) => w.from === month) ? shiftMonth(month, 1) : month;
+
+  return (
+    <BottomSheet open title={`${cast.name || "（名前なし）"} の時給`} onClose={onClose}
+      footer={<span className="sum">{monthLabel(month)}の時給<b>{yen(castWageAt(cast, L.shop, month))}</b></span>}>
+      <p className="hint" style={{ margin: "0 0 12px" }}>変更した月から、次の変更までその時給になります。過去の月の給料は動きません。</p>
+
+      <div className="backrow">
+        <div><div className="bn">最初から</div><div className="br">変更するまでずっとこの時給</div></div>
+        <div className="ctl">
+          <NumberField style={{ width: 116 }} value={cast.wage} placeholder={String(L.shop.defaultWage)}
+            aria-label="最初の時給" onChange={(v) => update((LL) => { LL.casts[idx].wage = v; })} />
+        </div>
+      </div>
+
+      {list.map((w, i) => (
+        <div key={w.from + i} className="backrow">
+          <div>
+            <div className="bn">
+              <select className="inp" style={{ width: 108, padding: "8px 6px", fontSize: 13, minHeight: 38 }} value={w.from} aria-label="いつから"
+                onChange={(e) => update((LL) => {
+                  const ws = LL.casts[idx].wages;
+                  if (ws) { ws[i] = { ...ws[i], from: e.target.value }; ws.sort((a, b) => a.from.localeCompare(b.from)); }
+                })}>
+                {monthOpts.map((v) => <option key={v} value={v}>{v.slice(0, 4)}年{Number(v.slice(5, 7))}月</option>)}
+              </select>
+            </div>
+            <div className="br">から</div>
+          </div>
+          <div className="ctl">
+            <NumberField style={{ width: 116 }} value={w.wage} placeholder={String(L.shop.defaultWage)} aria-label="時給"
+              onChange={(v) => update((LL) => { const ws = LL.casts[idx].wages; if (ws) ws[i].wage = v; })} />
+            <button type="button" className="iconbtn" aria-label="この変更を消す"
+              onClick={() => update((LL) => {
+                const ws = LL.casts[idx].wages;
+                if (!ws) return;
+                ws.splice(i, 1);
+                if (!ws.length) delete LL.casts[idx].wages;
+              })}><Trash /></button>
+          </div>
+        </div>
+      ))}
+
+      <div className="btnrow" style={{ marginTop: 12 }}>
+        <button type="button" className="btn sm" onClick={() => update((LL) => {
+          const c = LL.casts[idx];
+          if (!c.wages) c.wages = [];
+          c.wages.push({ from: addFrom, wage: castWageAt(cast, LL.shop, addFrom) });
+          c.wages.sort((a, b) => a.from.localeCompare(b.from));
+        })}>＋ 時給の変更を足す</button>
+      </div>
+
+      <div className="sec">
+        <div className="sechead" style={{ marginTop: 4 }}><div className="t">いまの決まり</div><div className="l" /></div>
+        {timeline.map((t, i) => (
+          <div key={i} className="lrow">
+            <div className="g"><div className="t">{t.label}</div>
+              <div className="s">{i + 1 < timeline.length ? `${timeline[i + 1].label.replace("から", "")}の前まで` : "いまも"}</div></div>
+            <div className="a num">{yen(t.wage)}</div>
+          </div>
+        ))}
+      </div>
+    </BottomSheet>
   );
 }

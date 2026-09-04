@@ -227,3 +227,55 @@ describe("円グラフ・年表示の集計", () => {
     expect(y.laborAll).toBe(mar.laborAll + may.laborAll);
   });
 });
+
+describe("月ごとの時給", () => {
+  const base = {
+    v: 3,
+    shop: { cardFeeRate: 0, openingCash: 0, openingDate: "2026-01-01", defaultWage: 2000, roundMinutes: 15, fixedLabor: 0, fixedCost: 0, dispatchGuarantee: 0, openTime: "20:00", closeTime: "01:00", name: "" },
+    backItems: [],
+    casts: [{ id: "a", name: "A", wage: 2000, active: true, wages: [{ from: "2026-05", wage: 2500 }, { from: "2026-08", wage: 3000 }] },
+             { id: "b", name: "B", wage: null, active: true }],
+    days: {} as Record<string, unknown>,
+  };
+  const shift = { on: true, in: "20:00", out: "00:00", breakMin: null, backs: {}, deduct: null, paid: null };
+  for (const k of ["2026-03-10", "2026-05-10", "2026-07-10", "2026-08-10"]) {
+    base.days[k] = { cashSales: 100000, cardSales: 0, guests: null, expenses: [], bankDeposit: null, cardReceived: null, cashCounted: null, payout: null, shifts: { a: { ...shift }, b: { ...shift } }, dispatch: [], settle: [] };
+  }
+  const L = migrate(base);
+
+  it("その月に適用される時給を選ぶ", () => {
+    const a = L.casts[0], b = L.casts[1];
+    expect(C.castWageAt(a, L.shop, "2026-03")).toBe(2000);
+    expect(C.castWageAt(a, L.shop, "2026-04-30")).toBe(2000);
+    expect(C.castWageAt(a, L.shop, "2026-05-01")).toBe(2500);
+    expect(C.castWageAt(a, L.shop, "2026-07")).toBe(2500);
+    expect(C.castWageAt(a, L.shop, "2026-08")).toBe(2500 + 500);
+    expect(C.castWageAt(a, L.shop, "2026-12")).toBe(3000);
+    expect(C.castWageAt(b, L.shop, "2026-08")).toBe(2000); // 変更なしなら店の基本時給
+    expect(C.castWageAt(a, L.shop)).toBe(2000); // 月を渡さなければ最初の時給
+  });
+
+  it("過去の月の給料は当時の時給のまま", () => {
+    // 4時間勤務 = 時給×4
+    expect(C.dayTotals(L, "2026-03-10").laborR).toBe(2000 * 4 + 2000 * 4);
+    expect(C.dayTotals(L, "2026-05-10").laborR).toBe(2500 * 4 + 2000 * 4);
+    expect(C.dayTotals(L, "2026-08-10").laborR).toBe(3000 * 4 + 2000 * 4);
+    const may = C.castMonth(L, "2026-05").find((r) => r.cast.id === "a")!;
+    expect(may.wage).toBe(2500 * 4);
+    const aug = C.castMonth(L, "2026-08").find((r) => r.cast.id === "a")!;
+    expect(aug.wage).toBe(3000 * 4);
+  });
+
+  it("wageTimeline は古い順に並ぶ", () => {
+    const t = C.wageTimeline(L.casts[0], L.shop);
+    expect(t.map((x) => x.wage)).toEqual([2000, 2500, 3000]);
+    expect(t[0].from).toBeNull();
+    expect(t[1].from).toBe("2026-05");
+  });
+
+  it("migrate は wages を往復で保つ・壊れた行は捨てる", () => {
+    expect(migrate(JSON.parse(JSON.stringify(L))).casts[0].wages).toEqual(L.casts[0].wages);
+    const dirty = migrate({ casts: [{ id: "x", name: "X", wage: "1800", wages: [{ from: "2026-5", wage: "9" }, { from: "2026-06", wage: "2400" }, { wage: 1 }] }] });
+    expect(dirty.casts[0].wages).toEqual([{ from: "2026-06", wage: 2400 }]);
+  });
+});

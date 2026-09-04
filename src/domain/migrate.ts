@@ -1,6 +1,6 @@
 /** 旧アーティファクト(v1/v2, 文字列の数値) と 現行(v3) の JSON を Ledger に正規化する。
  *  旧 migrate() の振る舞い（v1 既定バック項目の置換・ドリンク名の改名・rateD 補完）も引き継ぐ。 */
-import type { BackItem, Cast, DayRecord, DispatchRow, Expense, Ledger, PayMethod, Settlement, Shift, Shop } from "./types";
+import type { BackItem, Cast, DayRecord, DispatchRow, Expense, Ledger, PayMethod, Settlement, Shift, Shop, WageChange } from "./types";
 import { todayISO, uid } from "./format";
 
 export function defaultBacks(): BackItem[] {
@@ -100,9 +100,26 @@ function toDay(v: unknown): DayRecord {
   }
   return d;
 }
+const MONTH_RE = /^\d{4}-\d{2}$/;
+function toWages(v: unknown): WageChange[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: WageChange[] = [];
+  for (const x of v) {
+    if (!isObj(x)) continue;
+    const from = str(x.from);
+    if (!MONTH_RE.test(from)) continue;
+    out.push({ from, wage: toNum(x.wage) });
+  }
+  if (!out.length) return undefined;
+  out.sort((a, b) => a.from.localeCompare(b.from));
+  return out;
+}
 function toCast(v: unknown): Cast | null {
   if (!isObj(v)) return null;
-  return { id: str(v.id) || uid(), name: str(v.name), wage: toNum(v.wage), active: v.active !== false };
+  const c: Cast = { id: str(v.id) || uid(), name: str(v.name), wage: toNum(v.wage), active: v.active !== false };
+  const wages = toWages(v.wages);
+  if (wages) c.wages = wages;
+  return c;
 }
 function toBackItem(v: unknown): BackItem | null {
   if (!isObj(v)) return null;

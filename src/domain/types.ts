@@ -16,12 +16,21 @@ export interface BackItem {
   rateD: number;
 }
 
+/** 時給の変更。from の月（YYYY-MM）から、その次の変更までこの時給を使う */
+export interface WageChange {
+  from: string;
+  /** null なら店の基本時給 */
+  wage: number | null;
+}
+
 export interface Cast {
   id: string;
   name: string;
-  /** null なら店の基本時給 */
+  /** 最初の時給。null なら店の基本時給 */
   wage: number | null;
   active: boolean;
+  /** 月ごとの時給変更。過去の締めは当時の時給のまま計算される */
+  wages?: WageChange[];
 }
 
 export interface Shop {

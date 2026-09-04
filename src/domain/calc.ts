@@ -1,7 +1,7 @@
 /** 計算ロジック。旧アーティファクト §3 を型付きで移植。演算順序は同じに保つ（test/legacy-calc.js と同値）。 */
 import type {
   BackAmounts, BackItem, Balances, Cast, CastMonthRow, DayRecord, DayTotals, DispatchMonthRow,
-  DispatchRow, Ledger, MonthTotals, Owed, Pay, Settlement, Shift, Shop,
+  DispatchRow, Ledger, MonthTotals, Owed, Pay, Settlement, Shift, Shop, WageChange,
 } from "./types";
 
 export const num = (v: number | null | undefined): number => (v == null || !Number.isFinite(v) ? 0 : v);
@@ -24,8 +24,29 @@ export function shiftMinutes(sh: { in: string; out: string; breakMin: number | n
   return Math.floor(d / r) * r;
 }
 
+/** その月に適用される時給。monthOrDate を省くと最初の時給を使う */
+export function castWageAt(c: Cast | null, shop: Shop, monthOrDate?: string): number {
+  if (!c) return num(shop.defaultWage);
+  if (monthOrDate && c.wages && c.wages.length) {
+    const m = monthOrDate.slice(0, 7);
+    let best: WageChange | null = null;
+    for (const w of c.wages) {
+      if (w.from <= m && (best == null || w.from > best.from)) best = w;
+    }
+    if (best) return best.wage != null ? num(best.wage) : num(shop.defaultWage);
+  }
+  return c.wage != null ? num(c.wage) : num(shop.defaultWage);
+}
 export function castWage(c: Cast | null, shop: Shop): number {
-  return c && c.wage != null ? num(c.wage) : num(shop.defaultWage);
+  return castWageAt(c, shop);
+}
+/** 時給の変更を、古い順に並べて返す（最初の時給を先頭に足す） */
+export function wageTimeline(c: Cast, shop: Shop): { from: string | null; wage: number; label: string }[] {
+  const base = { from: null as string | null, wage: c.wage != null ? num(c.wage) : num(shop.defaultWage), label: "最初から" };
+  const rest = [...(c.wages ?? [])]
+    .sort((a, b) => a.from.localeCompare(b.from))
+    .map((w) => ({ from: w.from, wage: w.wage != null ? num(w.wage) : num(shop.defaultWage), label: `${Number(w.from.slice(5, 7))}月から` }));
+  return [base, ...rest];
 }
 export function castById(L: Ledger, id: string): Cast | null {
   return L.casts.find((c) => c.id === id) ?? null;
@@ -48,11 +69,11 @@ export function calcBacks(items: BackItem[], src: Record<string, number | null> 
   return { backs, total };
 }
 
-/** 在籍キャスト 1人1日の給料内訳 */
-export function payOf(L: Ledger, castId: string, sh: Shift): Pay {
+/** 在籍キャスト 1人1日の給料内訳。dateKey を渡すと、その月の時給で計算する */
+export function payOf(L: Ledger, castId: string, sh: Shift, dateKey?: string): Pay {
   const c = castById(L, castId);
   const mins = shiftMinutes(sh, L.shop);
-  const wage = Math.floor((mins / 60) * castWage(c, L.shop));
+  const wage = Math.floor((mins / 60) * castWageAt(c, L.shop, dateKey));
   const { backs, total } = calcBacks(L.backItems, sh.backs, false);
   const deduct = num(sh.deduct);
   const gross = wage + total - deduct;
@@ -105,7 +126,7 @@ export function dayTotals(L: Ledger, dateKey: string): DayTotals {
   for (const cid of Object.keys(d.shifts ?? {})) {
     const sh = d.shifts[cid];
     if (!sh || !sh.on) continue;
-    const p = payOf(L, cid, sh);
+    const p = payOf(L, cid, sh, dateKey);
     z.laborR += p.gross; z.paidDetail += p.paid; if (p.paid > 0) z.paidCount++; z.unpaid += p.unpaid; z.workersR++; z.hours += p.hours;
   }
   for (const row of d.dispatch ?? []) {
@@ -274,7 +295,7 @@ export function castMonth(L: Ledger, m: string): CastMonthRow[] {
       const sh = d.shifts[cid];
       if (!sh || !sh.on) continue;
       if (!map[cid]) map[cid] = mk({ id: cid, name: "（削除済み）", wage: null, active: false });
-      const p = payOf(L, cid, sh), r = map[cid];
+      const p = payOf(L, cid, sh, k), r = map[cid];
       r.hours += p.hours; r.wage += p.wage; r.backTotal += p.backTotal; r.deduct += p.deduct;
       r.gross += p.gross; r.paid += p.paid; r.unpaid += p.unpaid; r.days++;
       for (const b of L.backItems) r.backs[b.id] = (r.backs[b.id] ?? 0) + p.backs[b.id].amount;
@@ -323,7 +344,7 @@ export function castContribution(L: Ledger, m: string): { rows: Contribution[]; 
       const sh = d.shifts[cid];
       if (!sh?.on) continue;
       const c = castById(L, cid);
-      add("c:" + cid, c ? c.name || "（名前なし）" : "（削除済み）", payOf(L, cid, sh));
+      add("c:" + cid, c ? c.name || "（名前なし）" : "（削除済み）", payOf(L, cid, sh, k));
     }
     for (const row of d.dispatch ?? []) {
       const name = (row.name ?? "").trim() || "（名前なし）";
