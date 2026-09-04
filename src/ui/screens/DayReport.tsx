@@ -4,11 +4,11 @@ import { useApp } from "../../state/store";
 import type { DayRecord, DispatchRow, Ledger, Shift } from "../../domain/types";
 import { emptyDay } from "../../domain/migrate";
 import { backRate, calcBacks, cashAsOf, castWage, dayTotals, dispatchNames, dispatchPay, num, payOf, unpaidFor, whoLabel } from "../../domain/calc";
-import { addMinutes, dayLabel, jp, shiftDay, shiftMonth, todayISO, uid, yen } from "../../domain/format";
+import { WD, addMinutes, dayLabel, jp, shiftDay, shiftMonth, todayISO, uid, yen } from "../../domain/format";
 import { NumberField } from "../components/NumberField";
 import { Stepper } from "../components/Stepper";
 import { BottomSheet } from "../components/BottomSheet";
-import { ChevLeft, ChevRight, Trash } from "../icons";
+import { ChevLeft, ChevRight, Copy, Trash } from "../icons";
 
 const STEPS = ["売上", "出勤", "派遣", "経費", "締め"];
 
@@ -34,25 +34,28 @@ export function DayReport() {
   return (
     <>
       <div className="datebar">
-        <button type="button" className="mb" aria-label="前の日" onClick={() => openDay(shiftDay(dk, -1))}><ChevLeft /></button>
-        <input className="inp" type="date" value={dk} aria-label="日付" onChange={(e) => openDay(e.target.value || todayISO())} />
-        <button type="button" className="mb" aria-label="次の日" onClick={() => openDay(shiftDay(dk, 1))}><ChevRight /></button>
+        <button type="button" className="mb" aria-label="前の日" onClick={() => openDay(shiftDay(dk, -1))}><ChevLeft size={17} /></button>
+        <label className="mid pick">
+          <span className="d">{Number(dk.slice(5, 7))}月{Number(dk.slice(8, 10))}日（{WD[new Date(dk + "T00:00:00").getDay()]}）</span>
+          <span className="s">{isToday ? "今日" : dk}</span>
+          <input type="date" value={dk} aria-label="日付" onChange={(e) => openDay(e.target.value || todayISO())} />
+        </label>
+        <button type="button" className="mb" aria-label="次の日" onClick={() => openDay(shiftDay(dk, 1))}><ChevRight size={17} /></button>
         {!isToday && <button type="button" className="mb today" onClick={() => openDay(todayISO())}>今日</button>}
       </div>
 
       <div className="steps" role="tablist" aria-label="締めの手順">
         {STEPS.map((s, i) => (
           <button key={s} type="button" role="tab" aria-current={i === step ? "step" : undefined} className={i < step ? "done" : ""} onClick={() => go(i)}>
-            <i />{i + 1}. {s}
+            <i /><span>{i + 1} {s}</span>
           </button>
         ))}
       </div>
 
       <div className="daysum" aria-live="polite">
-        <span className="dl num">{dayLabel(dk)}{isToday ? " ・今日" : ""}</span>
-        <span>売上 <b className="num">{yen(t.sales)}</b></span>
-        <span>人件費 <b className="num">{yen(t.labor)}</b></span>
-        <span>差引 <b className={`num ${t.profit < 0 ? "neg" : ""}`}>{yen(t.profit)}</b></span>
+        <div><div className="k">売上</div><div className="v">{jp(t.sales)}</div></div>
+        <div><div className="k">人件費</div><div className="v">{jp(t.labor)}</div></div>
+        <div><div className="k">差引</div><div className={`v ${t.profit < 0 ? "neg" : ""}`} style={t.profit >= 0 ? { color: "var(--good)" } : undefined}>{jp(t.profit)}</div></div>
       </div>
 
       {step === 0 && <SalesStep d={d} edit={edit} t={t} />}
@@ -141,19 +144,22 @@ function AttendStep({ L, dk, d, edit, t, openSheet, showToast }: { L: Ledger; dk
         const p = payOf(L, c.id, sh);
         const hasBacks = Object.values(sh.backs).some((v) => num(v) > 0);
         return (
-          <button key={c.id} type="button" className="wrow" onClick={() => openSheet(c.id)}>
+          <button key={c.id} type="button" className={`wrow ${hasBacks ? "" : "alert"}`} onClick={() => openSheet(c.id)}>
+            <span className="avatar">{(c.name || "?").slice(0, 1)}</span>
             <span className="g">
               <span className="t">{c.name || "（名前なし）"}</span>
-              <span className="s">{sh.in || "?"}–{sh.out || "?"}{sh.breakMin ? ` 休${sh.breakMin}分` : ""} ・ {p.hours.toFixed(1)}h{hasBacks ? ` ・ バック ${jp(p.backTotal)}` : <span className="warn"> ・ 本数未入力</span>}{p.paid ? ` ・ 日払い ${jp(p.paid)}` : ""}</span>
+              {hasBacks
+                ? <span className="s">{sh.in || "?"}-{sh.out || "?"} · {p.hours.toFixed(1)}h · バック {jp(p.backTotal)}{p.paid ? ` · 日払い ${jp(p.paid)}` : ""}</span>
+                : <span className="s warn">本数がまだ入っていません</span>}
             </span>
-            <span className="a num">{yen(p.gross)}</span>
-            <ChevRight className="chevi" />
+            <span className="r"><span className="a">{jp(p.gross)}</span></span>
+            <ChevRight size={15} className="chevi" />
           </button>
         );
       })}
       {!onList.length && <div className="empty" style={{ padding: 14 }}>まだ誰も出勤になっていません</div>}
       <div className="btnrow" style={{ marginTop: 10, alignItems: "center" }}>
-        <button type="button" className="btn sm" onClick={copyPrev}>前回の出勤をコピー</button>
+        <button type="button" className="btn sm" onClick={copyPrev}><Copy size={14} />前回の出勤をコピー</button>
         <span className="hint" style={{ margin: "0 0 0 auto" }}>在籍 {t.workersR}名 ／ 給料計 <b>{yen(t.laborR)}</b></span>
       </div>
     </div>

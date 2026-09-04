@@ -1,0 +1,119 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+JP:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #2563EB; } a:hover { opacity: .8; }
+  </style>
+</helmet>
+<div style="width: 390px; height: 844px; background: #F4F5F7; color: #14171E; font-family: 'IBM Plex Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif; font-size: 15px; line-height: 1.5; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px">
+    <div style="font-size: 15.5px; font-weight: 700; letter-spacing: .01em">締め台帳</div>
+    <div style="flex-grow: 1"></div>
+    <div style="display: flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: #E7F6EF">
+      <div style="width: 6px; height: 6px; border-radius: 50%; background: #0E9F6E"></div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #0E9F6E; font-weight: 500">2:14 同期</div>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: flex-end; gap: 10px; padding: 2px 16px 14px">
+    <div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #8A93A3; font-weight: 500">2026</div>
+      <div style="display: flex; align-items: center; gap: 8px; margin-top: -2px">
+        <div style="font-size: 30px; font-weight: 700; letter-spacing: -.01em">9月</div>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A93A3" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+      </div>
+    </div>
+    <div style="flex-grow: 1"></div>
+    <div style="display: flex; background: #F0F2F5; border-radius: 9px; padding: 3px; margin-bottom: 4px">
+      <div style="padding: 6px 15px; border-radius: 7px; background: #FFFFFF; color: #14171E; font-size: 12.5px; font-weight: 600; box-shadow: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.08)">月</div>
+      <div style="padding: 6px 15px; font-size: 12.5px; color: #8A93A3; font-weight: 500">年</div>
+    </div>
+  </div>
+
+  <div style="margin: 0 16px; padding: 16px 16px 14px; background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 16px; box-shadow: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.08)">
+    <div style="display: flex; align-items: center; gap: 8px">
+      <div style="font-size: 12px; color: #5C6779; font-weight: 500">営業利益</div>
+      <div style="flex-grow: 1"></div>
+      <div style="display: flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; background: #E7F6EF; color: #0E9F6E; font-size: 11.5px; font-weight: 600">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
+        <span style="font-family: 'IBM Plex Mono', monospace">12.4%</span>
+      </div>
+    </div>
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 38px; font-weight: 600; letter-spacing: -.03em; margin: 2px 0 14px">¥1,284,000</div>
+    <div style="display: flex; height: 8px; border-radius: 999px; overflow: hidden; gap: 2px">
+      <div style="width: 50.5%; background: #0E9F6E"></div>
+      <div style="width: 22.8%; background: #B4700E"></div>
+      <div style="flex-grow: 1; background: #2563EB"></div>
+    </div>
+    <div style="display: flex; gap: 13px; margin-top: 10px; font-size: 11px; color: #5C6779">
+      <div style="display: flex; align-items: center; gap: 5px"><div style="width: 8px; height: 8px; border-radius: 2px; background: #0E9F6E"></div>人件費 <span style="font-family: 'IBM Plex Mono', monospace; color: #14171E; font-weight: 500">50.5%</span></div>
+      <div style="display: flex; align-items: center; gap: 5px"><div style="width: 8px; height: 8px; border-radius: 2px; background: #B4700E"></div>経費 <span style="font-family: 'IBM Plex Mono', monospace; color: #14171E; font-weight: 500">22.8%</span></div>
+      <div style="display: flex; align-items: center; gap: 5px"><div style="width: 8px; height: 8px; border-radius: 2px; background: #2563EB"></div>利益 <span style="font-family: 'IBM Plex Mono', monospace; color: #14171E; font-weight: 500">26.7%</span></div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 10px 16px 0">
+    <div style="padding: 12px 14px; background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 14px; box-shadow: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.08)">
+      <div style="display: flex; align-items: center; gap: 6px">
+        <div style="font-size: 11.5px; color: #5C6779; font-weight: 500">未払いの給料</div>
+        <div style="flex-grow: 1"></div>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A93A3" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+      </div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; margin-top: 2px">¥318,000</div>
+      <div style="font-size: 11px; color: #8A93A3">3名分</div>
+    </div>
+    <div style="padding: 12px 14px; background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 14px; box-shadow: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.08)">
+      <div style="display: flex; align-items: center; gap: 6px">
+        <div style="font-size: 11.5px; color: #5C6779; font-weight: 500">手元の現金</div>
+        <div style="flex-grow: 1"></div>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A93A3" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"></path></svg>
+      </div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; margin-top: 2px">¥642,500</div>
+      <div style="font-size: 11px; color: #0E9F6E">実査と一致</div>
+    </div>
+  </div>
+
+  <div style="margin: 10px 16px 0; padding: 14px 16px 10px; background: #FFFFFF; border: 1px solid #E3E6EB; border-radius: 16px; box-shadow: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.08)">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px">
+      <div style="font-size: 13px; font-weight: 600">日別の売上</div>
+      <div style="flex-grow: 1"></div>
+      <div style="display: flex; gap: 11px; font-size: 10.5px; color: #5C6779">
+        <div style="display: flex; align-items: center; gap: 5px"><div style="width: 8px; height: 8px; border-radius: 2px; background: #2563EB"></div>現金</div>
+        <div style="display: flex; align-items: center; gap: 5px"><div style="width: 8px; height: 8px; border-radius: 2px; background: #7C5CE0"></div>カード</div>
+      </div>
+    </div>
+    <svg viewBox="0 0 326 92" style="display: block; width: 100%; height: 92px"><defs><clipPath id="bar-m-0"><rect x="3.2" y="37.7" width="9.0" height="44.3" rx="2.5"></rect></clipPath><clipPath id="bar-m-1"><rect x="18.7" y="24.4" width="9.0" height="57.6" rx="2.5"></rect></clipPath><clipPath id="bar-m-2"><rect x="34.2" y="49.2" width="9.0" height="32.8" rx="2.5"></rect></clipPath><clipPath id="bar-m-3"><rect x="49.8" y="16.4" width="9.0" height="65.6" rx="2.5"></rect></clipPath><clipPath id="bar-m-4"><rect x="65.3" y="31.5" width="9.0" height="50.5" rx="2.5"></rect></clipPath><clipPath id="bar-m-5"><rect x="80.8" y="13.8" width="9.0" height="68.2" rx="2.5"></rect></clipPath><clipPath id="bar-m-6"><rect x="96.3" y="7.5" width="9.0" height="74.5" rx="2.5"></rect></clipPath><clipPath id="bar-m-7"><rect x="111.9" y="44.8" width="9.0" height="37.2" rx="2.5"></rect></clipPath><clipPath id="bar-m-8"><rect x="127.4" y="27.9" width="9.0" height="54.1" rx="2.5"></rect></clipPath><clipPath id="bar-m-9"><rect x="142.9" y="20.8" width="9.0" height="61.2" rx="2.5"></rect></clipPath><clipPath id="bar-m-10"><rect x="158.4" y="53.6" width="9.0" height="28.4" rx="2.5"></rect></clipPath><clipPath id="bar-m-11"><rect x="174.0" y="16.4" width="9.0" height="65.6" rx="2.5"></rect></clipPath><clipPath id="bar-m-12"><rect x="189.5" y="10.2" width="9.0" height="71.8" rx="2.5"></rect></clipPath><clipPath id="bar-m-13"><rect x="205.0" y="35.0" width="9.0" height="47.0" rx="2.5"></rect></clipPath><clipPath id="bar-m-14"><rect x="220.5" y="23.5" width="9.0" height="58.5" rx="2.5"></rect></clipPath><clipPath id="bar-m-15"><rect x="236.1" y="4.0" width="9.0" height="78.0" rx="2.5"></rect></clipPath><clipPath id="bar-m-16"><rect x="251.6" y="42.1" width="9.0" height="39.9" rx="2.5"></rect></clipPath><clipPath id="bar-m-17"><rect x="267.1" y="30.6" width="9.0" height="51.4" rx="2.5"></rect></clipPath><clipPath id="bar-m-18"><rect x="282.6" y="19.1" width="9.0" height="62.9" rx="2.5"></rect></clipPath><clipPath id="bar-m-19"><rect x="298.2" y="7.5" width="9.0" height="74.5" rx="2.5"></rect></clipPath><clipPath id="bar-m-20"><rect x="313.7" y="37.7" width="9.0" height="44.3" rx="2.5"></rect></clipPath></defs><line x1="0" y1="82.0" x2="326" y2="82.0" stroke="#E3E6EB" stroke-width="1"></line><g clip-path="url(#bar-m-0)"><rect x="3.2" y="37.7" width="9.0" height="7.1" fill="#7C5CE0"></rect><rect x="3.2" y="44.8" width="9.0" height="37.2" fill="#2563EB"></rect><rect x="3.2" y="43.0" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-1)"><rect x="18.7" y="24.4" width="9.0" height="9.8" fill="#7C5CE0"></rect><rect x="18.7" y="34.1" width="9.0" height="47.9" fill="#2563EB"></rect><rect x="18.7" y="32.3" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-2)"><rect x="34.2" y="49.2" width="9.0" height="5.3" fill="#7C5CE0"></rect><rect x="34.2" y="54.5" width="9.0" height="27.5" fill="#2563EB"></rect><rect x="34.2" y="52.7" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-3)"><rect x="49.8" y="16.4" width="9.0" height="10.6" fill="#7C5CE0"></rect><rect x="49.8" y="27.0" width="9.0" height="55.0" fill="#2563EB"></rect><rect x="49.8" y="25.2" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-4)"><rect x="65.3" y="31.5" width="9.0" height="8.0" fill="#7C5CE0"></rect><rect x="65.3" y="39.5" width="9.0" height="42.5" fill="#2563EB"></rect><rect x="65.3" y="37.7" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-5)"><rect x="80.8" y="13.8" width="9.0" height="8.9" fill="#7C5CE0"></rect><rect x="80.8" y="22.6" width="9.0" height="59.4" fill="#2563EB"></rect><rect x="80.8" y="20.8" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-6)"><rect x="96.3" y="7.5" width="9.0" height="9.8" fill="#7C5CE0"></rect><rect x="96.3" y="17.3" width="9.0" height="64.7" fill="#2563EB"></rect><rect x="96.3" y="15.5" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-7)"><rect x="111.9" y="44.8" width="9.0" height="6.2" fill="#7C5CE0"></rect><rect x="111.9" y="51.0" width="9.0" height="31.0" fill="#2563EB"></rect><rect x="111.9" y="49.2" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-8)"><rect x="127.4" y="27.9" width="9.0" height="8.9" fill="#7C5CE0"></rect><rect x="127.4" y="36.8" width="9.0" height="45.2" fill="#2563EB"></rect><rect x="127.4" y="35.0" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-9)"><rect x="142.9" y="20.8" width="9.0" height="9.8" fill="#7C5CE0"></rect><rect x="142.9" y="30.6" width="9.0" height="51.4" fill="#2563EB"></rect><rect x="142.9" y="28.8" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-10)"><rect x="158.4" y="53.6" width="9.0" height="5.3" fill="#7C5CE0"></rect><rect x="158.4" y="59.0" width="9.0" height="23.0" fill="#2563EB"></rect><rect x="158.4" y="57.2" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-11)"><rect x="174.0" y="16.4" width="9.0" height="8.9" fill="#7C5CE0"></rect><rect x="174.0" y="25.3" width="9.0" height="56.7" fill="#2563EB"></rect><rect x="174.0" y="23.5" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-12)"><rect x="189.5" y="10.2" width="9.0" height="9.8" fill="#7C5CE0"></rect><rect x="189.5" y="20.0" width="9.0" height="62.0" fill="#2563EB"></rect><rect x="189.5" y="18.2" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-13)"><rect x="205.0" y="35.0" width="9.0" height="8.0" fill="#7C5CE0"></rect><rect x="205.0" y="43.0" width="9.0" height="39.0" fill="#2563EB"></rect><rect x="205.0" y="41.2" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-14)"><rect x="220.5" y="23.5" width="9.0" height="8.9" fill="#7C5CE0"></rect><rect x="220.5" y="32.4" width="9.0" height="49.6" fill="#2563EB"></rect><rect x="220.5" y="30.6" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-15)"><rect x="236.1" y="4.0" width="9.0" height="8.0" fill="#7C5CE0"></rect><rect x="236.1" y="12.0" width="9.0" height="70.0" fill="#2563EB"></rect><rect x="236.1" y="10.2" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-16)"><rect x="251.6" y="42.1" width="9.0" height="7.1" fill="#7C5CE0"></rect><rect x="251.6" y="49.2" width="9.0" height="32.8" fill="#2563EB"></rect><rect x="251.6" y="47.4" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-17)"><rect x="267.1" y="30.6" width="9.0" height="8.0" fill="#7C5CE0"></rect><rect x="267.1" y="38.6" width="9.0" height="43.4" fill="#2563EB"></rect><rect x="267.1" y="36.8" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-18)"><rect x="282.6" y="19.1" width="9.0" height="8.9" fill="#7C5CE0"></rect><rect x="282.6" y="27.9" width="9.0" height="54.1" fill="#2563EB"></rect><rect x="282.6" y="26.1" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-19)"><rect x="298.2" y="7.5" width="9.0" height="8.0" fill="#7C5CE0"></rect><rect x="298.2" y="15.5" width="9.0" height="66.5" fill="#2563EB"></rect><rect x="298.2" y="13.7" width="9.0" height="1.8" fill="#FFFFFF"></rect></g><g clip-path="url(#bar-m-20)"><rect x="313.7" y="37.7" width="9.0" height="7.1" fill="#7C5CE0"></rect><rect x="313.7" y="44.8" width="9.0" height="37.2" fill="#2563EB"></rect><rect x="313.7" y="43.0" width="9.0" height="1.8" fill="#FFFFFF"></rect></g></svg>
+    <div style="display: flex; justify-content: space-between; font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; color: #8A93A3; margin-top: 2px">
+      <div>1</div><div>7</div><div>14</div><div>21</div>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1"></div>
+
+  <div style="padding: 0 16px 12px">
+    <div style="display: flex; align-items: center; justify-content: center; gap: 9px; height: 52px; background: #2563EB; color: #FFFFFF; border-radius: 14px; font-size: 15.5px; font-weight: 600">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+      今日の日報をつける
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); background: #FFFFFF; border-top: 1px solid #E3E6EB; padding: 6px 0 14px">
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: 52px; color: #2563EB"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"></path></svg><div style="font-size: 10.5px; font-weight: 600; letter-spacing: .02em">今月</div></div>
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: 52px; color: #8A93A3"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="16" rx="3.5"></rect><path d="M3.5 9.5h17M8 3v3m8-3v3"></path></svg><div style="font-size: 10.5px; font-weight: 500; letter-spacing: .02em">日報</div></div>
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: 52px; color: #8A93A3"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"></circle><path d="M4.5 20c0-3.6 3.4-6 7.5-6s7.5 2.4 7.5 6"></path></svg><div style="font-size: 10.5px; font-weight: 500; letter-spacing: .02em">キャスト</div></div>
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; height: 52px; color: #8A93A3"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3m13.4-6.4-1.6 1.6M9.2 14.8l-1.6 1.6m10.8 0-1.6-1.6M9.2 9.2 7.6 7.6"></path></svg><div style="font-size: 10.5px; font-weight: 500; letter-spacing: .02em">設定</div></div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

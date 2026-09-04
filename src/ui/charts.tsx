@@ -4,7 +4,7 @@ import type { CastMonthRow, DayTotals, MonthTotals } from "../domain/types";
 import { dayLabel, daysInMonth, jp, yen, yenShort } from "../domain/format";
 import { pct } from "../domain/calc";
 
-export const C = { cash: "var(--s-cash)", card: "var(--s-card)", labor: "var(--s-labor)", cost: "var(--s-cost)", rest: "var(--s-rest)" };
+export const C = { cash: "var(--s-cash)", card: "var(--s-card)", labor: "var(--s-labor)", cost: "var(--s-cost)", rest: "var(--s-rest)", muted: "var(--s-muted)" };
 
 function niceMax(v: number): number {
   if (v <= 0) return 1000;
@@ -24,17 +24,18 @@ export function rightRect(x: number, y: number, w: number, h: number, r: number)
   return `M${x} ${y} L${x + w - rr} ${y} Q${x + w} ${y} ${x + w} ${y + rr} L${x + w} ${y + h - rr} Q${x + w} ${y + h} ${x + w - rr} ${y + h} L${x} ${y + h} Z`;
 }
 
-/** 日別売上：積み上げ棒 */
+/** 日別売上：現金とカードを1本の棒として描く。輪郭にだけ丸みを付け、
+ *  境目には背景色の細い区切りを入れて、色の切り替わりを見やすくする。 */
 export function DailyChart({ month, series }: { month: string; series: DayTotals[] }) {
   const [tip, setTip] = useState<{ t: DayTotals; x: number } | null>(null);
   if (!series.some((t) => t.sales > 0)) return <div className="empty">この月の売上はまだ入っていません</div>;
-  const W = 340, H = 170, L = 36, R = 6, T = 12, B = 22;
-  const pw = W - L - R, ph = H - T - B;
+  const W = 326, H = 96, GAP = 1.8;
   const dim = daysInMonth(month);
   const byDay: Record<number, DayTotals> = {};
   series.forEach((t) => { byDay[Number(t.date.slice(8, 10))] = t; });
   const max = niceMax(Math.max(10000, ...series.map((t) => t.sales)));
-  const bw = Math.max(3, pw / dim - 2.2), step = pw / dim;
+  const step = W / dim, bw = Math.max(3, step - 6.5);
+  const base = H - 12, top = 4, span = base - top;
 
   const onMove = (e: PointerEvent<HTMLDivElement>) => {
     const el = (e.target as Element).closest?.(".hit") as SVGRectElement | null;
@@ -44,54 +45,51 @@ export function DailyChart({ month, series }: { month: string; series: DayTotals
     const wrap = e.currentTarget.getBoundingClientRect(), b = el.getBoundingClientRect();
     setTip({ t, x: b.left - wrap.left + b.width / 2 });
   };
+  const days = Array.from({ length: dim }, (_, i) => i + 1);
   return (
     <>
       <div className="chart" onPointerMove={onMove} onPointerDown={onMove} onPointerLeave={() => setTip(null)}>
-        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="日別の売上（現金とカードの積み上げ）">
-          {[0, 0.5, 1].map((f) => {
-            const y = T + ph - ph * f;
-            return (
-              <g key={f}>
-                <line x1={L} y1={y} x2={W - R} y2={y} stroke="var(--grid)" strokeWidth={1} />
-                <text x={L - 6} y={y + 3.5} textAnchor="end" fontSize={9} fill="var(--ink-3)" fontFamily="Archivo,sans-serif">{f === 0 ? "0" : yenShort(max * f)}</text>
-              </g>
-            );
-          })}
-          {Array.from({ length: dim }, (_, i) => i + 1).map((d) => {
-            const x = L + step * (d - 1) + (step - bw) / 2;
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="日別の売上。現金とカードの積み上げ">
+          <defs>
+            {days.map((d) => {
+              const t = byDay[d];
+              if (!t || t.sales <= 0) return null;
+              const x = step * (d - 1) + (step - bw) / 2;
+              const total = span * (t.sales / max);
+              return <clipPath key={d} id={`bar-${month}-${d}`}><rect x={x} y={base - total} width={bw} height={total} rx={2.5} /></clipPath>;
+            })}
+          </defs>
+          <line x1={0} y1={base} x2={W} y2={base} stroke="var(--line)" strokeWidth={1} />
+          {days.map((d) => {
             const t = byDay[d];
             if (!t || t.sales <= 0) return null;
-            const hCash = ph * (t.cash / max), hCard = ph * (t.card / max);
-            const yCard = T + ph - hCash - hCard, yCash = T + ph - hCash;
-            return hCard > 0.5 ? (
-              <g key={d}>
-                <path d={topRect(x, yCard, bw, hCard, 2.5)} fill={C.card} />
-                <rect x={x} y={yCash - 2} width={bw} height={Math.min(2, hCash)} fill="var(--surface)" />
-                <rect x={x} y={yCash} width={bw} height={Math.max(0, hCash)} fill={C.cash} />
+            const x = step * (d - 1) + (step - bw) / 2;
+            const hCash = span * (t.cash / max), hCard = span * (t.card / max);
+            const total = hCash + hCard;
+            return (
+              <g key={d} clipPath={`url(#bar-${month}-${d})`}>
+                {hCard > 0 && <rect x={x} y={base - total} width={bw} height={hCard} fill={C.card} />}
+                {hCash > 0 && <rect x={x} y={base - hCash} width={bw} height={hCash} fill={C.cash} />}
+                {hCard > 0 && hCash > 0 && <rect x={x} y={base - hCash - GAP} width={bw} height={GAP} fill="var(--surface)" />}
               </g>
-            ) : (
-              <path key={d} d={topRect(x, yCash, bw, hCash, 2.5)} fill={C.cash} />
             );
           })}
-          <line x1={L} y1={T + ph} x2={W - R} y2={T + ph} stroke="var(--axis)" strokeWidth={1} />
-          {Array.from({ length: dim }, (_, i) => i + 1).map((d) => (
-            <g key={d}>
-              {(d === 1 || d % 5 === 0) && <text x={L + step * (d - 1) + step / 2} y={H - 7} textAnchor="middle" fontSize={9} fill="var(--ink-3)" fontFamily="Archivo,sans-serif">{d}</text>}
-              <rect className="hit" x={L + step * (d - 1)} y={T} width={step} height={ph} fill="transparent" data-d={d} />
-            </g>
+          {days.map((d) => (
+            <rect key={d} className="hit" x={step * (d - 1)} y={0} width={step} height={base} fill="transparent" data-d={d} />
           ))}
         </svg>
-        <div className={`tip ${tip ? "on" : ""}`} style={{ left: tip ? `clamp(0px, calc(${tip.x}px - 60px), calc(100% - 124px))` : 0, top: 2 }}>
+        <div className={`tip ${tip ? "on" : ""}`} style={{ left: tip ? `clamp(0px, calc(${tip.x}px - 62px), calc(100% - 128px))` : 0, top: 0 }}>
           {tip && (
             <>
               <div className="d">{dayLabel(tip.t.date)}</div>
               <div className="r"><span className="swatch" style={{ background: C.cash }} /><span>現金</span><span>{yen(tip.t.cash)}</span></div>
               <div className="r"><span className="swatch" style={{ background: C.card }} /><span>カード</span><span>{yen(tip.t.card)}</span></div>
-              <div className="r" style={{ marginTop: 3, borderTop: "1px solid var(--line)", paddingTop: 3 }}><span>差引</span><span>{yen(tip.t.profit)}</span></div>
+              <div className="r" style={{ marginTop: 4, borderTop: "1px solid var(--line)", paddingTop: 4 }}><span>差引</span><span className={tip.t.profit < 0 ? "neg" : ""}>{yen(tip.t.profit)}</span></div>
             </>
           )}
         </div>
       </div>
+      <div className="xaxis"><div>1</div><div>{Math.round(dim / 3)}</div><div>{Math.round((dim * 2) / 3)}</div><div>{dim}</div></div>
       <div className="legend"><span><i style={{ background: C.cash }} />現金</span><span><i style={{ background: C.card }} />カード</span></div>
     </>
   );
@@ -178,7 +176,7 @@ export function CastChart({ rows }: { rows: CastMonthRow[] }) {
           return (
             <g key={r.cast.id}>
               <text x={L - 8} y={y + 14} textAnchor="end" fontSize={11} fill="var(--ink-2)">{r.cast.name.slice(0, 5)}</text>
-              <path d={rightRect(L, y + 3, Math.max(2, w), 14, 4)} fill={C.labor} />
+              <path d={rightRect(L, y + 3, Math.max(2, w), 14, 3)} fill={C.labor} />
               <text x={L + Math.max(2, w) + 7} y={y + 14} fontSize={10.5} fill="var(--ink-2)" fontFamily="Archivo,sans-serif">{jp(r.gross)}</text>
             </g>
           );
@@ -194,7 +192,7 @@ export function CastChart({ rows }: { rows: CastMonthRow[] }) {
 
 export interface PiePart { label: string; value: number; color: string }
 /** 割当用の色（順に使う） */
-export const PALETTE = [C.cash, C.card, C.labor, C.cost, "var(--accent)", "#8e6bd6", "#d64f8a", C.rest];
+export const PALETTE = [C.cash, C.card, C.labor, C.cost, "#00A6B8", "#B87BD6", "#D68A4F", C.muted];
 
 function arcPath(cx: number, cy: number, r0: number, r1: number, a0: number, a1: number): string {
   const p = (r: number, a: number) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];

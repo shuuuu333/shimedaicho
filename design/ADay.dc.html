@@ -1,0 +1,140 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #C9A15A; } a:hover { color: #E0BC7C; }
+  </style>
+</helmet>
+<div style="width: 375px; height: 900px; background: #0B0A09; color: #F2EDE3; font-family: 'Zen Kaku Gothic New', 'Hiragino Kaku Gothic ProN', sans-serif; font-size: 15px; line-height: 1.6; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="display: flex; align-items: center; gap: 10px; padding: 16px 20px 12px">
+    <div style="font-family: 'Instrument Serif', serif; font-size: 21px; letter-spacing: .04em">締め台帳</div>
+    <div style="flex-grow: 1"></div>
+    <div style="display: flex; align-items: center; gap: 6px; font-size: 11px; color: #6E6559; letter-spacing: .06em">
+      <div style="width: 5px; height: 5px; border-radius: 50%; background: #C9A15A"></div>
+      <div>同期済み 2:14</div>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: baseline; gap: 10px; padding: 0 20px 14px">
+    <div style="font-family: 'Instrument Serif', serif; font-size: 24px">9月21日</div>
+    <div style="font-size: 12px; color: #6E6559; letter-spacing: .1em">月・今日</div>
+    <div style="flex-grow: 1"></div>
+    <div style="font-size: 11px; color: #C9A15A; letter-spacing: .1em">前日 ／ 翌日</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; padding: 0 20px 18px">
+    <div>
+      <div style="height: 2px; background: #C9A15A"></div>
+      <div style="font-size: 9.5px; letter-spacing: .06em; color: #6E6559; margin-top: 6px; text-align: center">売上</div>
+    </div>
+    <div>
+      <div style="height: 2px; background: #C9A15A"></div>
+      <div style="font-size: 9.5px; letter-spacing: .06em; color: #C9A15A; margin-top: 6px; text-align: center">出勤</div>
+    </div>
+    <div>
+      <div style="height: 2px; background: #2A2621"></div>
+      <div style="font-size: 9.5px; letter-spacing: .06em; color: #6E6559; margin-top: 6px; text-align: center">派遣</div>
+    </div>
+    <div>
+      <div style="height: 2px; background: #2A2621"></div>
+      <div style="font-size: 9.5px; letter-spacing: .06em; color: #6E6559; margin-top: 6px; text-align: center">経費</div>
+    </div>
+    <div>
+      <div style="height: 2px; background: #2A2621"></div>
+      <div style="font-size: 9.5px; letter-spacing: .06em; color: #6E6559; margin-top: 6px; text-align: center">締め</div>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: baseline; gap: 16px; padding: 12px 20px; border-top: 1px solid #2A2621; border-bottom: 1px solid #2A2621">
+    <div style="font-size: 11px; color: #6E6559; letter-spacing: .08em">売上</div>
+    <div style="font-family: 'Instrument Serif', serif; font-size: 19px">¥248,000</div>
+    <div style="flex-grow: 1"></div>
+    <div style="font-size: 11px; color: #6E6559; letter-spacing: .08em">差引</div>
+    <div style="font-family: 'Instrument Serif', serif; font-size: 19px; color: #C9A15A">¥149,600</div>
+  </div>
+
+  <div style="padding: 22px 20px 0">
+    <div style="font-family: 'Instrument Serif', serif; font-size: 26px">出勤</div>
+    <div style="font-size: 12px; color: #6E6559; margin-top: 2px">出た子をタップ。行を開いて本数を入れます</div>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 20px 20px">
+    <div style="padding: 9px 16px; border-radius: 999px; background: #C9A15A; color: #0B0A09; font-size: 14px; font-weight: 700">あい</div>
+    <div style="padding: 9px 16px; border-radius: 999px; background: #C9A15A; color: #0B0A09; font-size: 14px; font-weight: 700">みく</div>
+    <div style="padding: 9px 16px; border-radius: 999px; border: 1px solid #2A2621; color: #A79C8B; font-size: 14px">れな</div>
+    <div style="padding: 9px 16px; border-radius: 999px; border: 1px solid #2A2621; color: #A79C8B; font-size: 14px">さら</div>
+    <div style="padding: 9px 16px; border-radius: 999px; border: 1px solid #2A2621; color: #A79C8B; font-size: 14px">ひな</div>
+  </div>
+
+  <div style="height: 1px; background: #2A2621; margin: 0 20px"></div>
+
+  <div style="display: flex; align-items: center; gap: 12px; padding: 15px 20px">
+    <div style="flex-grow: 1">
+      <div style="font-size: 16px; font-weight: 500">あい</div>
+      <div style="font-size: 11.5px; color: #6E6559; margin-top: 1px">20:30–01:00 ・ 4.5h ・ バック 7,500</div>
+    </div>
+    <div style="font-family: 'Instrument Serif', serif; font-size: 21px">¥15,600</div>
+  </div>
+
+  <div style="height: 1px; background: #2A2621; margin: 0 20px"></div>
+
+  <div style="display: flex; align-items: center; gap: 12px; padding: 15px 20px">
+    <div style="flex-grow: 1">
+      <div style="font-size: 16px; font-weight: 500">みく</div>
+      <div style="font-size: 11.5px; color: #6E6559; margin-top: 1px">20:00–01:00 ・ 5.0h ・ <span style="color: #D9584F">本数未入力</span></div>
+    </div>
+    <div style="font-family: 'Instrument Serif', serif; font-size: 21px">¥12,500</div>
+  </div>
+
+  <div style="height: 1px; background: #2A2621; margin: 0 20px"></div>
+
+  <div style="display: flex; align-items: baseline; gap: 10px; padding: 16px 20px">
+    <div style="font-size: 11px; color: #6E6559; letter-spacing: .08em">在籍 2名</div>
+    <div style="flex-grow: 1"></div>
+    <div style="font-size: 11px; color: #6E6559; letter-spacing: .08em">給料計</div>
+    <div style="font-family: 'Instrument Serif', serif; font-size: 18px">¥28,100</div>
+  </div>
+
+  <div style="padding: 4px 20px 0">
+    <div style="display: inline-block; padding: 8px 14px; border: 1px solid #2A2621; border-radius: 2px; font-size: 12.5px; color: #A79C8B">前回の出勤をコピー</div>
+  </div>
+
+  <div style="flex-grow: 1"></div>
+
+  <div style="display: flex; gap: 10px; padding: 0 20px 18px">
+    <div style="padding: 14px 20px; border: 1px solid #2A2621; border-radius: 2px; font-size: 15px; color: #A79C8B">戻る</div>
+    <div style="flex-grow: 1; padding: 14px 20px; background: #C9A15A; color: #0B0A09; border-radius: 2px; font-size: 15px; font-weight: 700; text-align: center">次へ：派遣</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid #2A2621; padding: 10px 0 14px">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; color: #6E6559">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"></path></svg>
+      <div style="font-size: 10px; letter-spacing: .1em">今月</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; color: #C9A15A">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="16" rx="2.5"></rect><path d="M3.5 9.5h17M8 3v3m8-3v3"></path></svg>
+      <div style="font-size: 10px; letter-spacing: .1em">日報</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; color: #6E6559">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"></circle><path d="M4.5 20c0-3.6 3.4-6 7.5-6s7.5 2.4 7.5 6"></path></svg>
+      <div style="font-size: 10px; letter-spacing: .1em">キャスト</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px; color: #6E6559">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3m13.4-6.4-1.6 1.6M9.2 14.8l-1.6 1.6m10.8 0-1.6-1.6M9.2 9.2 7.6 7.6"></path></svg>
+      <div style="font-size: 10px; letter-spacing: .1em">設定</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

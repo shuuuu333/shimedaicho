@@ -1,10 +1,10 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useApp } from "../../state/store";
-import { balances, castContribution, castMonth, dayTotals, missingDays, monthTotals, pct, weekdaySales, yearTotals } from "../../domain/calc";
-import { WD, dayLabel, jp, shiftDay, shiftMonth, todayISO, yen } from "../../domain/format";
+import { balances, castContribution, castMonth, dayTotals, missingDays, monthTotals, owedList, pct, weekdaySales, yearTotals } from "../../domain/calc";
+import { WD, dayLabel, jp, shiftDay, shiftMonth, todayISO, yen, yenShort } from "../../domain/format";
 import { C, Calendar, CastChart, CompositionChart, DailyChart, PALETTE, PieChart, YearChart, type PiePart } from "../charts";
 import { MonthBar } from "../components/MonthBar";
-import { ChevRight } from "../icons";
+import { ChevLeft, ChevRight, Plus } from "../icons";
 import { csvFilename, monthCSV, offerFile } from "../../data/backup";
 
 type PieKind = "bar" | "use" | "cast" | "dow";
@@ -22,7 +22,7 @@ function BreakdownCard({ a, L, m }: { a: ReturnType<typeof monthTotals>; L: Retu
   const top = contrib.rows.slice(0, 7);
   const rest = contrib.rows.slice(7).reduce((s, r) => s + r.value, 0);
   const castParts: PiePart[] = [...top.map((r, i) => ({ label: r.name, value: r.value, color: PALETTE[i % PALETTE.length] })), ...(rest > 0 ? [{ label: "その他", value: rest, color: C.rest }] : [])];
-  const dowColors = ["#d64f8a", C.cash, C.cash, C.cash, C.cash, C.labor, "var(--accent)"];
+  const dowColors = [C.card, C.muted, C.muted, C.muted, C.muted, C.labor, C.cash];
   const dowParts: PiePart[] = dow.map((v, i) => ({ label: WD[i] + "曜", value: v, color: dowColors[i] }));
   const sub = kind === "bar" ? `今月の売上 ${yen(a.sales)} の内訳`
     : kind === "use" ? `売上 ${yen(a.sales)} が何に使われたか`
@@ -154,11 +154,10 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
   const rows = useMemo(() => castMonth(L, m), [L, m]);
 
   const today = todayISO(), isCur = m === today.slice(0, 7);
-  const laborRate = pct(a.laborAll, a.sales);
   const diff = b.lastCount != null ? b.lastCount - b.cash : null;
   const dProfit = a.profit - prev.profit;
-  const salesDelta = prev.sales > 0 ? (a.sales / prev.sales - 1) * 100 : null;
   const missing = isCur ? missingDays(L, today, shiftDay) : [];
+  const owedCount = useMemo(() => owedList(L, m).length, [L, m]);
   const todayDone = !!L.days[today];
 
   const setMonth = (mm: string) => setUI({ month: mm, calDay: defaultCalDay(mm), castDetail: null });
@@ -175,7 +174,18 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
 
   return (
     <>
-      <MonthBar month={m} onChange={setMonth} right={<><span className="num" style={{ marginRight: 8 }}>{a.days}日</span>{seg}</>} />
+      <div className="titlebar">
+        <div>
+          <div className="y">{m.slice(0, 4)}</div>
+          <div className="m">{Number(m.slice(5, 7))}月</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 8, marginBottom: 5 }}>
+          <button type="button" className="mb" aria-label="前の月" style={{ width: 34, height: 34 }} onClick={() => setMonth(shiftMonth(m, -1))}><ChevLeft size={15} /></button>
+          <button type="button" className="mb" aria-label="次の月" style={{ width: 34, height: 34 }} onClick={() => setMonth(shiftMonth(m, 1))}><ChevRight size={15} /></button>
+        </div>
+        <div style={{ flex: 1 }} />
+        <div style={{ marginBottom: 4 }}>{seg}</div>
+      </div>
 
       {!L.casts.length && !a.days && (
         <div className="banner">まず<b>設定</b>でバック単価と時給を決めて、<b>キャスト</b>に在籍者を登録してください。あとは<b>日報</b>を毎日つけるだけで、ここが埋まります。</div>
@@ -184,8 +194,8 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
       {isCur && (!todayDone || missing.length > 0) && (
         <div className="todo">
           {!todayDone && (
-            <button type="button" className="btn primary wide" onClick={() => openDay(today, 0)}>
-              今日の日報をつける<span className="num" style={{ fontWeight: 500, opacity: 0.85 }}>{dayLabel(today)}</span>
+            <button type="button" className="btn primary wide" style={{ minHeight: 52, fontSize: 15.5 }} onClick={() => openDay(today, 0)}>
+              <Plus size={18} />今日の日報をつける
             </button>
           )}
           {missing.length > 0 && (
@@ -197,36 +207,52 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
       )}
 
       <div className="hero">
-        <div className="label"><span className="eyebrow">{isCur ? "今月" : Number(m.slice(5, 7)) + "月"}の営業利益</span></div>
-        <div className={`big num ${a.profit < 0 ? "neg" : ""}`}>{yen(a.profit)}</div>
-        <div className="meta">売上 {yen(a.sales)} − 人件費 {yen(a.laborAll)} − 経費 {yen(a.costAll)}</div>
-        {prev.days > 0 && (
-          <div className="cmp"><span>前月 <span className="num">{yen(prev.profit)}</span></span>
-            <span className={`pill ${dProfit >= 0 ? "ok" : "bad"} num`}>{dProfit >= 0 ? "+" : ""}{yen(dProfit)}</span></div>
-        )}
-        <div className={`heroSplit ${salesDelta != null ? "cols3" : ""}`}>
-          <div><div className="k">人件費率</div><div className="v">{laborRate.toFixed(1)}<span style={{ fontSize: 13 }}>%</span></div></div>
-          <div><div className="k">客単価</div><div className="v">{a.guests > 0 ? yen(a.avgSpend) : "—"}</div></div>
-          {salesDelta != null && (
-            <div><div className="k">売上 前月比</div><div className="v" style={salesDelta < 0 ? { color: "var(--crit)" } : undefined}>{salesDelta >= 0 ? "+" : ""}{salesDelta.toFixed(0)}<span style={{ fontSize: 13 }}>%</span></div></div>
+        <div className="label">
+          <span>{isCur ? "今月" : Number(m.slice(5, 7)) + "月"}の営業利益</span>
+          {prev.days > 0 && (
+            <span className={`pill ${dProfit >= 0 ? "ok" : "bad"}`} style={{ marginLeft: "auto" }}>
+              {dProfit >= 0 ? "+" : "−"}<span className="num">{yenShort(Math.abs(dProfit))}</span>
+            </span>
           )}
+        </div>
+        <div className={`big num ${a.profit < 0 ? "neg" : ""}`}>{yen(a.profit)}</div>
+        {a.sales > 0 ? (
+          <>
+            <div className="mixbar">
+              <div style={{ width: `${pct(a.laborAll, a.sales).toFixed(1)}%`, background: C.labor }} />
+              <div style={{ width: `${pct(a.costAll, a.sales).toFixed(1)}%`, background: C.cost }} />
+              <div style={{ flex: 1, background: a.profit >= 0 ? C.rest : "var(--crit)" }} />
+            </div>
+            <div className="mixlegend">
+              <span><i className="swatch" style={{ background: C.labor }} />人件費 <b>{pct(a.laborAll, a.sales).toFixed(1)}%</b></span>
+              <span><i className="swatch" style={{ background: C.cost }} />経費 <b>{pct(a.costAll, a.sales).toFixed(1)}%</b></span>
+              <span><i className="swatch" style={{ background: a.profit >= 0 ? C.rest : "var(--crit)" }} />利益 <b>{pct(a.profit, a.sales).toFixed(1)}%</b></span>
+            </div>
+          </>
+        ) : (
+          <div className="hint" style={{ marginTop: 0 }}>売上を入れると内訳が出ます</div>
+        )}
+        <div className="heroSplit cols3">
+          <div><div className="k">売上</div><div className="v">{yenShort(a.sales)}</div></div>
+          <div><div className="k">客単価</div><div className="v">{a.guests > 0 ? yenShort(a.avgSpend) : "—"}</div></div>
+          <div><div className="k">入力済み</div><div className="v">{a.days}<span style={{ fontSize: 13 }}>日</span></div></div>
         </div>
       </div>
 
       <div className="tiles">
         <button type="button" className="tile link" onClick={() => { setUI({ tab: "cast" }); window.scrollTo(0, 0); }}>
-          <ChevRight size={13} className="chevt" /><div className="k">未払いの女子給料</div><div className="v">{yen(a.unpaid)}</div>
-          <div className="n">{a.settledFor ? `精算 ${yen(a.settledFor)} ／ ` : ""}日払い {yen(a.paidDetail + a.paidLump)}</div>
+          <div className="k">未払いの給料<ChevRight size={13} className="chevt" /></div><div className="v">{yen(a.unpaid)}</div>
+          <div className="n">{owedCount > 0 ? `${owedCount}名分` : "未払いなし"}</div>
         </button>
         <button type="button" className="tile link" onClick={() => goSet("cash")}>
-          <ChevRight size={13} className="chevt" /><div className="k">手元の現金</div><div className="v">{yen(b.cash)}</div>
-          <div className="n">{diff == null ? "起点の現金を直す" : diff === 0 ? `${b.lastCountDate!.slice(5)} 実査と一致` : `${b.lastCountDate!.slice(5)} ${diff > 0 ? "過剰" : "不足"} ${yen(Math.abs(diff))}`}</div>
+          <div className="k">手元の現金<ChevRight size={13} className="chevt" /></div><div className="v">{yen(b.cash)}</div>
+          <div className={`n ${diff === 0 ? "ok" : ""}`}>{diff == null ? "起点の現金を直す" : diff === 0 ? "実査と一致" : `${diff > 0 ? "過剰" : "不足"} ${yen(Math.abs(diff))}`}</div>
         </button>
         <button type="button" className="tile link" onClick={() => goSet("shop")}>
-          <ChevRight size={13} className="chevt" /><div className="k">カード未回収</div><div className="v">{yen(b.cardOut)}</div><div className="n">手数料 {L.shop.cardFeeRate}% を直す</div>
+          <div className="k">カード未回収<ChevRight size={13} className="chevt" /></div><div className="v">{yen(b.cardOut)}</div><div className="n">手数料 {L.shop.cardFeeRate}%</div>
         </button>
         <button type="button" className="tile link" onClick={() => goSet("fixed")}>
-          <ChevRight size={13} className="chevt" /><div className="k">今月の経費</div><div className="v">{yen(a.exp)}</div><div className="n">固定費 {yen(a.fixedCost)} を直す</div>
+          <div className="k">今月の経費<ChevRight size={13} className="chevt" /></div><div className="v">{yen(a.exp)}</div><div className="n">固定費 {yenShort(a.fixedCost)}</div>
         </button>
       </div>
 

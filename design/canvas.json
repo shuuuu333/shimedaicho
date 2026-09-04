@@ -1,0 +1,33 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "仕上げ案（B）" },
+    { "id": "page-2", "name": "最初の3案" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html",         "page": "page-1", "x": 0,    "y": 0,    "w": 390, "h": 844, "title": "今月・暗い" },
+    { "file": "Day.dc.html",          "page": "page-1", "x": 470,  "y": 0,    "w": 390, "h": 844, "title": "日報・暗い" },
+    { "file": "Cast.dc.html",         "page": "page-1", "x": 940,  "y": 0,    "w": 390, "h": 844, "title": "キャスト・暗い" },
+    { "file": "Settings.dc.html",     "page": "page-1", "x": 1410, "y": 0,    "w": 390, "h": 844, "title": "設定・暗い" },
+
+    { "file": "MainLight.dc.html",    "page": "page-1", "x": 0,    "y": 1010, "w": 390, "h": 844, "title": "今月・明るい" },
+    { "file": "DayLight.dc.html",     "page": "page-1", "x": 470,  "y": 1010, "w": 390, "h": 844, "title": "日報・明るい" },
+    { "file": "CastLight.dc.html",    "page": "page-1", "x": 940,  "y": 1010, "w": 390, "h": 844, "title": "キャスト・明るい" },
+    { "file": "SettingsLight.dc.html","page": "page-1", "x": 1410, "y": 1010, "w": 390, "h": 844, "title": "設定・明るい" },
+
+    { "file": "AMonth.dc.html", "page": "page-2", "x": 0,   "y": 0,    "w": 375, "h": 900, "title": "A案・今月" },
+    { "file": "ADay.dc.html",   "page": "page-2", "x": 455, "y": 0,    "w": 375, "h": 900, "title": "A案・日報" },
+    { "file": "ACast.dc.html",  "page": "page-2", "x": 910, "y": 0,    "w": 375, "h": 900, "title": "A案・キャスト" },
+    { "file": "BMonth.dc.html", "page": "page-2", "x": 0,   "y": 1080, "w": 375, "h": 900, "title": "B案・今月（採用）" },
+    { "file": "BDay.dc.html",   "page": "page-2", "x": 455, "y": 1080, "w": 375, "h": 900, "title": "B案・日報" },
+    { "file": "BCast.dc.html",  "page": "page-2", "x": 910, "y": 1080, "w": 375, "h": 900, "title": "B案・キャスト" },
+    { "file": "CMonth.dc.html", "page": "page-2", "x": 0,   "y": 2160, "w": 375, "h": 900, "title": "C案・今月" },
+    { "file": "CDay.dc.html",   "page": "page-2", "x": 455, "y": 2160, "w": 375, "h": 900, "title": "C案・日報" },
+    { "file": "CCast.dc.html",  "page": "page-2", "x": 910, "y": 2160, "w": 375, "h": 900, "title": "C案・キャスト" }
+  ],
+  "annotations": [
+    { "id": "intro", "page": "page-1", "x": 0, "y": -230, "w": 1800, "text": "締め台帳 UI 仕上げ案（B案ベース）\n上の段が暗い版、下の段が明るい版。同じ組み方で色だけを入れ替えているので、設定の「見た目」でいつでも切り替えられます。画面は iPhone の実寸（390×844）で、スクロールせずに見える範囲だけを描いています。数字は見本です。" },
+    { "id": "color", "page": "page-1", "x": 0, "y": -105, "w": 1800, "text": "色の決まり: 現金＝青、カード＝紫、人件費＝緑、経費＝黄。赤は「赤字」と「入力もれ」だけに使い、グラフには出しません。前の案ではカードが朱色で赤字と紛らわしかったので、紫に変えました。" },
+    { "id": "old", "page": "page-2", "x": 0, "y": -110, "w": 1285, "text": "最初に見比べた3案（参考）。B案を採用し、上のページで仕上げています。" }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../../state/store";
 import { NumberField } from "../components/NumberField";
-import { Trash } from "../icons";
+import { Moon, Phone, Sun, Trash } from "../icons";
 import { CloudCard } from "../components/CloudCard";
 import { useCloud } from "../../state/cloud";
 import { uid } from "../../domain/format";
@@ -30,6 +30,19 @@ export function Settings() {
   const fileRef = useRef<HTMLInputElement>(null);
   const S = L.shop;
   const role = useCloud((s) => s.role());
+  const theme = useApp((s) => s.theme);
+  const setTheme = useApp((s) => s.setTheme);
+
+  const themeCard = (
+    <div className="card" id="set-theme">
+      <h2>見た目</h2><p className="sub">「端末に合わせる」にすると、スマホの設定が暗いときだけ暗くなります。</p>
+      <div className="seg wide" role="group" aria-label="見た目の切替">
+        <button type="button" aria-pressed={theme === "auto"} onClick={() => setTheme("auto")}><Phone />端末に合わせる</button>
+        <button type="button" aria-pressed={theme === "light"} onClick={() => setTheme("light")}><Sun />明るい</button>
+        <button type="button" aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}><Moon />暗い</button>
+      </div>
+    </div>
+  );
 
   useEffect(() => {
     if (!ui.setFocus) { window.scrollTo(0, 0); return; }
@@ -76,6 +89,7 @@ export function Settings() {
   if (role === "staff") {
     return (
       <>
+        {themeCard}
         <CloudCard />
         <div className="card">
           <h2>使い方（スタッフ）</h2>
@@ -90,6 +104,7 @@ export function Settings() {
 
   return (
     <>
+      {themeCard}
       <div className="card" id="set-shop">
         <h2>店舗</h2>
         <label className="field"><span className="lbl">店名</span><input className="inp" value={S.name} placeholder="店名" onChange={(e) => shop("name", e.target.value)} /></label>
@@ -144,7 +159,7 @@ export function Settings() {
         <h2>月の固定費</h2><p className="sub">日報に出てこない毎月かかるもの。今月の利益から引かれます。</p>
         <div className="row2">
           <label className="field"><span className="lbl">固定人件費（店長など）</span><NumberField value={S.fixedLabor} onChange={(v) => shop("fixedLabor", v ?? 0)} /></label>
-          <label className="field"><span className="lbl">家賃ほか固定費</span><NumberField value={S.fixedCost} onChange={(v) => shop("fixedCost", v ?? 0)} /></label>
+          <label className="field"><span className="lbl">家賃など固定費</span><NumberField value={S.fixedCost} onChange={(v) => shop("fixedCost", v ?? 0)} /></label>
         </div>
       </div>
 

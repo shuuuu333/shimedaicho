@@ -5,7 +5,7 @@ import { dayLabel, jp, monthLabel, todayISO, uid, yen } from "../../domain/forma
 import { emptyDay } from "../../domain/migrate";
 import { MonthBar } from "../components/MonthBar";
 import { NumberField } from "../components/NumberField";
-import { Trash } from "../icons";
+import { ChevRight, Trash } from "../icons";
 
 export function Casts() {
   const L = useApp((s) => s.ledger);
@@ -40,11 +40,31 @@ export function Casts() {
 
   return (
     <>
-      <MonthBar month={m} onChange={(mm) => setUI({ month: mm, castDetail: null })} right={<>未払い計 <b className="num">{yen(mt.unpaid)}</b></>} />
+      <MonthBar month={m} onChange={(mm) => setUI({ month: mm, castDetail: null })} right={<>未払い計<b>{yen(mt.unpaid)}</b></>} />
       {mt.paidLump > 0 && <div className="banner">今月は「まとめて払った日払い」が <b>{yen(mt.paidLump)}</b> あります。人件費には入っていますが、誰にいくらかは記録していないので下の表には出てきません。</div>}
 
-      <div className="card">
-        <h2>在籍キャストの給料</h2><p className="sub">支給額 ＝ 時給分 ＋ バック − 控除。名前をタップすると日別の明細が出ます。</p>
+      <div className="sechead" style={{ marginTop: 0 }}>
+        <div className="t">キャスト別の給料</div><div className="l" />
+        <div className="n">{rows.length}名 · {rows.reduce((s, r) => s + r.days, 0)}日</div>
+      </div>
+      {rows.map((r) => (
+        <button key={r.cast.id} type="button" className="wrow" aria-expanded={ui.castDetail === r.cast.id} onClick={() => toggleDetail(r.cast.id)}>
+          <span className="avatar">{(r.cast.name || "?").slice(0, 1)}</span>
+          <span className="g">
+            <span className="t">{r.cast.name || "（名前なし）"}</span>
+            <span className="s">{r.days}日 · {r.hours.toFixed(1)}h · バック {jp(r.backTotal)}</span>
+          </span>
+          <span className="r">
+            <span className="a">{jp(r.gross)}</span>
+            <span className={`n ${r.unpaid > 0 ? "due" : "ok"}`}>{r.unpaid > 0 ? `未払い ${jp(r.unpaid)}` : "支払い済み"}</span>
+          </span>
+          <ChevRight size={15} className="chevi" />
+        </button>
+      ))}
+      {!rows.length && <div className="card"><div className="empty">この月の出勤記録がまだありません</div></div>}
+
+      <div className="card" style={{ display: "none" }}>
+        <h2>在籍キャストの給料</h2><p className="sub">支給額 ＝ 時給分 ＋ バック − 控除</p>
         {rows.length ? (
           <div className="tw"><table>
             <thead><tr><th>キャスト</th><th>日数</th><th>時間</th><th>時給分</th><th>バック</th><th>支給</th><th>日払い</th><th>精算</th><th>未払い</th></tr></thead>
@@ -92,11 +112,11 @@ export function Casts() {
         <h2>未払いの精算</h2><p className="sub">{monthLabel(m)}分。渡したら「今日精算」を押すと今日の日報に記録され、手元の現金からも引かれます。</p>
         {owed.length ? owed.map((x) => (
           <div key={x.who} className="owe"><div className="g"><div className="t">{x.name}</div></div><span className="a">{yen(x.unpaid)}</span>
-            <button type="button" className="btn sm primary" onClick={() => settle([x])}>今日精算</button></div>
+            <button type="button" className="btn sm primary" onClick={() => settle([x])}>渡した</button></div>
         )) : <div className="empty" style={{ padding: 14 }}>{monthLabel(m)}分の未払いはありません</div>}
         {owed.length > 1 && (
           <div className="btnrow" style={{ marginTop: 10, alignItems: "center" }}>
-            <button type="button" className="btn sm" onClick={() => settle(owed)}>全員まとめて今日精算</button>
+            <button type="button" className="btn sm" onClick={() => settle(owed)}>全員分をまとめて渡した</button>
             <span className="hint" style={{ margin: "0 0 0 auto" }}>合計 <b className="num">{yen(owed.reduce((s, x) => s + x.unpaid, 0))}</b></span>
           </div>
         )}

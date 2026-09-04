@@ -19,8 +19,8 @@ export default defineConfig({
         start_url: process.env.VITE_BASE || "/",
         scope: process.env.VITE_BASE || "/",
         display: "standalone",
-        background_color: "#EFEBE3",
-        theme_color: "#9C6F1C",
+        background_color: "#0B0D11",
+        theme_color: "#0B0D11",
         icons: [
           { src: "icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
           { src: "icon-192.png", sizes: "192x192", type: "image/png" },

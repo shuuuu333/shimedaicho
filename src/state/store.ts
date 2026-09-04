@@ -9,6 +9,8 @@ import type { Repository } from "../data/repository";
 import { LocalRepository } from "../data/localRepository";
 
 export type SaveState = "loading" | "saving" | "saved" | "error";
+/** 見た目: 端末に合わせる / 明るい / 暗い */
+export type Theme = "auto" | "light" | "dark";
 export type Tab = "month" | "day" | "cast" | "set";
 export type Sheet = { kind: "cast"; id: string } | { kind: "disp"; id: string } | null;
 
@@ -38,9 +40,11 @@ export interface AppStore {
   lastBackupAt: string | null;
   ui: UIState;
   toast: ToastState | null;
+  theme: Theme;
 
   init(): Promise<void>;
   setUI(patch: Partial<UIState>): void;
+  setTheme(t: Theme): void;
   /** 台帳を変更する。mut は draft を直接書き換えてよい */
   update(mut: (L: Ledger) => void): void;
   /** 変更して、6 秒間「元に戻す」を出す */
@@ -63,6 +67,27 @@ export interface AppStore {
 
 const SAVE_DELAY = 300;
 const UNDO_MS = 6000;
+const LS_THEME = "shimedaicho.theme";
+
+function readTheme(): Theme {
+  try {
+    const v = localStorage.getItem(LS_THEME);
+    if (v === "auto" || v === "light" || v === "dark") return v;
+  } catch { /* ignore */ }
+  return "dark";
+}
+/** ルート要素に data-theme を付け外しする。auto のときは付けない（端末の設定に従う） */
+export function applyTheme(t: Theme): void {
+  if (typeof document === "undefined") return;
+  const el = document.documentElement;
+  if (t === "auto") delete el.dataset.theme;
+  else el.dataset.theme = t;
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) {
+    const dark = t === "dark" || (t === "auto" && window.matchMedia?.("(prefers-color-scheme: dark)").matches);
+    meta.setAttribute("content", dark ? "#0B0D11" : "#F4F5F7");
+  }
+}
 
 export function createAppStore(repo: Repository) {
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -107,6 +132,7 @@ export function createAppStore(repo: Repository) {
       lastBackupAt: null,
       ui: { tab: "month", month: t.slice(0, 7), monthView: "month", day: t, step: 0, monthMode: "chart", calDay: null, castDetail: null, setFocus: null, sheet: null },
       toast: null,
+      theme: readTheme(),
 
       async init() {
         try {
@@ -124,6 +150,11 @@ export function createAppStore(repo: Repository) {
         }
       },
       setUI(patch) { set({ ui: { ...get().ui, ...patch } }); },
+      setTheme(t) {
+        set({ theme: t });
+        applyTheme(t);
+        try { localStorage.setItem(LS_THEME, t); } catch { /* ignore */ }
+      },
       update(mut) {
         set({ ledger: produce(get().ledger, mut) });
         schedule();
@@ -191,6 +222,7 @@ export function createAppStore(repo: Repository) {
 export const useApp = createAppStore(new LocalRepository());
 
 if (typeof window !== "undefined") {
+  applyTheme(useApp.getState().theme);
   const flush = () => { void useApp.getState().flush(); };
   window.addEventListener("pagehide", flush);
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flush(); });

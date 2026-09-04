@@ -1,284 +1,250 @@
-/* 基本スタイル（旧アーティファクトのクラス名を踏襲） */
+/* 基本スタイル。スマホ幅（390px）を基準に組む。押す所は高さ44px以上。 */
 *{box-sizing:border-box}
+html,body{background:var(--bg)}
 body{
-  margin:0; background:var(--bg); color:var(--ink);
-  font-family:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
-  font-size:15px; line-height:1.6;
-  -webkit-text-size-adjust:100%;
+  margin:0; color:var(--ink);
+  font-family:"IBM Plex Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
+  font-size:15px; line-height:1.5;
+  -webkit-text-size-adjust:100%; -webkit-font-smoothing:antialiased;
 }
-.num{font-family:"Archivo","Zen Kaku Gothic New",system-ui,sans-serif; font-variant-numeric:tabular-nums;}
+.num{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; letter-spacing:-.01em}
 button{font:inherit; color:inherit}
-input,select{font:inherit; color:inherit}
-:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:6px}
+input,select,textarea{font:inherit; color:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:8px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
-/* ---------- shell ---------- */
-.app{max-width:480px; margin:0 auto; min-height:100vh; background:var(--bg);
-     padding:0 0 92px; position:relative}
-@media(min-width:520px){ .app{box-shadow:var(--shadow); min-height:100vh} }
-
+/* ---------- 骨組み ---------- */
+.app{max-width:430px; margin:0 auto; min-height:100dvh; background:var(--bg); padding:0 0 84px; position:relative}
 .topbar{position:sticky; top:0; z-index:30; background:var(--bg);
-  border-bottom:1px solid var(--line); padding:12px 16px 10px;
-  display:flex; align-items:center; gap:10px}
+  padding:14px var(--gutter) 10px; display:flex; align-items:center; gap:10px}
 .brand{display:flex; align-items:baseline; gap:8px; min-width:0}
-.brand b{font-weight:700; font-size:16px; letter-spacing:.02em; white-space:nowrap}
-.brand span{font-size:11.5px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.savechip{margin-left:auto; display:inline-flex; align-items:center; gap:6px;
-  font-size:11px; letter-spacing:.04em; color:var(--ink-3);
-  border:1px solid var(--line); border-radius:999px; padding:4px 9px; background:var(--surface); white-space:nowrap}
-.savedot{width:6px;height:6px;border-radius:50%;background:var(--ink-3);flex:none}
-.savechip[data-s="saving"] .savedot{background:var(--warn)}
-.savechip[data-s="saved"] .savedot{background:var(--good)}
-.savechip[data-s="local"] .savedot{background:var(--warn)}
-.savechip[data-s="error"] .savedot{background:var(--crit)}
-
-main{padding:14px 14px 0}
+.brand b{font-weight:700; font-size:15.5px; letter-spacing:.01em; white-space:nowrap}
+.brand span{font-size:11px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+main{padding:0 var(--gutter)}
 .view{display:none} .view.on{display:block}
 
-/* ---------- cards ---------- */
-.card{background:var(--surface); border:1px solid var(--line); border-radius:14px;
-  padding:14px; margin-bottom:12px}
-.card>h2{margin:0 0 2px; font-size:13px; font-weight:700; letter-spacing:.05em; color:var(--ink-2)}
-.card>h2+.sub{margin:0 0 12px; font-size:11.5px; color:var(--ink-3)}
-.eyebrow{font-size:10.5px; letter-spacing:.14em; text-transform:uppercase;
-  color:var(--ink-3); font-weight:600; font-family:"Archivo",system-ui,sans-serif}
+/* 保存チップ */
+.savechip{margin-left:auto; display:inline-flex; align-items:center; gap:6px;
+  font-size:11px; color:var(--ink-3); border:0; border-radius:999px; padding:6px 11px;
+  background:var(--surface-2); white-space:nowrap; cursor:pointer; font-weight:500}
+.savedot{width:6px;height:6px;border-radius:50%;background:var(--ink-3);flex:none}
+.savechip[data-s="saving"]{background:var(--surface-2); color:var(--ink-2)}
+.savechip[data-s="saving"] .savedot{background:var(--warn)}
+.savechip[data-s="saved"]{background:var(--good-bg); color:var(--good)}
+.savechip[data-s="saved"] .savedot{background:var(--good)}
+.savechip[data-s="local"] .savedot{background:var(--warn)}
+.savechip[data-s="error"]{background:var(--crit-bg); color:var(--crit)}
+.savechip[data-s="error"] .savedot{background:var(--crit)}
+.savechip .num{font-size:11px}
 
-/* ---------- hero ---------- */
-.hero{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:16px 14px 14px; margin-bottom:12px}
+/* ---------- 面 ---------- */
+.card{background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card);
+  padding:16px; margin-bottom:12px; box-shadow:var(--shadow)}
+.card>h2{margin:0 0 2px; font-size:13.5px; font-weight:600; letter-spacing:.01em; color:var(--ink)}
+.card>h2+.sub{margin:0 0 14px; font-size:11.5px; color:var(--ink-3); line-height:1.45}
+.cardhead{display:flex; align-items:center; gap:10px; margin-bottom:10px}
+.cardhead h2{margin:0; flex:1; min-width:0; font-size:13.5px; font-weight:600; color:var(--ink)}
+.cardhead+.sub{margin:0 0 12px; font-size:11.5px; color:var(--ink-3)}
+.eyebrow{font-size:12px; color:var(--ink-2); font-weight:600}
+
+/* 見出し行（セクション） */
+.sechead{display:flex; align-items:center; gap:8px; margin:20px 0 8px}
+.sechead .t{font-size:12px; color:var(--ink-2); font-weight:600}
+.sechead .l{flex:1; height:1px; background:var(--line)}
+.sechead .n{font-size:11px; color:var(--ink-3)}
+
+/* ---------- ヒーロー ---------- */
+.hero{background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card);
+  padding:16px 16px 14px; margin-bottom:12px; box-shadow:var(--shadow)}
 .hero .label{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-2);font-weight:500}
-.hero .big{font-size:clamp(27px,9.2vw,38px); line-height:1.1; font-weight:700; letter-spacing:-.02em; margin:6px 0 2px;
-  font-family:"Archivo",system-ui,sans-serif}
+.hero .big{font-size:clamp(30px,9.6vw,38px); line-height:1.05; font-weight:600; letter-spacing:-.03em;
+  margin:2px 0 14px; font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
 .hero .big.neg{color:var(--crit)}
-.hero .meta{font-size:11.5px; color:var(--ink-3)}
 .heroSplit{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:14px; padding-top:12px; border-top:1px solid var(--line)}
+.heroSplit.cols3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .heroSplit .k{font-size:11px; color:var(--ink-3)}
-.heroSplit .v{font-size:19px; font-weight:600; font-family:"Archivo",system-ui,sans-serif; font-variant-numeric:tabular-nums}
+.heroSplit .v{font-size:17px; font-weight:600; font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
 
+/* 内訳バー */
+.mixbar{display:flex; height:8px; border-radius:999px; overflow:hidden; gap:2px}
+.mixlegend{display:flex; gap:13px; margin-top:10px; font-size:11px; color:var(--ink-2); flex-wrap:wrap}
+.mixlegend span{display:flex; align-items:center; gap:5px}
+.mixlegend b{font-family:"IBM Plex Mono",ui-monospace,monospace; color:var(--ink); font-weight:500}
+
+/* ---------- タイル ---------- */
 .tiles{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:12px}
-.tile{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:11px 12px}
-.tile .k{font-size:11px; color:var(--ink-3); display:flex; align-items:center; gap:5px; min-width:0}
-.tile .v{font-size:clamp(15px,5vw,20px); overflow-wrap:anywhere; font-weight:600; margin-top:3px; font-family:"Archivo",system-ui,sans-serif; font-variant-numeric:tabular-nums; letter-spacing:-.01em}
-.tile .n{font-size:10.5px; color:var(--ink-3); margin-top:1px; overflow-wrap:anywhere}
-.swatch{width:9px;height:9px;border-radius:2.5px;flex:none;display:inline-block}
+.tile{background:var(--surface); border:1px solid var(--line); border-radius:var(--r-tile); padding:12px 14px; box-shadow:var(--shadow)}
+.tile .k{font-size:11.5px; color:var(--ink-2); font-weight:500; display:flex; align-items:center; gap:6px; min-width:0}
+.tile .v{font-size:20px; overflow-wrap:anywhere; font-weight:600; margin-top:2px;
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums; letter-spacing:-.02em}
+.tile .n{font-size:11px; color:var(--ink-3); overflow-wrap:anywhere}
+.tile .n.ok{color:var(--good)}
+.tile.link{position:relative; text-align:left; font:inherit; color:inherit; cursor:pointer; display:block; width:100%;
+  -webkit-tap-highlight-color:transparent}
+.tile.link:active{background:var(--surface-2)}
+.tile .k .chevt{margin-left:auto; color:var(--ink-3); flex:none}
+.swatch{width:8px;height:8px;border-radius:2px;flex:none;display:inline-block}
 
-.pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
-  border-radius:999px;padding:2px 8px;border:1px solid transparent}
-.pill.ok{color:var(--good-text); background:color-mix(in srgb,var(--good) 12%,transparent); border-color:color-mix(in srgb,var(--good) 30%,transparent)}
-.pill.bad{color:var(--crit); background:color-mix(in srgb,var(--crit) 12%,transparent); border-color:color-mix(in srgb,var(--crit) 30%,transparent)}
-.pill.warn{color:var(--ink); background:color-mix(in srgb,var(--warn) 20%,transparent); border-color:color-mix(in srgb,var(--warn) 45%,transparent)}
+/* ---------- 見出しの月・日付 ---------- */
+.titlebar{display:flex; align-items:flex-end; gap:10px; padding:2px 0 14px}
+.titlebar .y{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:12px; color:var(--ink-3); font-weight:500}
+.titlebar .m{font-size:30px; font-weight:700; letter-spacing:-.01em; line-height:1.1}
+.titlebar .sp{margin-left:auto; font-size:11.5px; color:var(--ink-3)}
+.monthbar{display:flex; align-items:center; gap:10px; margin-bottom:12px}
+.monthbar .mb{background:var(--surface-2); border:0; border-radius:11px;
+  width:38px;height:38px;display:grid;place-items:center;cursor:pointer;color:var(--ink-2)}
+.monthbar .mb:active{background:var(--surface-3)}
+.monthbar .lbl{font-weight:700; font-size:21px; letter-spacing:-.01em}
+.monthbar .sp{margin-left:auto; font-size:11.5px; color:var(--ink-3); text-align:right}
+.monthbar .sp b{display:block; font-size:19px; font-weight:600; color:var(--ink);
+  font-family:"IBM Plex Mono",ui-monospace,monospace}
+.mb.today{width:auto; padding:0 13px; font-size:12.5px; font-weight:600; color:var(--accent); background:var(--accent-soft)}
 
-/* ---------- forms ---------- */
-.field{display:block; margin-bottom:11px}
-.field .lbl{display:block; font-size:11.5px; color:var(--ink-2); margin-bottom:4px; font-weight:500}
-.inp{width:100%; min-width:0; background:var(--surface-2); border:1px solid var(--line-strong); border-radius:10px;
-  padding:10px 11px; font-size:16px; color:var(--ink)}
-.inp.num{font-family:"Archivo",system-ui,sans-serif; font-variant-numeric:tabular-nums; text-align:right}
+/* 切替（セグメント） */
+.seg{display:flex; flex:none; background:var(--surface-2); border-radius:11px; padding:3px}
+.seg button{border:0; background:transparent; padding:7px 14px; font-size:12.5px; font-weight:500;
+  color:var(--ink-3); cursor:pointer; white-space:nowrap; border-radius:8px}
+.seg button[aria-pressed="true"]{background:var(--surface); color:var(--ink); font-weight:600; box-shadow:var(--shadow)}
+.seg.wide{width:100%}
+.seg.wide button{flex:1; display:flex; align-items:center; justify-content:center; gap:6px; height:40px; padding:0}
+
+/* ---------- 入力 ---------- */
+.field{display:block; margin-bottom:12px}
+.field .lbl{display:block; font-size:11.5px; color:var(--ink-2); margin-bottom:5px; font-weight:500}
+.inp{width:100%; min-width:0; background:var(--surface-2); border:1px solid transparent; border-radius:12px;
+  padding:12px 13px; font-size:16px; color:var(--ink); min-height:46px}
+.inp:focus{border-color:var(--accent); background:var(--surface)}
+.inp.num{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums; text-align:right; font-weight:500}
 .inp:disabled{opacity:.5}
 .row2{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px}
 .row3{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px}
-.row3 .inp{font-size:15px; padding:9px 8px}
-.rowshift{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) 66px; gap:8px}
-.rowshift .inp{min-width:0; font-size:15px; padding:9px 7px}
-.rowshift input[type=time]{text-align:center}
-.hint{font-size:11px; color:var(--ink-3); margin-top:4px}
+.row3 .inp{font-size:15px; padding:11px 9px}
+.hint{font-size:11.5px; color:var(--ink-3); margin-top:6px; line-height:1.45}
+.hint b{color:var(--ink); font-weight:600}
 
-.btn{display:inline-flex; align-items:center; justify-content:center; gap:6px;
-  background:var(--surface-2); border:1px solid var(--line-strong); border-radius:10px;
-  padding:9px 14px; font-size:13.5px; font-weight:600; cursor:pointer}
-.btn:active{transform:translateY(1px)}
-.btn.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-ink)}
-.btn.ghost{background:transparent}
-.btn.danger{color:var(--crit); border-color:color-mix(in srgb,var(--crit) 35%,transparent)}
+/* ---------- ボタン ---------- */
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:7px;
+  background:var(--surface-2); border:0; border-radius:12px;
+  padding:0 16px; min-height:44px; font-size:14.5px; font-weight:600; cursor:pointer; color:var(--ink-2)}
+.btn:active{opacity:.75}
+.btn.primary{background:var(--accent); color:var(--accent-ink)}
+.btn.ghost{background:transparent; border:1px solid var(--line-strong)}
+.btn.danger{color:var(--crit); background:var(--crit-bg)}
 .btn.wide{width:100%}
-.btn.sm{padding:6px 10px; font-size:12px; border-radius:8px}
+.btn.sm{min-height:38px; padding:0 13px; font-size:13px; border-radius:10px}
 .btnrow{display:flex; gap:8px; flex-wrap:wrap}
 
-/* ---------- cast shift rows ---------- */
-.shift{border:1px solid var(--line); border-radius:12px; margin-bottom:8px; background:var(--surface-2); overflow:hidden}
-.shift.on{background:var(--surface); border-color:var(--line-strong)}
-.shift .head{display:flex; align-items:center; gap:10px; padding:10px 12px; cursor:pointer}
-.shift .head .nm{font-weight:600; font-size:14px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.shift .head .tag{flex:none; font-size:10px; font-weight:700; letter-spacing:.06em; color:var(--accent);
-  border:1px solid color-mix(in srgb,var(--accent) 40%,transparent); background:var(--accent-soft);
-  border-radius:5px; padding:2px 5px; line-height:1.3}
-.shift .head .amt{margin-left:auto; font-family:"Archivo",system-ui,sans-serif; font-variant-numeric:tabular-nums;
-  font-size:14px; font-weight:600; color:var(--ink-2)}
-.shift .head .chev{color:var(--ink-3); flex:none; transition:transform .18s}
-.shift.open .chev{transform:rotate(180deg)}
-.shift .body{display:none; padding:0 12px 12px; border-top:1px solid var(--line)}
-.shift.open .body{display:block}
-.tick{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line-strong);flex:none;
-  display:grid;place-items:center;background:var(--surface)}
-.shift.on .tick{background:var(--accent); border-color:var(--accent)}
-.shift.on .tick svg{display:block; color:var(--accent-ink)}
-.tick svg{display:none;width:12px;height:12px}
-
-.stepper{display:flex; align-items:center; gap:0; border:1px solid var(--line-strong); border-radius:9px; overflow:hidden; background:var(--surface-2)}
-.stepper button{width:31px;height:36px;border:0;background:transparent;font-size:17px;font-weight:600;cursor:pointer;color:var(--ink-2)}
-.stepper input{width:40px;height:36px;border:0;background:transparent;text-align:center;font-size:15px;
-  font-family:"Archivo",system-ui,sans-serif; font-variant-numeric:tabular-nums}
-.backrow{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)}
-.backrow:last-child{border-bottom:0}
-.itemcard{border:1px solid var(--line); border-radius:11px; padding:10px; margin-bottom:8px; background:var(--surface-2)}
-.backrow .bn{font-size:12.5px; line-height:1.35}
-.backrow .br{font-size:10.5px;color:var(--ink-3)}
-.backrow .ctl{margin-left:auto;display:flex;align-items:center;gap:7px;flex:none}
-.backrow .sum{font-size:12px;color:var(--ink-3);font-family:"Archivo",system-ui,sans-serif;
-  font-variant-numeric:tabular-nums;min-width:50px;text-align:right;flex:none}
-
-/* ---------- lists / tables ---------- */
-.tw{overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0 -4px}
-table{border-collapse:collapse; width:100%; font-size:12.5px}
-th,td{padding:7px 8px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--line)}
-th{font-size:10.5px; letter-spacing:.06em; color:var(--ink-3); font-weight:600; text-align:right;
-  border-bottom:1px solid var(--line-strong)}
-th:first-child,td:first-child{text-align:left; padding-left:4px}
-td.n{font-family:"Archivo",system-ui,sans-serif; font-variant-numeric:tabular-nums}
-tr:last-child td{border-bottom:0}
-tfoot td{font-weight:700; border-top:1px solid var(--line-strong); border-bottom:0}
-
-.lrow{display:flex;align-items:center;gap:10px;padding:10px 2px;border-bottom:1px solid var(--line)}
+/* ---------- 行 ---------- */
+.lrow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
 .lrow:last-child{border-bottom:0}
 .lrow .g{flex:1;min-width:0}
-.lrow .t{font-weight:600;font-size:14px}
+.lrow .t{font-weight:500;font-size:14.5px}
 .lrow .s{font-size:11.5px;color:var(--ink-3)}
-.lrow .a{font-family:"Archivo",system-ui,sans-serif;font-variant-numeric:tabular-nums;font-weight:600}
+.lrow .a{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;font-weight:600}
+.total{border-top:1px solid var(--line-strong); margin-top:4px}
+.total .a{font-size:19px}
+.neg{color:var(--crit)}
+.muted{color:var(--ink-3)}
+.sec{margin-top:18px}
 
-.empty{text-align:center; padding:28px 12px; color:var(--ink-3); font-size:13px}
-
-/* ---------- charts ---------- */
-.chart{position:relative}
-.chart svg{display:block; width:100%; height:auto; overflow:visible}
-.legend{display:flex; flex-wrap:wrap; gap:12px; margin:10px 0 4px; font-size:11.5px; color:var(--ink-2)}
-.legend i{display:inline-block;width:9px;height:9px;border-radius:2.5px;margin-right:5px;vertical-align:-1px}
-.tip{position:absolute; pointer-events:none; z-index:5; background:var(--surface);
-  border:1px solid var(--line-strong); border-radius:9px; padding:7px 9px; font-size:11.5px;
-  box-shadow:var(--shadow); min-width:118px; opacity:0; transition:opacity .1s}
-.tip.on{opacity:1}
-.tip .d{font-weight:700; margin-bottom:4px; font-size:12px}
-.tip .r{display:flex; gap:10px; align-items:center}
-.tip .r span:last-child{margin-left:auto; font-family:"Archivo",system-ui,sans-serif; font-variant-numeric:tabular-nums}
-
-.iconbtn{flex:none; width:38px; height:38px; display:grid; place-items:center; cursor:pointer;
-  background:var(--surface-2); border:1px solid var(--line-strong); border-radius:10px; color:var(--ink-3);
-  -webkit-tap-highlight-color:transparent}
-.iconbtn:hover,.iconbtn:active{color:var(--crit); border-color:color-mix(in srgb,var(--crit) 45%,transparent);
-  background:color-mix(in srgb,var(--crit) 10%,transparent)}
-.shift .head .iconbtn{width:32px; height:32px; border-radius:8px; background:transparent; border-color:transparent}
-
-/* ---------- tappable tiles & rows ---------- */
-.tile.link{position:relative; text-align:left; font:inherit; color:inherit; cursor:pointer; display:block;
-  padding-right:24px; -webkit-tap-highlight-color:transparent}
-.tile.link:active{background:var(--surface-2)}
-.chevt{position:absolute; top:11px; right:9px; color:var(--ink-3); opacity:.75}
-.tr-link{cursor:pointer}
-.tr-link:hover td{background:var(--surface-2)}
-.setrow{display:flex; align-items:center; gap:10px; width:100%; text-align:left; font:inherit; color:inherit;
-  background:transparent; border:0; border-bottom:1px solid var(--line); padding:11px 2px; cursor:pointer}
+.setrow{display:flex; align-items:center; gap:12px; width:100%; text-align:left; font:inherit; color:inherit;
+  background:transparent; border:0; border-bottom:1px solid var(--line); padding:13px 0; cursor:pointer; min-height:56px}
 .setrow:last-of-type{border-bottom:0}
-.setrow:active{background:var(--surface-2)}
+.setrow:active{opacity:.7}
 .setrow .g{flex:1; min-width:0; display:block}
-.setrow .t{display:block; font-weight:600; font-size:14px}
+.setrow .t{display:block; font-weight:500; font-size:15px}
 .setrow .s{display:block; font-size:11.5px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .chevi{flex:none; color:var(--ink-3)}
-.flash{animation:flashcard 1.8s ease}
-@keyframes flashcard{
-  0%,12%{border-color:var(--accent); box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 30%,transparent)}
-  100%{border-color:var(--line); box-shadow:0 0 0 0 transparent}
-}
-@media (prefers-reduced-motion:reduce){ .flash{animation:none; border-color:var(--accent)} }
 
-/* ---------- card head / segmented ---------- */
-.cardhead{display:flex; align-items:center; gap:10px; margin-bottom:8px}
-.cardhead h2{margin:0; flex:1; min-width:0; font-size:13px; font-weight:700; letter-spacing:.05em; color:var(--ink-2)}
-.cardhead+.sub{margin:0 0 12px; font-size:11.5px; color:var(--ink-3)}
-.seg{display:flex; flex:none; border:1px solid var(--line-strong); border-radius:9px; overflow:hidden; background:var(--surface-2)}
-.seg button{border:0; background:transparent; padding:6px 10px; font-size:11.5px; font-weight:600;
-  color:var(--ink-3); cursor:pointer; white-space:nowrap}
-.seg button+button{border-left:1px solid var(--line-strong)}
-.seg button[aria-pressed="true"]{background:var(--accent); color:var(--accent-ink)}
+/* ---------- 表 ---------- */
+.tw{overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0 -2px}
+table{border-collapse:collapse; width:100%; font-size:12.5px}
+th,td{padding:9px 8px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--line)}
+th{font-size:10.5px; letter-spacing:.02em; color:var(--ink-3); font-weight:600; text-align:right}
+th:first-child,td:first-child{text-align:left; padding-left:2px}
+td.n{font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+tfoot td{font-weight:600; border-top:1px solid var(--line-strong); border-bottom:0; color:var(--ink-2)}
+.tr-link{cursor:pointer}
+.tr-link:active td{background:var(--surface-2)}
 
-/* ---------- calendar ---------- */
-.cal-head{display:grid; grid-template-columns:repeat(7,1fr); gap:3px; margin-bottom:4px}
-.cal-head span{text-align:center; font-size:10px; font-weight:600; letter-spacing:.06em; color:var(--ink-3)}
-.cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:3px}
-.cal-cell{position:relative; border:1px solid var(--line); border-radius:8px; background:var(--surface);
-  padding:4px 3px 6px; min-height:52px; display:flex; flex-direction:column; align-items:stretch;
-  gap:1px; cursor:pointer; text-align:left; font:inherit; color:inherit; overflow:hidden}
-.cal-cell.blank{border:0; background:transparent; min-height:52px; pointer-events:none}
-.cal-cell.wk{background:var(--surface-2)}
-.cal-cell .cd{font-size:10px; color:var(--ink-3); font-family:"Archivo",system-ui,sans-serif; line-height:1.2}
+.empty{text-align:center; padding:26px 12px; color:var(--ink-3); font-size:13px}
+
+/* ---------- グラフ ---------- */
+.chart{position:relative}
+.chart svg{display:block; width:100%; height:auto; overflow:visible}
+.legend{display:flex; flex-wrap:wrap; gap:11px; margin:10px 0 2px; font-size:10.5px; color:var(--ink-2)}
+.legend span{display:flex; align-items:center; gap:5px}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:2px}
+.xaxis{display:flex; justify-content:space-between; font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-size:9.5px; color:var(--ink-3); margin-top:3px}
+.tip{position:absolute; pointer-events:none; z-index:5; background:var(--surface);
+  border:1px solid var(--line-strong); border-radius:10px; padding:8px 10px; font-size:11.5px;
+  box-shadow:var(--shadow-lg); min-width:124px; opacity:0; transition:opacity .1s}
+.tip.on{opacity:1}
+.tip .d{font-weight:600; margin-bottom:5px; font-size:12px}
+.tip .r{display:flex; gap:10px; align-items:center}
+.tip .r span:last-child{margin-left:auto; font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+
+/* ---------- カレンダー ---------- */
+.cal-head{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:5px}
+.cal-head span{text-align:center; font-size:10px; font-weight:600; color:var(--ink-3)}
+.cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px}
+.cal-cell{position:relative; border:0; border-radius:10px; background:var(--surface-2);
+  padding:5px 4px 6px; min-height:54px; display:flex; flex-direction:column; align-items:stretch;
+  gap:2px; cursor:pointer; text-align:left; font:inherit; color:inherit; overflow:hidden}
+.cal-cell.blank{background:transparent; pointer-events:none}
+.cal-cell .cd{font-size:10px; color:var(--ink-3); font-family:"IBM Plex Mono",ui-monospace,monospace; line-height:1.2}
+.cal-cell .cv{font-size:11px; font-weight:600; font-family:"IBM Plex Mono",ui-monospace,monospace;
+  font-variant-numeric:tabular-nums; line-height:1.25; letter-spacing:-.02em; word-break:break-all}
 .cal-cell .cv.neg{color:var(--crit)}
-.cal-cell .cv{font-size:11px; font-weight:700; font-family:"Archivo",system-ui,sans-serif;
-  font-variant-numeric:tabular-nums; line-height:1.25; letter-spacing:-.01em; word-break:break-all}
 .cal-cell .cb{margin-top:auto; display:flex; height:3px; border-radius:2px; overflow:hidden; gap:1px}
 .cal-cell .cb i{display:block; height:100%; border-radius:2px}
-.cal-cell.has{border-color:var(--line-strong)}
-.cal-cell.sel{border-color:var(--accent); box-shadow:0 0 0 1.5px var(--accent) inset}
-.cal-cell:not(.has) .cd{opacity:.55}
-
+.cal-cell.has{background:var(--surface); border:1px solid var(--line)}
+.cal-cell.sel{box-shadow:0 0 0 2px var(--accent) inset}
+.cal-cell:not(.has) .cd{opacity:.6}
 .caldetail{margin-top:14px; padding-top:12px; border-top:1px solid var(--line)}
 .cdhead{display:flex; align-items:baseline; gap:10px; margin-bottom:6px}
-.cdhead b{font-size:14px}
-.cdhead .num{margin-left:auto; font-size:clamp(16px,5.4vw,20px); font-weight:700;
-  font-family:"Archivo",system-ui,sans-serif; font-variant-numeric:tabular-nums}
+.cdhead b{font-size:14.5px}
+.cdhead .num{margin-left:auto; font-size:20px; font-weight:600}
 .cdhead .num.neg{color:var(--crit)}
 
-/* ---------- bottom nav ---------- */
+/* ---------- 下のタブ ---------- */
 nav.tabs{position:fixed; left:0; right:0; bottom:0; z-index:40;
-  background:color-mix(in srgb,var(--surface) 92%,transparent);
-  backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
-  border-top:1px solid var(--line); padding:6px 0 max(6px,env(safe-area-inset-bottom));
-  display:flex; justify-content:center}
-nav.tabs .in{display:grid; grid-template-columns:repeat(4,1fr); width:100%; max-width:480px}
-nav.tabs button{background:none;border:0;display:flex;flex-direction:column;align-items:center;gap:3px;
-  padding:6px 0 4px; color:var(--ink-3); cursor:pointer; font-size:10.5px; font-weight:600; letter-spacing:.03em}
-nav.tabs button[aria-current="page"]{color:var(--accent)}
-nav.tabs svg{width:21px;height:21px}
+  background:var(--surface); border-top:1px solid var(--line);
+  padding:6px 0 max(10px,env(safe-area-inset-bottom)); display:flex; justify-content:center}
+nav.tabs .in{display:grid; grid-template-columns:repeat(4,1fr); width:100%; max-width:430px}
+nav.tabs button{background:none;border:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  height:52px; color:var(--ink-3); cursor:pointer; font-size:10.5px; font-weight:500}
+nav.tabs button[aria-current="page"]{color:var(--accent); font-weight:600}
+nav.tabs svg{width:22px;height:22px}
 
-.monthbar{display:flex; align-items:center; gap:8px; margin-bottom:12px}
-.monthbar .mb{background:var(--surface); border:1px solid var(--line); border-radius:10px;
-  width:36px;height:36px;display:grid;place-items:center;cursor:pointer;color:var(--ink-2)}
-.monthbar .lbl{font-weight:700; font-size:16px; font-family:"Archivo",system-ui,sans-serif; letter-spacing:.01em}
-.monthbar .sp{margin-left:auto; font-size:11.5px; color:var(--ink-3)}
-
-.banner{border:1px solid color-mix(in srgb,var(--warn) 45%,transparent);
-  background:color-mix(in srgb,var(--warn) 12%,transparent);
-  border-radius:11px; padding:10px 12px; font-size:12px; margin-bottom:12px; color:var(--ink)}
-.divider{height:1px;background:var(--line);margin:14px -14px}
-.toast{position:fixed; left:50%; transform:translateX(-50%); bottom:88px; z-index:60; width:max-content; max-width:calc(100vw - 28px);
-  background:var(--ink); color:var(--bg); padding:9px 12px 9px 16px; border-radius:999px; font-size:12.5px;
-  font-weight:600; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s;
-  display:flex; align-items:center; gap:10px; box-shadow:var(--shadow)}
+/* ---------- 補助 ---------- */
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;
+  border-radius:999px;padding:3px 9px}
+.pill.ok{color:var(--good); background:var(--good-bg)}
+.pill.bad{color:var(--crit); background:var(--crit-bg)}
+.pill.warn{color:var(--warn); background:var(--surface-2)}
+.banner{border:0; background:var(--surface-2); border-left:3px solid var(--warn);
+  border-radius:12px; padding:12px 14px; font-size:12.5px; margin-bottom:12px; color:var(--ink-2); line-height:1.5}
+.banner b{color:var(--ink)}
+.divider{height:1px;background:var(--line);margin:16px -16px}
+.toast{position:fixed; left:50%; transform:translateX(-50%); bottom:96px; z-index:60; width:max-content; max-width:calc(100vw - 32px);
+  background:var(--ink); color:var(--surface); padding:11px 14px 11px 16px; border-radius:14px; font-size:13px;
+  font-weight:500; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s;
+  display:flex; align-items:center; gap:12px; box-shadow:var(--shadow-lg)}
 .toast.on{opacity:1; transform:translateX(-50%) translateY(-4px)}
 .toast.act{pointer-events:auto}
 .toast span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.toast .undo{flex:none; background:transparent; border:1px solid currentColor; color:inherit;
-  font-size:12px; font-weight:700; padding:4px 11px; border-radius:999px; cursor:pointer}
-
-/* ---------- 今日の日報 CTA / 未入力チップ ---------- */
-.todo{margin-bottom:12px}
-.todo .btn.primary{padding:12px 14px; font-size:14.5px; flex-wrap:wrap; gap:8px}
-.chips{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:8px}
-.chiplbl{font-size:11px; color:var(--ink-3); font-weight:600; letter-spacing:.04em}
-.chip{font:inherit; font-size:12px; font-weight:600; color:var(--ink-2); background:var(--surface);
-  border:1px solid var(--line-strong); border-radius:999px; padding:4px 10px; cursor:pointer}
-.chip:active{background:var(--surface-2)}
-.hero .cmp{margin-top:6px; font-size:12px; color:var(--ink-2); display:flex; align-items:center; gap:8px; flex-wrap:wrap}
-.heroSplit.cols3{grid-template-columns:repeat(3,minmax(0,1fr))}
-.heroSplit.cols3 .v{font-size:17px}
-
-/* ---------- 日報の見出し ---------- */
-.mb.today{width:auto; padding:0 11px; font-size:12px; font-weight:700; color:var(--accent);
-  border-color:color-mix(in srgb,var(--accent) 45%,transparent); background:var(--accent-soft)}
-.daysum{display:flex; flex-wrap:wrap; gap:4px 12px; align-items:baseline; margin:-2px 0 12px;
-  padding:8px 12px; background:var(--surface); border:1px solid var(--line); border-radius:11px;
-  font-size:11.5px; color:var(--ink-3)}
-.daysum .dl{font-weight:700; color:var(--ink); font-size:12.5px; margin-right:auto}
-.daysum b{color:var(--ink); font-weight:600}
-.shift .head .nm small.tm{display:block; font-size:10.5px; font-weight:500; color:var(--ink-3); line-height:1.25; letter-spacing:.01em}
-.owe{display:flex; align-items:center; gap:10px; padding:9px 2px; border-bottom:1px solid var(--line)}
-.owe:last-of-type{border-bottom:0}
-.owe .g{flex:1; min-width:0}
-.owe .t{font-weight:600; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.owe .a{font-family:"Archivo",system-ui,sans-serif; font-variant-numeric:tabular-nums; font-weight:600; flex:none}
+.toast .undo{flex:none; background:transparent; border:0; color:var(--accent); font-size:13px; font-weight:700;
+  padding:4px 6px; border-radius:8px; cursor:pointer}
+.iconbtn{flex:none; width:40px; height:40px; display:grid; place-items:center; cursor:pointer;
+  background:transparent; border:0; border-radius:10px; color:var(--ink-3);
+  -webkit-tap-highlight-color:transparent}
+.iconbtn:active{color:var(--crit); background:var(--crit-bg)}
+.flash{animation:flashcard 1.8s ease}
+@keyframes flashcard{
+  0%,12%{box-shadow:0 0 0 2px var(--accent)}
+  100%{box-shadow:var(--shadow)}
+}
+@media (prefers-reduced-motion:reduce){ .flash{animation:none; box-shadow:0 0 0 2px var(--accent)} }

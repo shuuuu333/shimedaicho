@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+JP:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; }
+    a { color: #5B9CFF; } a:hover { color: #86B7FF; }
+  </style>
+</helmet>
+<div style="width: 375px; height: 900px; background: #08090C; color: #FFFFFF; font-family: 'IBM Plex Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif; font-size: 15px; line-height: 1.55; display: flex; flex-direction: column; overflow: hidden">
+
+  <div style="display: flex; align-items: center; gap: 10px; padding: 14px 16px 12px; border-bottom: 1px solid #1A1F29">
+    <div style="font-size: 16px; font-weight: 600">締め台帳</div>
+    <div style="flex-grow: 1"></div>
+    <div style="display: flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 5px; background: #10331F; font-size: 11px; color: #47D18F; font-weight: 500">
+      <div style="width: 6px; height: 6px; border-radius: 50%; background: #47D18F"></div>
+      <div style="font-family: 'IBM Plex Mono', monospace">SYNCED 2:14</div>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 8px; padding: 12px 16px 10px">
+    <div style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; background: #0F1219; border-radius: 8px; color: #5B9CFF">‹</div>
+    <div style="flex-grow: 1; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600">2026-09-21 月</div>
+    <div style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; background: #0F1219; border-radius: 8px; color: #5B9CFF">›</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; padding: 0 16px 14px">
+    <div style="text-align: center">
+      <div style="height: 3px; border-radius: 2px; background: #5B9CFF"></div>
+      <div style="font-size: 9.5px; color: #626D7E; margin-top: 5px; font-weight: 600">1 売上</div>
+    </div>
+    <div style="text-align: center">
+      <div style="height: 3px; border-radius: 2px; background: #5B9CFF"></div>
+      <div style="font-size: 9.5px; color: #5B9CFF; margin-top: 5px; font-weight: 600">2 出勤</div>
+    </div>
+    <div style="text-align: center">
+      <div style="height: 3px; border-radius: 2px; background: #242B36"></div>
+      <div style="font-size: 9.5px; color: #626D7E; margin-top: 5px; font-weight: 600">3 派遣</div>
+    </div>
+    <div style="text-align: center">
+      <div style="height: 3px; border-radius: 2px; background: #242B36"></div>
+      <div style="font-size: 9.5px; color: #626D7E; margin-top: 5px; font-weight: 600">4 経費</div>
+    </div>
+    <div style="text-align: center">
+      <div style="height: 3px; border-radius: 2px; background: #242B36"></div>
+      <div style="font-size: 9.5px; color: #626D7E; margin-top: 5px; font-weight: 600">5 締め</div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0 16px; padding: 10px 12px; background: #0F1219; border-radius: 10px">
+    <div>
+      <div style="font-size: 10px; color: #7A8699; font-weight: 500">売上</div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600">248,000</div>
+    </div>
+    <div>
+      <div style="font-size: 10px; color: #7A8699; font-weight: 500">人件費</div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600">86,400</div>
+    </div>
+    <div>
+      <div style="font-size: 10px; color: #7A8699; font-weight: 500">差引</div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; color: #47D18F">149,600</div>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: baseline; gap: 10px; padding: 20px 16px 10px">
+    <div style="font-size: 19px; font-weight: 700">出勤</div>
+    <div style="font-size: 11.5px; color: #7A8699">タップで出勤、行で明細</div>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 7px; padding: 0 16px 16px">
+    <div style="padding: 9px 15px; border-radius: 8px; background: #5B9CFF; color: #08090C; font-size: 14px; font-weight: 600">あい</div>
+    <div style="padding: 9px 15px; border-radius: 8px; background: #5B9CFF; color: #08090C; font-size: 14px; font-weight: 600">みく</div>
+    <div style="padding: 9px 15px; border-radius: 8px; background: #0F1219; color: #9BA6B8; font-size: 14px; font-weight: 500">れな</div>
+    <div style="padding: 9px 15px; border-radius: 8px; background: #0F1219; color: #9BA6B8; font-size: 14px; font-weight: 500">さら</div>
+    <div style="padding: 9px 15px; border-radius: 8px; background: #0F1219; color: #9BA6B8; font-size: 14px; font-weight: 500">ひな</div>
+  </div>
+
+  <div style="padding: 0 16px">
+    <div style="display: flex; align-items: center; gap: 10px; padding: 12px 13px; background: #0F1219; border-radius: 10px; margin-bottom: 8px">
+      <div style="flex-grow: 1">
+        <div style="font-size: 15px; font-weight: 600">あい</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #7A8699; margin-top: 1px">20:30-01:00 · 4.5h · back 7,500</div>
+      </div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 600">15,600</div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px; padding: 12px 13px; background: #0F1219; border-radius: 10px; border-left: 3px solid #FF6B60; margin-bottom: 8px">
+      <div style="flex-grow: 1">
+        <div style="font-size: 15px; font-weight: 600">みく</div>
+        <div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #FF6B60; margin-top: 1px">20:00-01:00 · 5.0h · 本数未入力</div>
+      </div>
+      <div style="font-family: 'IBM Plex Mono', monospace; font-size: 17px; font-weight: 600">12,500</div>
+    </div>
+  </div>
+
+  <div style="display: flex; align-items: center; gap: 10px; padding: 8px 16px 0">
+    <div style="padding: 8px 12px; background: #0F1219; border-radius: 8px; font-size: 12.5px; color: #9BA6B8; font-weight: 500">前回の出勤をコピー</div>
+    <div style="flex-grow: 1"></div>
+    <div style="font-size: 11px; color: #7A8699">在籍 2名</div>
+    <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600">28,100</div>
+  </div>
+
+  <div style="flex-grow: 1"></div>
+
+  <div style="display: flex; gap: 8px; padding: 0 16px 14px">
+    <div style="padding: 14px 18px; background: #0F1219; border-radius: 10px; font-size: 15px; font-weight: 600; color: #9BA6B8">戻る</div>
+    <div style="flex-grow: 1; padding: 14px; background: #5B9CFF; color: #08090C; border-radius: 10px; font-size: 15px; font-weight: 600; text-align: center">次へ：派遣</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid #1A1F29; padding: 9px 0 13px; background: #0B0D12">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; color: #626D7E">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9m5 10V5m5 14v-7m5 7V8"></path></svg>
+      <div style="font-size: 10px; font-weight: 600">今月</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; color: #5B9CFF">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="16" rx="2.5"></rect><path d="M3.5 9.5h17M8 3v3m8-3v3"></path></svg>
+      <div style="font-size: 10px; font-weight: 600">日報</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; color: #626D7E">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"></circle><path d="M4.5 20c0-3.6 3.4-6 7.5-6s7.5 2.4 7.5 6"></path></svg>
+      <div style="font-size: 10px; font-weight: 600">キャスト</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px; color: #626D7E">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3m13.4-6.4-1.6 1.6M9.2 14.8l-1.6 1.6m10.8 0-1.6-1.6M9.2 9.2 7.6 7.6"></path></svg>
+      <div style="font-size: 10px; font-weight: 600">設定</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

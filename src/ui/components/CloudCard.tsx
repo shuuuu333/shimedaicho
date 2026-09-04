@@ -101,10 +101,10 @@ export function CloudCard() {
                 <input className="inp" style={{ flex: 1, minWidth: 0, padding: "8px 9px" }} type="email" inputMode="email" placeholder="スタッフのメール" value={memberEmail} onChange={(e) => setMemberEmail(e.target.value)} />
                 <button type="button" className="btn sm" disabled={c.busy || !memberEmail.includes("@")} onClick={() => { void c.addMember(memberEmail); setMemberEmail(""); }}>追加</button>
               </div>
-              <div className="hint">追加した人は、そのメールでログインするとこの店が見えます。スタッフは日報の入力だけができ、給料・売上の集計と設定は見られません。</div>
+              <div className="hint">追加した人は、そのメールでログインするとこの店が見えます。スタッフは日報の入力のみができ、給料・売上の集計と設定は見られません。</div>
             </div>
           )}
-          {shop && !owner && <div className="hint" style={{ marginTop: 10 }}>あなたはこの店の<b>スタッフ</b>です。日報の入力ができます。給料・売上の集計と設定はオーナーだけが見られます。</div>}
+          {shop && !owner && <div className="hint" style={{ marginTop: 10 }}>あなたはこの店の<b>スタッフ</b>です。日報の入力ができます。給料・売上の集計と設定はオーナーのみが見られます。</div>}
         </>
       )}
     </div>
