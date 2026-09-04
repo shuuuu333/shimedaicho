@@ -53,7 +53,8 @@ alter table public.shop_members enable row level security;
 alter table public.ledgers enable row level security;
 
 drop policy if exists shops_select on public.shops;
-create policy shops_select on public.shops for select using (public.is_member(id));
+-- 自分がオーナーの行は直接判定する（insert ... returning の時点では is_member() から新しい行が見えないため）
+create policy shops_select on public.shops for select using (owner = auth.uid() or public.is_member(id));
 drop policy if exists shops_insert on public.shops;
 create policy shops_insert on public.shops for insert with check (owner = auth.uid());
 drop policy if exists shops_update on public.shops;
