@@ -12,7 +12,8 @@
    「Confirm email」は OFF でもよい（リンクを踏んだ時点で確認済みになる）
 2. **Authentication → URL Configuration**
    - Site URL: 実際に使う URL（開発中は `http://localhost:5173`）
-   - Redirect URLs に次を追加: `http://localhost:5173/**`、公開後は公開 URL も
+   - Redirect URLs に次を追加: `http://localhost:5173/**` と `https://shuuuu333.github.io/shimedaicho/**`
+   - Site URL は公開後 `https://shuuuu333.github.io/shimedaicho` にする
 3. メール送信は Supabase 付属のもので可（1 時間 3〜4 通まで）。本番はカスタム SMTP を推奨
 
 ## 3. アプリにキーを入れる

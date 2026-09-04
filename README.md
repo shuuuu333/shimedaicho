@@ -1,5 +1,7 @@
 # 締め台帳
 
+公開版: https://shuuuu333.github.io/shimedaicho/
+
 キャバクラ 1 店舗の締め（売上・給料・現金）を毎日 3 分で記録するアプリ。
 claude.ai アーティファクト版を Vite + React + TypeScript で作り直したもの（Phase 1: 端末内保存）。
 
