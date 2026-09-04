@@ -14,9 +14,10 @@ input,select,textarea{font:inherit; color:inherit}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
 /* ---------- 骨組み ---------- */
-.app{max-width:430px; margin:0 auto; min-height:100dvh; background:var(--bg); padding:0 0 84px; position:relative}
+.app{max-width:430px; margin:0 auto; min-height:100dvh; background:var(--bg);
+  padding:0 0 calc(84px + env(safe-area-inset-bottom)); position:relative}
 .topbar{position:sticky; top:0; z-index:30; background:var(--bg);
-  padding:14px var(--gutter) 10px; display:flex; align-items:center; gap:10px}
+  padding:calc(14px + env(safe-area-inset-top)) var(--gutter) 10px; display:flex; align-items:center; gap:10px}
 .brand{display:flex; align-items:baseline; gap:8px; min-width:0}
 .brand b{font-weight:700; font-size:15.5px; letter-spacing:.01em; white-space:nowrap}
 .brand span{font-size:11px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}

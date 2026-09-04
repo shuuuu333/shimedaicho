@@ -10,22 +10,32 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["icon.svg"],
+      includeAssets: ["icon.svg", "apple-touch-icon.png"],
       manifest: {
+        id: process.env.VITE_BASE || "/",
         name: "締め台帳",
         short_name: "締め台帳",
-        description: "売上・給料・現金の締め",
+        description: "キャバクラの締め。売上・給料・現金を毎日3分で記録します。",
         lang: "ja",
+        dir: "ltr",
         start_url: process.env.VITE_BASE || "/",
         scope: process.env.VITE_BASE || "/",
         display: "standalone",
+        display_override: ["standalone", "minimal-ui"],
+        orientation: "portrait",
         background_color: "#0B0D11",
         theme_color: "#0B0D11",
+        categories: ["business", "finance", "productivity"],
         icons: [
           { src: "icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
-          { src: "icon-192.png", sizes: "192x192", type: "image/png" },
-          { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
-        ]
+          { src: "icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        ],
+        shortcuts: [
+          { name: "今日の日報", short_name: "日報", url: (process.env.VITE_BASE || "/") + "?tab=day" },
+          { name: "キャストの給料", short_name: "キャスト", url: (process.env.VITE_BASE || "/") + "?tab=cast" },
+        ],
       },
       workbox: { globPatterns: ["**/*.{js,css,html,svg,png,woff2}"] }
     })

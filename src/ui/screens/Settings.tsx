@@ -3,6 +3,7 @@ import { useApp } from "../../state/store";
 import { NumberField } from "../components/NumberField";
 import { Moon, Phone, Sun, Trash } from "../icons";
 import { CloudCard } from "../components/CloudCard";
+import { InstallCard } from "../components/InstallCard";
 import { useCloud } from "../../state/cloud";
 import { uid } from "../../domain/format";
 import { backupFilename, backupJSON, csvFilename, monthCSV, offerFile, parseBackup } from "../../data/backup";
@@ -90,6 +91,7 @@ export function Settings() {
     return (
       <>
         {themeCard}
+        <InstallCard />
         <CloudCard />
         <div className="card">
           <h2>使い方（スタッフ）</h2>
@@ -105,6 +107,7 @@ export function Settings() {
   return (
     <>
       {themeCard}
+      <InstallCard />
       <div className="card" id="set-shop">
         <h2>店舗</h2>
         <label className="field"><span className="lbl">店名</span><input className="inp" value={S.name} placeholder="店名" onChange={(e) => shop("name", e.target.value)} /></label>
