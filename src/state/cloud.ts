@@ -21,10 +21,13 @@ export interface CloudState {
   lastSyncAt: string | null;
   error: string | null;
   linkSent: boolean;
+  /** リンクを送った先のメール（コード入力用） */
+  pendingEmail: string | null;
   busy: boolean;
 
   init(): Promise<void>;
   signIn(email: string): Promise<void>;
+  verifyCode(code: string): Promise<void>;
   signOut(): Promise<void>;
   refreshShops(): Promise<void>;
   createShop(name: string): Promise<void>;
@@ -34,6 +37,8 @@ export interface CloudState {
   removeMember(email: string): Promise<void>;
   syncNow(): Promise<void>;
   isOwner(): boolean;
+  /** 選択中の店での自分の役割。店を選んでいなければ owner 扱い（端末内モード） */
+  role(): "owner" | "staff";
 }
 
 const LS_SHOP = "shimedaicho.shopId";
@@ -181,7 +186,7 @@ export const useCloud = create<CloudState>()((set, get) => {
   return {
     configured: api.cloudConfigured,
     session: null, email: null, shops: [], shopId: null, members: [],
-    status: api.cloudConfigured ? "signedout" : "off", lastSyncAt: null, error: null, linkSent: false, busy: false,
+    status: api.cloudConfigured ? "signedout" : "off", lastSyncAt: null, error: null, linkSent: false, pendingEmail: null, busy: false,
 
     async init() {
       if (!api.cloudConfigured) return;
@@ -197,14 +202,22 @@ export const useCloud = create<CloudState>()((set, get) => {
     },
     async signIn(email) {
       set({ busy: true, error: null });
-      try { await api.signInWithEmail(email.trim()); set({ linkSent: true }); }
+      try { await api.signInWithEmail(email.trim()); set({ linkSent: true, pendingEmail: email.trim() }); }
+      catch (e) { set({ error: msg(e) }); }
+      finally { set({ busy: false }); }
+    },
+    async verifyCode(code) {
+      const email = get().pendingEmail;
+      if (!email) return;
+      set({ busy: true, error: null });
+      try { await api.verifyEmailCode(email, code); set({ linkSent: false, pendingEmail: null }); }
       catch (e) { set({ error: msg(e) }); }
       finally { set({ busy: false }); }
     },
     async signOut() {
       set({ busy: true });
       try { await api.signOut(); } catch (e) { set({ error: msg(e) }); }
-      finally { set({ busy: false, linkSent: false }); }
+      finally { set({ busy: false, linkSent: false, pendingEmail: null }); }
     },
     async refreshShops() {
       try { set({ shops: await api.listShops() }); } catch (e) { set({ error: msg(e) }); }
@@ -260,6 +273,11 @@ export const useCloud = create<CloudState>()((set, get) => {
       const { session, shops, shopId } = get();
       const shop = shops.find((s) => s.id === shopId);
       return !!(session && shop && shop.owner === session.user.id);
+    },
+    role() {
+      const { session, shopId } = get();
+      if (!session || !shopId) return "owner";
+      return get().isOwner() ? "owner" : "staff";
     },
   };
 });

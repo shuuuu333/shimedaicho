@@ -23,9 +23,12 @@ export default function App() {
   const setUI = useApp((s) => s.setUI);
   const name = useApp((s) => s.ledger.shop.name);
   const cloudInit = useCloud((s) => s.init);
+  const role = useCloud((s) => s.role());
   useEffect(() => { void init().then(() => cloudInit()); }, [init, cloudInit]);
+  const tabs = role === "staff" ? TABS.filter((t) => t.id === "day" || t.id === "set") : TABS;
+  useEffect(() => { if (!tabs.some((t) => t.id === tab)) setUI({ tab: "day", sheet: null }); }, [tabs, tab, setUI]);
 
-  const Screen = TABS.find((t) => t.id === tab)!.Screen;
+  const Screen = (tabs.find((t) => t.id === tab) ?? tabs[0]).Screen;
   return (
     <div className="app">
       <header className="topbar">
@@ -34,8 +37,8 @@ export default function App() {
       </header>
       <main>{loaded ? <Screen /> : <div className="empty">読み込み中…</div>}</main>
       <nav className="tabs" aria-label="画面切替">
-        <div className="in">
-          {TABS.map(({ id, label, Icon }) => (
+        <div className="in" style={tabs.length < 4 ? { gridTemplateColumns: `repeat(${tabs.length},1fr)` } : undefined}>
+          {tabs.map(({ id, label, Icon }) => (
             <button key={id} type="button" aria-current={tab === id ? "page" : undefined}
               onClick={() => { setUI({ tab: id, setFocus: null, sheet: null }); window.scrollTo(0, 0); }}>
               <Icon />{label}

@@ -3,6 +3,7 @@ import { useApp } from "../../state/store";
 import { NumberField } from "../components/NumberField";
 import { Trash } from "../icons";
 import { CloudCard } from "../components/CloudCard";
+import { useCloud } from "../../state/cloud";
 import { uid } from "../../domain/format";
 import { backupFilename, backupJSON, csvFilename, monthCSV, offerFile, parseBackup } from "../../data/backup";
 import { LocalRepository } from "../../data/localRepository";
@@ -28,6 +29,7 @@ export function Settings() {
   const [showSnaps, setShowSnaps] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const S = L.shop;
+  const role = useCloud((s) => s.role());
 
   useEffect(() => {
     if (!ui.setFocus) { window.scrollTo(0, 0); return; }
@@ -70,6 +72,21 @@ export function Settings() {
     setSnaps(await repoForSnapshots.snapshots());
   };
   const ago = daysAgo(lastBackupAt);
+
+  if (role === "staff") {
+    return (
+      <>
+        <CloudCard />
+        <div className="card">
+          <h2>使い方（スタッフ）</h2>
+          <div className="lrow"><div className="g"><div className="t">1. 日報タブで締めを入力</div><div className="s">売上 → 出勤 → 派遣 → 経費 → 締め の順に入れます</div></div></div>
+          <div className="lrow"><div className="g"><div className="t">2. 入力は自動で保存・同期</div><div className="s">右上が「同期済み」なら店の全員に共有されています</div></div></div>
+          <div className="lrow"><div className="g"><div className="t">3. 集計と設定はオーナーのみ</div><div className="s">給料や利益の画面は出ません</div></div></div>
+        </div>
+        <p className="hint" style={{ textAlign: "center", margin: "4px 0 10px" }}>締め台帳 v{__APP_VERSION__}</p>
+      </>
+    );
+  }
 
   return (
     <>

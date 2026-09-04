@@ -33,6 +33,11 @@ export async function signInWithEmail(email: string): Promise<void> {
   const { error } = await sb().auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin + window.location.pathname } });
   if (error) fail(error, "ログインメールを送れませんでした");
 }
+/** メールに書かれた 6 桁のコードでログイン */
+export async function verifyEmailCode(email: string, code: string): Promise<void> {
+  const { error } = await sb().auth.verifyOtp({ email, token: code.replace(/\D/g, ""), type: "email" });
+  if (error) fail(error, "コードが違うか、期限切れです");
+}
 export async function signOut(): Promise<void> {
   const { error } = await sb().auth.signOut();
   if (error) fail(error, "ログアウトできませんでした");

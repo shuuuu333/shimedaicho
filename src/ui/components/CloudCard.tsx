@@ -9,6 +9,7 @@ export function CloudCard() {
   const [email, setEmail] = useState("");
   const [shopName, setShopName] = useState("");
   const [memberEmail, setMemberEmail] = useState("");
+  const [code, setCode] = useState("");
   const shop = c.shops.find((s) => s.id === c.shopId) ?? null;
   const owner = c.isOwner();
 
@@ -33,15 +34,32 @@ export function CloudCard() {
       <p className="sub">ログインして店を選ぶと、スマホ・PC・スタッフの端末で同じデータになります。オフラインでも入力でき、つながったときに同期します。</p>
 
       {!c.session ? (
-        <>
-          <label className="field"><span className="lbl">メールアドレス</span>
-            <input className="inp" type="email" inputMode="email" autoComplete="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
-          <div className="btnrow" style={{ alignItems: "center" }}>
-            <button type="button" className="btn sm primary" disabled={c.busy || !email.includes("@")} onClick={() => c.signIn(email)}>ログイン用のリンクを送る</button>
-            {c.linkSent && <span className="hint" style={{ margin: 0 }}>メールを送りました。届いたリンクをこの端末で開いてください</span>}
-          </div>
-          <div className="hint" style={{ marginTop: 8 }}>パスワードはありません。メールのリンクを開くだけでログインできます。</div>
-        </>
+        c.linkSent && c.pendingEmail ? (
+          <>
+            <div className="lrow"><div className="g"><div className="t">{c.pendingEmail}</div><div className="s">にメールを送りました。届いたメールの 6 桁のコードを入れてください（リンクを開いてもログインできます）</div></div></div>
+            <label className="field" style={{ marginTop: 10 }}><span className="lbl">6 桁のコード</span>
+              <input className="inp num big" style={{ textAlign: "center", letterSpacing: ".3em" }} type="text" inputMode="numeric" autoComplete="one-time-code" maxLength={6} placeholder="123456" value={code} autoFocus
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                onKeyDown={(e) => { if (e.key === "Enter" && code.length === 6) void c.verifyCode(code); }} /></label>
+            <div className="btnrow" style={{ alignItems: "center" }}>
+              <button type="button" className="btn sm primary" disabled={c.busy || code.length !== 6} onClick={() => c.verifyCode(code)}>ログイン</button>
+              <button type="button" className="btn sm ghost" disabled={c.busy} onClick={() => { useCloud.setState({ linkSent: false, pendingEmail: null, error: null }); setCode(""); }}>メールを入れ直す</button>
+            </div>
+            {c.error && <div className="banner" style={{ marginTop: 8 }}>{c.error}</div>}
+            <div className="hint" style={{ marginTop: 8 }}>メールが来ないときは、迷惑メールと「Your sign-in link」の会話の中（同じ件名はまとまります）を確認してください。送信は 1 時間に 2 通までです。</div>
+          </>
+        ) : (
+          <>
+            <label className="field"><span className="lbl">メールアドレス</span>
+              <input className="inp" type="email" inputMode="email" autoComplete="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && email.includes("@")) void c.signIn(email); }} /></label>
+            <div className="btnrow" style={{ alignItems: "center" }}>
+              <button type="button" className="btn sm primary" disabled={c.busy || !email.includes("@")} onClick={() => c.signIn(email)}>ログイン用のコードを送る</button>
+            </div>
+            {c.error && <div className="banner" style={{ marginTop: 8 }}>{c.error}</div>}
+            <div className="hint" style={{ marginTop: 8 }}>パスワードはありません。届いたメールの 6 桁のコードを入れるだけでログインできます。</div>
+          </>
+        )
       ) : (
         <>
           <div className="lrow"><div className="g"><div className="t">{c.email}</div><div className="s">{statusText[c.status] || "ログイン済み"}</div></div>
@@ -83,10 +101,10 @@ export function CloudCard() {
                 <input className="inp" style={{ flex: 1, minWidth: 0, padding: "8px 9px" }} type="email" inputMode="email" placeholder="スタッフのメール" value={memberEmail} onChange={(e) => setMemberEmail(e.target.value)} />
                 <button type="button" className="btn sm" disabled={c.busy || !memberEmail.includes("@")} onClick={() => { void c.addMember(memberEmail); setMemberEmail(""); }}>追加</button>
               </div>
-              <div className="hint">追加した人は、そのメールでログインするとこの店が見えます。</div>
+              <div className="hint">追加した人は、そのメールでログインするとこの店が見えます。スタッフは日報の入力だけができ、給料・売上の集計と設定は見られません。</div>
             </div>
           )}
-          {shop && !owner && <div className="hint" style={{ marginTop: 10 }}>この店のオーナーは別の人です。メンバーの管理はオーナーが行います。</div>}
+          {shop && !owner && <div className="hint" style={{ marginTop: 10 }}>あなたはこの店の<b>スタッフ</b>です。日報の入力ができます。給料・売上の集計と設定はオーナーだけが見られます。</div>}
         </>
       )}
     </div>
