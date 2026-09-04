@@ -44,8 +44,9 @@ export function CloudCard() {
         </>
       ) : (
         <>
-          <div className="lrow"><div className="g"><div className="t">{c.email}</div><div className="s">{statusText[c.status]}</div></div>
+          <div className="lrow"><div className="g"><div className="t">{c.email}</div><div className="s">{statusText[c.status] || "ログイン済み"}</div></div>
             <button type="button" className="btn sm ghost" disabled={c.busy} onClick={() => c.signOut()}>ログアウト</button></div>
+          {c.error && <div className="banner" style={{ marginTop: 8 }}>{c.error}</div>}
 
           <div className="sec">
             <span className="lbl" style={{ display: "block", fontSize: 11.5, color: "var(--ink-2)", marginBottom: 4 }}>店</span>
@@ -66,7 +67,6 @@ export function CloudCard() {
             <div className="sec">
               <div className="lrow"><div className="g"><div className="t">同期</div><div className="s">{statusText[c.status]}</div></div>
                 <button type="button" className="btn sm" disabled={c.status === "syncing"} onClick={() => c.syncNow()}>今すぐ同期</button></div>
-              {c.error && <div className="banner" style={{ marginTop: 8 }}>{c.error}</div>}
             </div>
           )}
 

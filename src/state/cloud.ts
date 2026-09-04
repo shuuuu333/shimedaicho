@@ -213,7 +213,7 @@ export const useCloud = create<CloudState>()((set, get) => {
         await get().selectShop(shop.id);
         const L = useApp.getState().ledger;
         if (!L.shop.name && name.trim()) useApp.getState().update((d) => { d.shop.name = name.trim(); });
-      } catch (e) { set({ error: msg(e) }); }
+      } catch (e) { console.error("createShop", e); set({ error: msg(e) }); }
       finally { set({ busy: false }); }
     },
     async selectShop(id) {
