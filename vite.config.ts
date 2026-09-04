@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  base: process.env.VITE_BASE || "/",
   server: { port: Number(process.env.PORT) || 5173, strictPort: !!process.env.PORT },
   define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? "0.1.0") },
   plugins: [
@@ -15,7 +16,8 @@ export default defineConfig({
         short_name: "締め台帳",
         description: "売上・給料・現金の締め",
         lang: "ja",
-        start_url: "/",
+        start_url: process.env.VITE_BASE || "/",
+        scope: process.env.VITE_BASE || "/",
         display: "standalone",
         background_color: "#EFEBE3",
         theme_color: "#9C6F1C",
