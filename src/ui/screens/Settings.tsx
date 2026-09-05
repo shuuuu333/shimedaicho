@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useApp } from "../../state/store";
 import { NumberField } from "../components/NumberField";
 import { TimeField } from "../components/TimeField";
+import { DateField } from "../components/DateField";
 import { Moon, Phone, Sun, Trash } from "../icons";
 import { CloudCard } from "../components/CloudCard";
 import { InstallCard } from "../components/InstallCard";
@@ -182,8 +183,8 @@ export function Settings() {
 
       <div className="card" id="set-cash">
         <h2>現金の起点</h2><p className="sub">ここを基準に、日報から現金残を積み上げます</p>
-        <div className="row2">
-          <label className="field"><span className="lbl">起点の日</span><input className="inp" type="date" value={S.openingDate} onChange={(e) => shop("openingDate", e.target.value)} /></label>
+        <div>
+          <label className="field"><span className="lbl">起点の日</span><DateField value={S.openingDate} ariaLabel="起点の日" onChange={(v) => shop("openingDate", v)} /></label>
           <label className="field"><span className="lbl">その日の手元現金</span><NumberField value={S.openingCash} onChange={(v) => shop("openingCash", v ?? 0)} /></label>
         </div>
       </div>

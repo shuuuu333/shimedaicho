@@ -10,6 +10,7 @@ import { TimeField } from "../components/TimeField";
 import { Stepper } from "../components/Stepper";
 import { BottomSheet } from "../components/BottomSheet";
 import { ChevLeft, ChevRight, Copy, Trash } from "../icons";
+import { Notice } from "../components/Notice";
 
 const STEPS = ["売上", "出勤", "派遣", "経費", "締め"];
 
@@ -323,6 +324,7 @@ function ExpenseStep({ d, dk, edit, t, updateWithUndo }: { d: DayRecord; dk: str
 /* ---------- 5. 現金・締め ---------- */
 function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: string; d: DayRecord; edit: Edit; t: T; updateWithUndo: (m: string, mut: (L: Ledger) => void) => void }) {
   const expected = cashAsOf(L, dk);
+  const before = cashAsOf(L, shiftDay(dk, -1));
   const diff = d.cashCounted == null ? null : d.cashCounted - expected;
   const monthOpts = (mm: string) => { const list = [0, -1, -2].map((k) => shiftMonth(dk.slice(0, 7), k)); if (mm && !list.includes(mm)) list.push(mm); return list; };
   const names = dispatchNames(L);
@@ -333,14 +335,11 @@ function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: strin
   return (
     <>
       <div className="card">
-        <StepHead title="現金とカードの動き" note="ここを入れると手元の現金残が合います" />
+        <StepHead title="現金とカードの動き" note="銀行やカード会社とのやりとり" />
         <div className="row2">
           <label className="field"><span className="lbl">銀行へ入金した額</span><NumberField value={d.bankDeposit} onChange={(v) => edit((dd) => { dd.bankDeposit = v; })} /></label>
           <label className="field"><span className="lbl">カード会社からの入金</span><NumberField value={d.cardReceived} onChange={(v) => edit((dd) => { dd.cardReceived = v; })} /></label>
         </div>
-        <label className="field"><span className="lbl">実際に数えた現金（任意）</span><NumberField big value={d.cashCounted} placeholder="金庫＋レジの合計" onChange={(v) => edit((dd) => { dd.cashCounted = v; })} /></label>
-        <div className="hint">計算上の現金残 <b className="num">{yen(expected)}</b>
-          {diff != null && (diff === 0 ? <> <span className="pill ok">一致</span></> : <> <span className={`pill ${Math.abs(diff) >= 5000 ? "bad" : "warn"}`}>{diff > 0 ? "過剰" : "不足"} {yen(Math.abs(diff))}</span></>)}</div>
       </div>
 
       <div className="card">
@@ -380,6 +379,27 @@ function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: strin
           <button type="button" className="btn sm" onClick={() => edit((dd) => { const dom = Number(dk.slice(8, 10)); dd.settle.push({ id: uid(), who: "", forMonth: shiftMonth(dk.slice(0, 7), dom <= 10 ? -1 : 0), amount: null }); })}>＋ 精算を足す</button>
           {t.settled > 0 && <span className="hint" style={{ margin: "0 0 0 auto" }}>精算計 <b className="num">{yen(t.settled)}</b></span>}
         </div>
+      </div>
+
+      <div className="card" id="cashcheck">
+        <h2>現金の照合</h2><p className="sub">すべて入れ終えたら、金庫とレジのお金を数えて入れてください。</p>
+        <div className="lrow"><div className="g"><div className="t">前の日までの残り</div></div><div className="a num">{jp(before)}</div></div>
+        <div className="lrow"><div className="g"><div className="t">現金売上</div></div><div className="a num" style={{ color: "var(--good)" }}>＋{jp(t.cash)}</div></div>
+        <div className="lrow"><div className="g"><div className="t">現金で払った経費</div></div><div className="a num">−{jp(t.expCash)}</div></div>
+        <div className="lrow"><div className="g"><div className="t">給料で払った額</div><div className="s">キャスト欄 {jp(t.paidDetail)} ＋ まとめ {jp(t.paidLump)}{t.settled ? ` ＋ 精算 ${jp(t.settled)}` : ""}</div></div><div className="a num">−{jp(t.paidCash)}</div></div>
+        <div className="lrow"><div className="g"><div className="t">銀行へ入金</div></div><div className="a num">−{jp(t.bankDeposit)}</div></div>
+        <div className="lrow total"><div className="g"><div className="t">計算上の残り</div></div><div className="a num">{yen(expected)}</div></div>
+
+        <label className="field" style={{ marginTop: 14 }}><span className="lbl">実際に数えた現金</span>
+          <NumberField big value={d.cashCounted} placeholder="金庫＋レジの合計" onChange={(v) => edit((dd) => { dd.cashCounted = v; })} /></label>
+        {diff == null
+          ? <div className="hint">数えた額を入れると、計算と合っているか出ます。</div>
+          : diff === 0
+            ? <Notice title="ぴったり合っています">計算上の残りと、数えた現金が同じでした。</Notice>
+            : <Notice bad={Math.abs(diff) >= 5000} title={`${diff > 0 ? "多い" : "足りない"} ${yen(Math.abs(diff))}`}>
+                数えた {yen(d.cashCounted ?? 0)} と、計算上の {yen(expected)} の差です。
+                {diff < 0 ? "払った額の入れ忘れがないか確かめてください。" : "売上の入れ忘れがないか確かめてください。"}
+              </Notice>}
       </div>
 
       <div className="card">
