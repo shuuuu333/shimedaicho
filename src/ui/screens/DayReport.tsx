@@ -3,7 +3,7 @@ import { useMemo, type ReactNode } from "react";
 import { useApp } from "../../state/store";
 import type { DayRecord, DispatchRow, Ledger, Shift } from "../../domain/types";
 import { emptyDay } from "../../domain/migrate";
-import { backRate, calcBacks, cashAsOf, castWageAt, dayTotals, dispatchNames, dispatchPay, num, payOf, unpaidFor, whoLabel } from "../../domain/calc";
+import { backRate, calcBacks, castWageAt, dayCashFlow, dayTotals, dispatchNames, dispatchPay, num, payOf, unpaidFor, whoLabel } from "../../domain/calc";
 import { WD, addMinutes, dayLabel, jp, shiftDay, shiftMonth, todayISO, uid, yen } from "../../domain/format";
 import { NumberField } from "../components/NumberField";
 import { TimeField } from "../components/TimeField";
@@ -323,8 +323,8 @@ function ExpenseStep({ d, dk, edit, t, updateWithUndo }: { d: DayRecord; dk: str
 
 /* ---------- 5. 現金・締め ---------- */
 function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: string; d: DayRecord; edit: Edit; t: T; updateWithUndo: (m: string, mut: (L: Ledger) => void) => void }) {
-  const expected = cashAsOf(L, dk);
-  const before = cashAsOf(L, shiftDay(dk, -1));
+  const flow = dayCashFlow(L, dk);
+  const expected = flow.net;
   const diff = d.cashCounted == null ? null : d.cashCounted - expected;
   const monthOpts = (mm: string) => { const list = [0, -1, -2].map((k) => shiftMonth(dk.slice(0, 7), k)); if (mm && !list.includes(mm)) list.push(mm); return list; };
   const names = dispatchNames(L);
@@ -382,22 +382,21 @@ function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: strin
       </div>
 
       <div className="card" id="cashcheck">
-        <h2>現金の照合</h2><p className="sub">すべて入れ終えたら、金庫とレジのお金を数えて入れてください。</p>
-        <div className="lrow"><div className="g"><div className="t">前の日までの残り</div></div><div className="a num">{jp(before)}</div></div>
+        <h2>現金の照合</h2><p className="sub">この日ぶんだけで見ます。前の日からの持ち越しは含みません。</p>
         <div className="lrow"><div className="g"><div className="t">現金売上</div></div><div className="a num" style={{ color: "var(--good)" }}>＋{jp(t.cash)}</div></div>
         <div className="lrow"><div className="g"><div className="t">現金で払った経費</div></div><div className="a num">−{jp(t.expCash)}</div></div>
         <div className="lrow"><div className="g"><div className="t">給料で払った額</div><div className="s">キャスト欄 {jp(t.paidDetail)} ＋ まとめ {jp(t.paidLump)}{t.settled ? ` ＋ 精算 ${jp(t.settled)}` : ""}</div></div><div className="a num">−{jp(t.paidCash)}</div></div>
         <div className="lrow"><div className="g"><div className="t">銀行へ入金</div></div><div className="a num">−{jp(t.bankDeposit)}</div></div>
-        <div className="lrow total"><div className="g"><div className="t">計算上の残り</div></div><div className="a num">{yen(expected)}</div></div>
+        <div className="lrow total"><div className="g"><div className="t">この日の残り</div><div className="s">売上から、払った分を引いた額</div></div><div className="a num">{yen(expected)}</div></div>
 
         <label className="field" style={{ marginTop: 14 }}><span className="lbl">実際に数えた現金</span>
           <NumberField big value={d.cashCounted} placeholder="金庫＋レジの合計" onChange={(v) => edit((dd) => { dd.cashCounted = v; })} /></label>
         {diff == null
           ? <div className="hint">数えた額を入れると、計算と合っているか出ます。</div>
           : diff === 0
-            ? <Notice title="ぴったり合っています">計算上の残りと、数えた現金が同じでした。</Notice>
+            ? <Notice title="ぴったり合っています">この日の残りと、数えた現金が同じでした。</Notice>
             : <Notice bad={Math.abs(diff) >= 5000} title={`${diff > 0 ? "多い" : "足りない"} ${yen(Math.abs(diff))}`}>
-                数えた {yen(d.cashCounted ?? 0)} と、計算上の {yen(expected)} の差です。
+                数えた {yen(d.cashCounted ?? 0)} と、この日の残り {yen(expected)} の差です。
                 {diff < 0 ? "払った額の入れ忘れがないか確かめてください。" : "売上の入れ忘れがないか確かめてください。"}
               </Notice>}
       </div>

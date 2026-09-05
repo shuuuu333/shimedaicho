@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { useApp } from "../../state/store";
 import { useCloud } from "../../state/cloud";
 import type { RankMetric } from "../../domain/types";
-import { balances, castContribution, castRanking, dayTotals, missingDays, monthTotals, owedList, pct, weekdaySales, yearTotals } from "../../domain/calc";
+import { balances, cashFlow, castContribution, castRanking, dayTotals, missingDays, monthCashFlow, monthTotals, num, owedList, pct, weekdaySales, yearTotals } from "../../domain/calc";
 import { WD, dayLabel, jp, shiftDay, shiftMonth, todayISO, yen, yenShort } from "../../domain/format";
 import { C, Calendar, CompositionChart, DailyChart, PALETTE, PieChart, YearChart, type PiePart } from "../charts";
 import { MonthBar } from "../components/MonthBar";
@@ -17,6 +17,34 @@ const METRICS: { id: RankMetric; label: string; unit: string; sub: string }[] = 
   { id: "back", label: "バック", unit: "円", sub: "ドリンク・指名・同伴・ボトルの合計" },
   { id: "count", label: "本数", unit: "本", sub: "件数で付けるバックの本数の合計" },
 ];
+
+/** 現金の動き。月ぶんと、起点からの累計を切り替えて見る */
+function CashCard({ L, m }: { L: ReturnType<typeof useApp.getState>["ledger"]; m: string }) {
+  const [scope, setScope] = useState<"month" | "all">("month");
+  const f = useMemo(() => (scope === "month" ? monthCashFlow(L, m) : cashFlow(L, Object.keys(L.days).filter((k) => k >= (L.shop.openingDate || "")))), [L, m, scope]);
+  const opening = num(L.shop.openingCash);
+  const total = scope === "month" ? f.net : opening + f.net;
+  const goSet = useApp((s) => s.goSettings);
+  return (
+    <div className="card">
+      <div className="cardhead">
+        <h2>現金の動き</h2>
+        <div className="seg" role="group" aria-label="期間">
+          <button type="button" aria-pressed={scope === "month"} onClick={() => setScope("month")}>今月</button>
+          <button type="button" aria-pressed={scope === "all"} onClick={() => setScope("all")}>累計</button>
+        </div>
+      </div>
+      <p className="sub">{scope === "month" ? `${Number(m.slice(5, 7))}月に入ってきた現金と、出ていった現金` : "起点の日からの積み上げ"}</p>
+      {scope === "all" && <div className="lrow"><div className="g"><div className="t">起点の現金</div><div className="s">{L.shop.openingDate}</div></div><div className="a num">{jp(opening)}</div></div>}
+      <div className="lrow"><div className="g"><div className="t">現金売上</div></div><div className="a num" style={{ color: "var(--good)" }}>＋{jp(f.cash)}</div></div>
+      <div className="lrow"><div className="g"><div className="t">現金で払った経費</div></div><div className="a num">−{jp(f.expCash)}</div></div>
+      <div className="lrow"><div className="g"><div className="t">給料で払った額</div></div><div className="a num">−{jp(f.paidCash)}</div></div>
+      <div className="lrow"><div className="g"><div className="t">銀行へ入金</div></div><div className="a num">−{jp(f.bankDeposit)}</div></div>
+      <div className="lrow total"><div className="g"><div className="t">{scope === "month" ? "今月ぶんの残り" : "手元の現金"}</div></div><div className={`a num ${total < 0 ? "neg" : ""}`}>{yen(total)}</div></div>
+      {scope === "all" && <div className="btnrow" style={{ marginTop: 12 }}><button type="button" className="btn sm" onClick={() => goSet("cash")}>起点を直す</button></div>}
+    </div>
+  );
+}
 
 /** キャスト別のランキング。キャストから見るときは金額を伏せる */
 function RankingCard({ L, m }: { L: ReturnType<typeof useApp.getState>["ledger"]; m: string }) {
@@ -206,9 +234,9 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
   const a = useMemo(() => monthTotals(L, m), [L, m]);
   const prev = useMemo(() => monthTotals(L, shiftMonth(m, -1)), [L, m]);
   const b = useMemo(() => balances(L), [L]);
+  const mCash = useMemo(() => monthCashFlow(L, m), [L, m]);
 
   const today = todayISO(), isCur = m === today.slice(0, 7);
-  const diff = b.lastCount != null ? b.lastCount - b.cash : null;
   const dProfit = a.profit - prev.profit;
   const missing = isCur ? missingDays(L, today, shiftDay) : [];
   const owedCount = useMemo(() => owedList(L, m).length, [L, m]);
@@ -302,8 +330,8 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
           <div className="n">{owedCount > 0 ? `${owedCount}名分` : "未払いなし"}</div>
         </button>
         <button type="button" className="tile link" onClick={() => goSet("cash")}>
-          <div className="k">手元の現金<ChevRight size={13} className="chevt" /></div><div className="v">{yen(b.cash)}</div>
-          <div className={`n ${diff === 0 ? "ok" : ""}`}>{diff == null ? "起点の現金を直す" : diff === 0 ? "実査と一致" : `${diff > 0 ? "過剰" : "不足"} ${yen(Math.abs(diff))}`}</div>
+          <div className="k">今月の現金<ChevRight size={13} className="chevt" /></div><div className="v">{yen(mCash.net)}</div>
+          <div className="n">売上 {yenShort(mCash.cash)} − 出金 {yenShort(mCash.expCash + mCash.paidCash + mCash.bankDeposit)}</div>
         </button>
         <button type="button" className="tile link" onClick={() => goSet("shop")}>
           <div className="k">カード未回収<ChevRight size={13} className="chevt" /></div><div className="v">{yen(b.cardOut)}</div><div className="n">手数料 {L.shop.cardFeeRate}%</div>
@@ -337,6 +365,8 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
           </div>
         ) : <div className="empty" style={{ padding: "20px 12px" }}>日付をタップすると、その日の収支が出ます</div>)}
       </div>
+
+      <CashCard L={L} m={m} />
 
       <BreakdownCard a={a} L={L} m={m} />
 

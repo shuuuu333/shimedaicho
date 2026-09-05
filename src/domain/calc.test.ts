@@ -331,3 +331,44 @@ describe("ランキングとシフト", () => {
     expect(C.castShiftDays(L, "b", "2026-09").length).toBe(2);
   });
 });
+
+describe("現金の動き", () => {
+  const day = (cash: number, expCash: number, paid: number, bank: number) => ({
+    cashSales: cash, cardSales: 0, guests: null,
+    expenses: [{ id: "e", name: "x", amount: expCash, method: "cash" }],
+    bankDeposit: bank, cardReceived: null, cashCounted: null, payout: paid,
+    shifts: {}, dispatch: [], settle: [],
+  });
+  const L = migrate({
+    v: 3,
+    shop: { cardFeeRate: 0, openingCash: 50000, openingDate: "2026-09-01", defaultWage: 2000, roundMinutes: 15, fixedLabor: 0, fixedCost: 0, dispatchGuarantee: 0, openTime: "20:00", closeTime: "01:00", name: "" },
+    backItems: [], casts: [],
+    days: {
+      "2026-08-31": day(10000, 0, 0, 0),
+      "2026-09-01": day(30000, 3000, 19200, 0),
+      "2026-09-02": day(50000, 2000, 10000, 20000),
+    },
+  });
+
+  it("その日だけの現金は、前の日を引きずらない", () => {
+    const a = C.dayCashFlow(L, "2026-09-01");
+    expect(a).toMatchObject({ cash: 30000, expCash: 3000, paidCash: 19200, bankDeposit: 0 });
+    expect(a.net).toBe(30000 - 3000 - 19200); // 7,800
+    const b = C.dayCashFlow(L, "2026-09-02");
+    expect(b.net).toBe(50000 - 2000 - 10000 - 20000); // 18,000
+    expect(C.dayCashFlow(L, "2026-09-09").net).toBe(0); // 記録のない日は 0
+  });
+
+  it("月ぶんはその月だけを足す", () => {
+    const m = C.monthCashFlow(L, "2026-09");
+    expect(m.cash).toBe(80000);
+    expect(m.net).toBe(7800 + 18000);
+    expect(C.monthCashFlow(L, "2026-08").cash).toBe(10000);
+  });
+
+  it("累計は起点日より前を含めない", () => {
+    const all = C.cashFlow(L, Object.keys(L.days).filter((k) => k >= L.shop.openingDate));
+    expect(all.cash).toBe(80000); // 8/31 は起点より前なので入らない
+    expect(50000 + all.net).toBe(C.balances(L).cash);
+  });
+});

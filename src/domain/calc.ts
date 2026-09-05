@@ -243,6 +243,26 @@ export function balances(L: Ledger): Balances {
   return { cash, cardOut, lastCount, lastCountDate };
 }
 
+/** 現金の動き。レジ金を毎日入れ替える店では、その日だけで見る。 */
+export interface CashFlow { cash: number; expCash: number; paidCash: number; bankDeposit: number; net: number }
+export function cashFlow(L: Ledger, keys: string[]): CashFlow {
+  const f: CashFlow = { cash: 0, expCash: 0, paidCash: 0, bankDeposit: 0, net: 0 };
+  for (const k of keys) {
+    const t = dayTotals(L, k);
+    f.cash += t.cash; f.expCash += t.expCash; f.paidCash += t.paidCash; f.bankDeposit += t.bankDeposit;
+  }
+  f.net = f.cash - f.expCash - f.paidCash - f.bankDeposit;
+  return f;
+}
+/** その日 1 日ぶんの現金の動き */
+export function dayCashFlow(L: Ledger, dk: string): CashFlow {
+  return cashFlow(L, L.days[dk] ? [dk] : []);
+}
+/** その月ぶんの現金の動き */
+export function monthCashFlow(L: Ledger, m: string): CashFlow {
+  return cashFlow(L, monthKeys(L, m));
+}
+
 /** その日の終わりの現金残（起点日からの累計） */
 export function cashAsOf(L: Ledger, dk: string): number {
   const start = L.shop.openingDate || "0000-00-00";
