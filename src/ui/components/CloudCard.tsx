@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useCloud } from "../../state/cloud";
 import { Notice } from "./Notice";
+import { Trash } from "../icons";
 import { useApp } from "../../state/store";
 import { LoginForm } from "./LoginForm";
 
@@ -15,6 +16,37 @@ export function CloudCard() {
   const L = useApp((s) => s.ledger);
   const update = useApp((s) => s.update);
   const shop = c.shops.find((s) => s.id === c.shopId) ?? null;
+  const showToast = useApp((s) => s.showToast);
+
+  /** LINE などで送る案内文。コードはメールで本人に届くので、ここではリンクと手順を渡す */
+  const inviteText = (email: string, role: string) => {
+    const url = window.location.origin + window.location.pathname;
+    const what = role === "cast" ? "自分のシフトと給料が見られます。" : "日報の入力とシフトが見られます。";
+    return [
+      `${L.shop.name || "お店"}の「締め台帳」に招待しました。`,
+      what,
+      "",
+      "▼はじめかた",
+      `1. このリンクを開く\n${url}`,
+      `2. 「ログインして始める」を押して、${email} を入れる`,
+      "3. そのアドレスに届く6桁のコードを入れる",
+      "",
+      "※コードはメールに届きます。迷惑メールもご確認ください。",
+      "※ホーム画面に追加すると、アプリのように使えます。",
+    ].join("\n");
+  };
+  const sendInvite = async (email: string, role: string) => {
+    const text = inviteText(email, role);
+    try {
+      if (navigator.share) { await navigator.share({ text }); return; }
+      await navigator.clipboard.writeText(text);
+      showToast("案内をコピーしました。LINEなどに貼ってください");
+    } catch (e) {
+      if ((e as Error).name === "AbortError") return;
+      try { await navigator.clipboard.writeText(text); showToast("案内をコピーしました"); }
+      catch { showToast("コピーできませんでした"); }
+    }
+  };
   const owner = c.isOwner();
 
   if (!c.configured) {
@@ -88,8 +120,14 @@ export function CloudCard() {
                         {L.casts.map((x) => <option key={x.id} value={x.id}>{x.name || "（名前なし）"}</option>)}
                       </select>
                     )}
-                    {mb.role !== "owner" && <button type="button" className="btn sm ghost" disabled={c.busy}
-                      onClick={() => { if (window.confirm(`${mb.email} を外しますか？`)) void c.removeMember(mb.email); }}>外す</button>}
+                    {mb.role !== "owner" && (
+                      <>
+                        <button type="button" className="btn sm" aria-label={`${mb.email} に案内を送る`}
+                          onClick={() => void sendInvite(mb.email, mb.role)}>案内を送る</button>
+                        <button type="button" className="iconbtn" aria-label={`${mb.email} を外す`} disabled={c.busy}
+                          onClick={() => { if (window.confirm(`${mb.email} を外しますか？`)) void c.removeMember(mb.email); }}><Trash /></button>
+                      </>
+                    )}
                   </div>
                 );
               })}
