@@ -6,6 +6,7 @@ import { balances, castContribution, castRanking, dayTotals, missingDays, monthT
 import { WD, dayLabel, jp, shiftDay, shiftMonth, todayISO, yen, yenShort } from "../../domain/format";
 import { C, Calendar, CompositionChart, DailyChart, PALETTE, PieChart, YearChart, type PiePart } from "../charts";
 import { MonthBar } from "../components/MonthBar";
+import { Notice } from "../components/Notice";
 import { ChevLeft, ChevRight, Plus } from "../icons";
 import { csvFilename, monthCSV, offerFile } from "../../data/backup";
 
@@ -231,16 +232,19 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
           <div className="y">{m.slice(0, 4)}</div>
           <div className="m">{Number(m.slice(5, 7))}月</div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: 8, marginBottom: 5 }}>
-          <button type="button" className="mb" aria-label="前の月" style={{ width: 34, height: 34 }} onClick={() => setMonth(shiftMonth(m, -1))}><ChevLeft size={15} /></button>
-          <button type="button" className="mb" aria-label="次の月" style={{ width: 34, height: 34 }} onClick={() => setMonth(shiftMonth(m, 1))}><ChevRight size={15} /></button>
+        <div className="mstep" style={{ marginLeft: 8, marginBottom: 3 }}>
+          <button type="button" aria-label="前の月" onClick={() => setMonth(shiftMonth(m, -1))}><ChevLeft size={18} /></button>
+          <button type="button" aria-label="次の月" onClick={() => setMonth(shiftMonth(m, 1))}><ChevRight size={18} /></button>
         </div>
         <div style={{ flex: 1 }} />
         <div style={{ marginBottom: 4 }}>{seg}</div>
       </div>
 
       {!L.casts.length && !a.days && (
-        <div className="banner">まず<b>設定</b>でバック単価と時給を決めて、<b>キャスト</b>に在籍者を登録してください。あとは<b>日報</b>を毎日つけるだけで、ここが埋まります。</div>
+        <Notice title="はじめに 3 つだけ">
+          <b>設定</b>でバック単価と時給を決めて、<b>キャスト</b>に在籍者を登録してください。
+          あとは<b>日報</b>を毎日つけるだけで、ここが埋まります。
+        </Notice>
       )}
 
       {isCur && (!todayDone || missing.length > 0) && (

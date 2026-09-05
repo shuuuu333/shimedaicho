@@ -26,8 +26,9 @@ main{padding:0 var(--gutter)}
 
 /* 保存チップ */
 .savechip{margin-left:auto; display:inline-flex; align-items:center; gap:6px;
-  font-size:11px; color:var(--ink-3); border:0; border-radius:999px; padding:6px 11px;
-  background:var(--surface-2); white-space:nowrap; cursor:pointer; font-weight:500}
+  font-size:11px; color:var(--ink-3); border:0; border-radius:999px; padding:0 12px; min-height:36px;
+  background:var(--surface-2); white-space:nowrap; cursor:pointer; font-weight:500;
+  -webkit-tap-highlight-color:transparent}
 .savedot{width:6px;height:6px;border-radius:50%;background:var(--ink-3);flex:none}
 .savechip[data-s="saving"]{background:var(--surface-2); color:var(--ink-2)}
 .savechip[data-s="saving"] .savedot{background:var(--warn)}
@@ -88,23 +89,30 @@ main{padding:0 var(--gutter)}
 
 /* ---------- 見出しの月・日付 ---------- */
 .titlebar{display:flex; align-items:flex-end; gap:10px; padding:2px 0 14px}
+.mstep{display:flex; flex:none; background:var(--surface-2); border-radius:12px; overflow:hidden}
+.mstep button{width:44px; height:44px; display:grid; place-items:center; border:0; background:transparent;
+  color:var(--ink-2); cursor:pointer; -webkit-tap-highlight-color:transparent}
+.mstep button:active{background:var(--surface-3)}
+.mstep button+button{box-shadow:inset 1px 0 0 var(--line)}
 .titlebar .y{font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:12px; color:var(--ink-3); font-weight:500}
 .titlebar .m{font-size:30px; font-weight:700; letter-spacing:-.01em; line-height:1.1}
 .titlebar .sp{margin-left:auto; font-size:11.5px; color:var(--ink-3)}
 .monthbar{display:flex; align-items:center; gap:10px; margin-bottom:12px}
-.monthbar .mb{background:var(--surface-2); border:0; border-radius:11px;
-  width:38px;height:38px;display:grid;place-items:center;cursor:pointer;color:var(--ink-2)}
+.monthbar .mb{background:var(--surface-2); border:0; border-radius:12px;
+  width:44px;height:44px;display:grid;place-items:center;cursor:pointer;color:var(--ink-2);
+  -webkit-tap-highlight-color:transparent}
 .monthbar .mb:active{background:var(--surface-3)}
 .monthbar .lbl{font-weight:700; font-size:21px; letter-spacing:-.01em}
 .monthbar .sp{margin-left:auto; font-size:11.5px; color:var(--ink-3); text-align:right}
 .monthbar .sp b{display:block; font-size:19px; font-weight:600; color:var(--ink);
   font-family:"IBM Plex Mono",ui-monospace,monospace}
-.mb.today{width:auto; padding:0 13px; font-size:12.5px; font-weight:600; color:var(--accent); background:var(--accent-soft)}
+.mb.today{width:auto; padding:0 14px; font-size:13px; font-weight:600; color:var(--accent); background:var(--accent-soft)}
 
 /* 切替（セグメント） */
 .seg{display:flex; flex:none; background:var(--surface-2); border-radius:11px; padding:3px}
-.seg button{border:0; background:transparent; padding:7px 14px; font-size:12.5px; font-weight:500;
-  color:var(--ink-3); cursor:pointer; white-space:nowrap; border-radius:8px}
+.seg button{border:0; background:transparent; padding:0 14px; min-height:38px; font-size:12.5px; font-weight:500;
+  color:var(--ink-3); cursor:pointer; white-space:nowrap; border-radius:9px;
+  -webkit-tap-highlight-color:transparent}
 .seg button[aria-pressed="true"]{background:var(--surface); color:var(--ink); font-weight:600; box-shadow:var(--shadow)}
 .seg.wide{width:100%}
 .seg.wide button{flex:1; display:flex; align-items:center; justify-content:center; gap:6px; height:40px; padding:0}
@@ -132,7 +140,7 @@ main{padding:0 var(--gutter)}
 .btn.ghost{background:transparent; border:1px solid var(--line-strong)}
 .btn.danger{color:var(--crit); background:var(--crit-bg)}
 .btn.wide{width:100%}
-.btn.sm{min-height:38px; padding:0 13px; font-size:13px; border-radius:10px}
+.btn.sm{min-height:40px; padding:0 14px; font-size:13px; border-radius:11px}
 .btnrow{display:flex; gap:8px; flex-wrap:wrap}
 
 /* ---------- 行 ---------- */
@@ -226,9 +234,18 @@ nav.tabs svg{width:22px;height:22px}
 .pill.ok{color:var(--good); background:var(--good-bg)}
 .pill.bad{color:var(--crit); background:var(--crit-bg)}
 .pill.warn{color:var(--warn); background:var(--surface-2)}
-.banner{border:0; background:var(--surface-2); border-left:3px solid var(--warn);
-  border-radius:12px; padding:12px 14px; font-size:12.5px; margin-bottom:12px; color:var(--ink-2); line-height:1.5}
-.banner b{color:var(--ink)}
+.notice{display:flex; align-items:flex-start; gap:11px; border:0; border-radius:var(--r-tile);
+  background:var(--surface-2); padding:13px 14px; margin-bottom:12px; font-size:12.5px;
+  color:var(--ink-2); line-height:1.6}
+.notice .ic{flex:none; width:22px; height:22px; border-radius:999px; display:grid; place-items:center;
+  background:var(--surface); color:var(--warn); margin-top:-1px}
+.notice .ic svg{width:14px; height:14px}
+.notice .g{flex:1; min-width:0}
+.notice .t{display:block; font-size:13px; font-weight:600; color:var(--ink); margin-bottom:2px}
+.notice b{color:var(--ink); font-weight:600}
+.notice.bad{background:var(--crit-bg)}
+.notice.bad .ic{color:var(--crit)}
+.notice.bad .t{color:var(--crit)}
 .divider{height:1px;background:var(--line);margin:16px -16px}
 .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:96px; z-index:60; width:max-content; max-width:calc(100vw - 32px);
   background:var(--ink); color:var(--surface); padding:11px 14px 11px 16px; border-radius:14px; font-size:13px;
@@ -239,7 +256,7 @@ nav.tabs svg{width:22px;height:22px}
 .toast span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .toast .undo{flex:none; background:transparent; border:0; color:var(--accent); font-size:13px; font-weight:700;
   padding:4px 6px; border-radius:8px; cursor:pointer}
-.iconbtn{flex:none; width:40px; height:40px; display:grid; place-items:center; cursor:pointer;
+.iconbtn{flex:none; width:42px; height:42px; display:grid; place-items:center; cursor:pointer;
   background:transparent; border:0; border-radius:10px; color:var(--ink-3);
   -webkit-tap-highlight-color:transparent}
 .iconbtn:active{color:var(--crit); background:var(--crit-bg)}

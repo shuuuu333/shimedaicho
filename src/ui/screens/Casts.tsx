@@ -5,6 +5,7 @@ import { dayLabel, jp, monthLabel, shiftMonth, todayISO, uid, yen } from "../../
 import { emptyDay } from "../../domain/migrate";
 import { MonthBar } from "../components/MonthBar";
 import { NumberField } from "../components/NumberField";
+import { Notice } from "../components/Notice";
 import { BottomSheet } from "../components/BottomSheet";
 import type { Cast } from "../../domain/types";
 import { ChevRight, Trash } from "../icons";
@@ -45,7 +46,11 @@ export function Casts() {
   return (
     <>
       <MonthBar month={m} onChange={(mm) => setUI({ month: mm, castDetail: null })} right={<>未払い計<b>{yen(mt.unpaid)}</b></>} />
-      {mt.paidLump > 0 && <div className="banner">今月は「まとめて払った日払い」が <b>{yen(mt.paidLump)}</b> あります。人件費には入っていますが、誰にいくらかは記録していないので下の表には出てきません。</div>}
+      {mt.paidLump > 0 && (
+        <Notice title={`まとめて払った日払い ${yen(mt.paidLump)}`}>
+          人件費には入っていますが、誰にいくら渡したかを記録していないので、下の表には出てきません。
+        </Notice>
+      )}
 
       <div className="sechead" style={{ marginTop: 0 }}>
         <div className="t">キャスト別の給料</div><div className="l" />
@@ -56,7 +61,7 @@ export function Casts() {
           <span className="avatar">{(r.cast.name || "?").slice(0, 1)}</span>
           <span className="g">
             <span className="t">{r.cast.name || "（名前なし）"}</span>
-            <span className="s">{r.days}日 · {r.hours.toFixed(1)}h · バック {jp(r.backTotal)}</span>
+            <span className="s">{r.days}日 · {r.hours.toFixed(1)}時間</span>
           </span>
           <span className="r">
             <span className="a">{jp(r.gross)}</span>

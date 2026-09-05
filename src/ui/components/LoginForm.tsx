@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useCloud } from "../../state/cloud";
+import { Notice } from "./Notice";
 
 /** メールが届かないときの案内 */
 export function LoginHelp() {
@@ -53,7 +54,7 @@ export function LoginForm({ onDone }: { onDone?: () => void }) {
             onKeyDown={(e) => { if (e.key === "Enter" && code.length >= 6) void c.verifyCode(code); }} /></label>
         <button type="button" className="btn primary wide" style={{ minHeight: 50 }} disabled={c.busy || code.length < 6}
           onClick={() => c.verifyCode(code)}>ログイン</button>
-        {c.error && <div className="banner" style={{ marginTop: 10 }}>{c.error}</div>}
+        {c.error && <div style={{ marginTop: 10 }}><Notice bad>{c.error}</Notice></div>}
         <div className="btnrow" style={{ marginTop: 10 }}>
           <button type="button" className="btn sm" disabled={c.busy || wait > 0} onClick={() => send(c.pendingEmail!)}>
             {wait > 0 ? `もう一度送る（${wait}秒）` : "もう一度送る"}
@@ -74,7 +75,7 @@ export function LoginForm({ onDone }: { onDone?: () => void }) {
           onKeyDown={(e) => { if (e.key === "Enter" && email.includes("@")) send(email); }} /></label>
       <button type="button" className="btn primary wide" style={{ minHeight: 50 }} disabled={c.busy || !email.includes("@")}
         onClick={() => send(email)}>ログイン用のメールを送る</button>
-      {c.error && <div className="banner" style={{ marginTop: 10 }}>{c.error}</div>}
+      {c.error && <div style={{ marginTop: 10 }}><Notice bad>{c.error}</Notice></div>}
       <div className="steprow" style={{ marginTop: 10 }}><span className="stepno">2</span>
         <div className="g"><div className="t">届いた 6 桁を入れる</div><div className="s">それだけでログインできます</div></div></div>
       <LoginHelp />

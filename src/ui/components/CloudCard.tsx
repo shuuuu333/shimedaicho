@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useCloud } from "../../state/cloud";
+import { Notice } from "./Notice";
 import { useApp } from "../../state/store";
 import { LoginForm } from "./LoginForm";
 
@@ -42,7 +43,7 @@ export function CloudCard() {
         <>
           <div className="lrow"><div className="g"><div className="t">{c.email}</div><div className="s">{statusText[c.status] || "ログイン済み"}</div></div>
             <button type="button" className="btn sm ghost" disabled={c.busy} onClick={() => c.signOut()}>ログアウト</button></div>
-          {c.error && <div className="banner" style={{ marginTop: 8 }}>{c.error}</div>}
+          {c.error && <div style={{ marginTop: 8 }}><Notice bad>{c.error}</Notice></div>}
 
           <div className="sec">
             <span className="lbl" style={{ display: "block", fontSize: 11.5, color: "var(--ink-2)", marginBottom: 4 }}>店</span>

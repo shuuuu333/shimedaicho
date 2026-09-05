@@ -150,7 +150,7 @@ function AttendStep({ L, dk, d, edit, t, openSheet, showToast }: { L: Ledger; dk
             <span className="g">
               <span className="t">{c.name || "（名前なし）"}</span>
               {hasBacks
-                ? <span className="s">{sh.in || "?"}-{sh.out || "?"} · {p.hours.toFixed(1)}h · バック {jp(p.backTotal)}{p.paid ? ` · 日払い ${jp(p.paid)}` : ""}</span>
+                ? <span className="s">{sh.in || "?"}-{sh.out || "?"} · {p.hours.toFixed(1)}時間{p.paid ? ` · 日払い ${jp(p.paid)}` : ""}</span>
                 : <span className="s warn">本数がまだ入っていません</span>}
             </span>
             <span className="r"><span className="a">{jp(p.gross)}</span></span>
