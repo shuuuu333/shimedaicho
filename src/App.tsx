@@ -3,19 +3,20 @@ import { useApp, type Tab } from "./state/store";
 import { useCloud } from "./state/cloud";
 import { SaveStatus } from "./ui/components/SaveStatus";
 import { Toast } from "./ui/components/Toast";
-import { IcoCast, IcoDay, IcoMonth, IcoSet, IcoShift } from "./ui/icons";
+import { Welcome } from "./ui/components/Welcome";
+import { ChevLeft, IcoCast, IcoDay, IcoMonth, IcoSet, IcoShift } from "./ui/icons";
 import { Month } from "./ui/screens/Month";
 import { DayReport } from "./ui/screens/DayReport";
 import { Casts } from "./ui/screens/Casts";
 import { Shifts } from "./ui/screens/Shifts";
 import { Settings } from "./ui/screens/Settings";
 
+/** 下のタブに並ぶ4つ。設定は右上の歯車から開く */
 const TABS: { id: Tab; label: string; Icon: ComponentType; Screen: ComponentType }[] = [
   { id: "month", label: "今月", Icon: IcoMonth, Screen: Month },
   { id: "day", label: "日報", Icon: IcoDay, Screen: DayReport },
   { id: "shift", label: "シフト", Icon: IcoShift, Screen: Shifts },
   { id: "cast", label: "キャスト", Icon: IcoCast, Screen: Casts },
-  { id: "set", label: "設定", Icon: IcoSet, Screen: Settings },
 ];
 
 export default function App() {
@@ -27,29 +28,50 @@ export default function App() {
   const cloudInit = useCloud((s) => s.init);
   const role = useCloud((s) => s.role());
   useEffect(() => { void init().then(() => cloudInit()); }, [init, cloudInit]);
-  const tabs = role === "cast" ? TABS.filter((t) => t.id === "shift" || t.id === "set")
-    : role === "staff" ? TABS.filter((t) => t.id === "day" || t.id === "shift" || t.id === "set")
+  const tabs = role === "cast" ? TABS.filter((t) => t.id === "shift")
+    : role === "staff" ? TABS.filter((t) => t.id === "day" || t.id === "shift")
     : TABS;
-  useEffect(() => { if (!tabs.some((t) => t.id === tab)) setUI({ tab: "day", sheet: null }); }, [tabs, tab, setUI]);
+  useEffect(() => {
+    if (tab !== "set" && !tabs.some((t) => t.id === tab)) setUI({ tab: tabs[0].id, sheet: null });
+  }, [tabs, tab, setUI]);
 
-  const Screen = (tabs.find((t) => t.id === tab) ?? tabs[0]).Screen;
+  const onSettings = tab === "set";
+  const Screen = onSettings ? Settings : (tabs.find((t) => t.id === tab) ?? tabs[0]).Screen;
+  const back = () => { setUI({ tab: tabs[0].id, setFocus: null, sheet: null }); window.scrollTo(0, 0); };
+
   return (
-    <div className="app">
+    <div className={`app ${onSettings ? "setpage" : ""}`}>
       <header className="topbar">
-        <div className="brand"><b>{name || "締め台帳"}</b><span>{name ? "売上・給料・現金の締め" : ""}</span></div>
+        {onSettings ? (
+          <>
+            <button type="button" className="iconbtn back" aria-label="戻る" onClick={back}><ChevLeft size={20} /></button>
+            <div className="brand"><b>設定</b></div>
+          </>
+        ) : (
+          <div className="brand"><b>{name || "締め台帳"}</b><span>{name ? "売上・給料・現金の締め" : ""}</span></div>
+        )}
         <SaveStatus />
+        {!onSettings && (
+          <button type="button" className="iconbtn gear" aria-label="設定を開く"
+            onClick={() => { setUI({ tab: "set", setFocus: null, sheet: null }); window.scrollTo(0, 0); }}>
+            <IcoSet />
+          </button>
+        )}
       </header>
       <main>{loaded ? <Screen /> : <div className="empty">読み込み中…</div>}</main>
-      <nav className="tabs" aria-label="画面切替">
-        <div className="in" style={tabs.length < 4 ? { gridTemplateColumns: `repeat(${tabs.length},1fr)` } : undefined}>
-          {tabs.map(({ id, label, Icon }) => (
-            <button key={id} type="button" aria-current={tab === id ? "page" : undefined}
-              onClick={() => { setUI({ tab: id, setFocus: null, sheet: null }); window.scrollTo(0, 0); }}>
-              <Icon />{label}
-            </button>
-          ))}
-        </div>
-      </nav>
+      {!onSettings && (
+        <nav className="tabs" aria-label="画面切替">
+          <div className="in" style={{ gridTemplateColumns: `repeat(${tabs.length},1fr)` }}>
+            {tabs.map(({ id, label, Icon }) => (
+              <button key={id} type="button" aria-current={tab === id ? "page" : undefined}
+                onClick={() => { setUI({ tab: id, setFocus: null, sheet: null }); window.scrollTo(0, 0); }}>
+                <Icon />{label}
+              </button>
+            ))}
+          </div>
+        </nav>
+      )}
+      <Welcome />
       <Toast />
     </div>
   );
