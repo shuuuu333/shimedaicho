@@ -5,7 +5,10 @@ import { VitePWA } from "vite-plugin-pwa";
 export default defineConfig({
   base: process.env.VITE_BASE || "/",
   server: { port: Number(process.env.PORT) || 5173, strictPort: !!process.env.PORT },
-  define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? "0.1.0") },
+  define: {
+    __APP_VERSION__: JSON.stringify(process.env.npm_package_version ?? "0.1.0"),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   plugins: [
     react(),
     VitePWA({

@@ -29,6 +29,27 @@ export function Settings() {
   const lastBackupAt = useApp((s) => s.lastBackupAt);
   const [snaps, setSnaps] = useState<SnapshotInfo[] | null>(null);
   const [showSnaps, setShowSnaps] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [updateMsg, setUpdateMsg] = useState("");
+
+  /** 新しい版があれば入れて読み込み直す */
+  const checkUpdate = async () => {
+    setChecking(true); setUpdateMsg("");
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration();
+      if (!reg) { setUpdateMsg("この開き方では更新を確認できません。ブラウザで開き直してください。"); return; }
+      await reg.update();
+      if (reg.waiting || reg.installing) {
+        setUpdateMsg("新しい版が見つかりました。読み込み直します…");
+        reg.waiting?.postMessage({ type: "SKIP_WAITING" });
+        setTimeout(() => window.location.reload(), 1200);
+      } else {
+        setUpdateMsg("いまが最新です。");
+      }
+    } catch {
+      setUpdateMsg("確認できませんでした。電波を確かめてください。");
+    } finally { setChecking(false); }
+  };
   const fileRef = useRef<HTMLInputElement>(null);
   const S = L.shop;
   const role = useCloud((s) => s.role());
@@ -100,7 +121,15 @@ export function Settings() {
           <div className="lrow"><div className="g"><div className="t">2. 入力は自動で保存・同期</div><div className="s">右上が「同期済み」なら店の全員に共有されています</div></div></div>
           <div className="lrow"><div className="g"><div className="t">3. 集計と設定はオーナーのみ</div><div className="s">給料や利益の画面は出ません</div></div></div>
         </div>
-        <p className="hint" style={{ textAlign: "center", margin: "4px 0 10px" }}>締め台帳 v{__APP_VERSION__}</p>
+        <div className="card" id="set-version">
+        <h2>アプリの版</h2>
+        <div className="lrow">
+          <div className="g"><div className="t">締め台帳 v{__APP_VERSION__}</div>
+            <div className="s num">{new Date(__BUILD_TIME__).toLocaleString("ja-JP", { year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} の版</div></div>
+          <button type="button" className="btn sm" disabled={checking} onClick={checkUpdate}>{checking ? "確認中…" : "更新を確認"}</button>
+        </div>
+        {updateMsg && <div className="hint">{updateMsg}</div>}
+      </div>
       </>
     );
   }
@@ -207,7 +236,15 @@ export function Settings() {
         <div className="lrow"><div className="g"><div className="t">5. 給料日に精算</div><div className="s">キャスト画面の「今日精算」を押すだけ。未払いが消え、現金残からも引かれます</div></div></div>
         <div className="lrow"><div className="g"><div className="t">6. 月に一度バックアップ</div><div className="s">上の「全データのバックアップ」を押して、ファイルを手元に残しておくと安心です</div></div></div>
       </div>
-      <p className="hint" style={{ textAlign: "center", margin: "4px 0 10px" }}>締め台帳 v{__APP_VERSION__}</p>
+      <div className="card" id="set-version">
+        <h2>アプリの版</h2>
+        <div className="lrow">
+          <div className="g"><div className="t">締め台帳 v{__APP_VERSION__}</div>
+            <div className="s num">{new Date(__BUILD_TIME__).toLocaleString("ja-JP", { year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} の版</div></div>
+          <button type="button" className="btn sm" disabled={checking} onClick={checkUpdate}>{checking ? "確認中…" : "更新を確認"}</button>
+        </div>
+        {updateMsg && <div className="hint">{updateMsg}</div>}
+      </div>
     </>
   );
 }
