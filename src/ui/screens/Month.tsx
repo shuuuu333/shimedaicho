@@ -38,14 +38,14 @@ function RankingCard({ L, m }: { L: ReturnType<typeof useApp.getState>["ledger"]
   return (
     <div className="card">
       <div className="cardhead">
-        <h2>キャスト別のランキング</h2>
+        <h2>ランキング</h2>
         <div className="seg" role="group" aria-label="ランキングの基準">
           {METRICS.map((x) => (
             <button key={x.id} type="button" aria-pressed={metric === x.id} onClick={() => setMetric(x.id)}>{x.label}</button>
           ))}
         </div>
       </div>
-      <p className="sub">{info.sub}{hide ? "。金額はオーナーだけが見られます。" : ""}</p>
+      <p className="sub">キャスト別。{info.sub}{hide ? "。金額はオーナーだけが見られます。" : ""}</p>
       {rows.length ? rows.slice(0, 10).map((r, i) => {
         const mine = myId === r.id;
         return (
@@ -76,7 +76,8 @@ function BreakdownCard({ a, L, m }: { a: ReturnType<typeof monthTotals>; L: Retu
   const top = contrib.rows.slice(0, 7);
   const rest = contrib.rows.slice(7).reduce((s, r) => s + r.value, 0);
   const castParts: PiePart[] = [...top.map((r, i) => ({ label: r.name, value: r.value, color: PALETTE[i % PALETTE.length] })), ...(rest > 0 ? [{ label: "その他", value: rest, color: C.rest }] : [])];
-  const dowColors = [C.card, C.muted, C.muted, C.muted, C.muted, C.labor, C.cash];
+  // 曜日はそれぞれ違う色にする。赤は「赤字」用に空けておく
+  const dowColors = ["#9B8AFA", "#4C9AFF", "#22B8CF", "#2FBF9B", "#7FC24A", "#E0B13C", "#E8843D"];
   const dowParts: PiePart[] = dow.map((v, i) => ({ label: WD[i] + "曜", value: v, color: dowColors[i] }));
   const sub = kind === "bar" ? `今月の売上 ${yen(a.sales)} の内訳`
     : kind === "use" ? `売上 ${yen(a.sales)} が何に使われたか`
@@ -95,7 +96,7 @@ function BreakdownCard({ a, L, m }: { a: ReturnType<typeof monthTotals>; L: Retu
       </div>
       <p className="sub">{sub}</p>
       {kind === "bar" && <CompositionChart a={a} />}
-      {kind === "use" && <PieChart parts={a.sales > 0 ? useParts : []} center={a.sales > 0 ? `${pct(a.profit, a.sales).toFixed(0)}%` : undefined} empty="売上が入ると内訳が出ます" />}
+      {kind === "use" && <PieChart parts={a.sales > 0 ? useParts : []} center={a.sales > 0 ? { label: "営業利益", value: `${pct(a.profit, a.sales).toFixed(0)}%` } : undefined} empty="売上が入ると内訳が出ます" />}
       {kind === "cast" && <PieChart parts={castParts} empty="出勤とバックが入ると貢献が出ます" />}
       {kind === "dow" && <PieChart parts={dowParts} empty="売上が入ると曜日別が出ます" />}
       {kind === "bar" && (
@@ -165,7 +166,7 @@ function YearView() {
 
       <div className="card">
         <h2>年の売上の使われ方</h2><p className="sub">売上 {yen(y.sales)} が何に使われたか</p>
-        <PieChart parts={y.sales > 0 ? useParts : []} center={y.sales > 0 ? `${pct(y.profit, y.sales).toFixed(0)}%` : undefined} empty="売上が入ると内訳が出ます" />
+        <PieChart parts={y.sales > 0 ? useParts : []} center={y.sales > 0 ? { label: "営業利益", value: `${pct(y.profit, y.sales).toFixed(0)}%` } : undefined} empty="売上が入ると内訳が出ます" />
       </div>
     </>
   );

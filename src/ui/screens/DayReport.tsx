@@ -90,7 +90,7 @@ function SalesStep({ d, edit, t }: { d: DayRecord; edit: Edit; t: T }) {
   return (
     <div className="card">
       <StepHead title="売上" note="閉店後の合計を入れます" />
-      <label className="field"><span className="lbl">現金売上</span><NumberField big value={d.cashSales} onChange={(v) => edit((dd) => { dd.cashSales = v; })} autoFocus /></label>
+      <label className="field"><span className="lbl">現金売上</span><NumberField big value={d.cashSales} onChange={(v) => edit((dd) => { dd.cashSales = v; })} /></label>
       <label className="field"><span className="lbl">カード売上</span><NumberField big value={d.cardSales} onChange={(v) => edit((dd) => { dd.cardSales = v; })} /></label>
       <label className="field"><span className="lbl">組数・客数（客単価の計算用・任意）</span><NumberField value={d.guests} onChange={(v) => edit((dd) => { dd.guests = v; })} /></label>
       <div className="hint">売上合計 <b className="num">{yen(t.sales)}</b>{t.card ? ` ／ カード手数料 ${yen(t.fee)}` : ""}</div>

@@ -202,7 +202,7 @@ function arcPath(cx: number, cy: number, r0: number, r1: number, a0: number, a1:
 }
 
 /** ドーナツ型の円グラフ。値 0 の部品は描かず、凡例に金額と割合を出す */
-export function PieChart({ parts, center, empty = "データがありません" }: { parts: PiePart[]; center?: string; empty?: string }) {
+export function PieChart({ parts, center, empty = "データがありません" }: { parts: PiePart[]; center?: { label: string; value: string }; empty?: string }) {
   const list = parts.filter((p) => p.value > 0);
   const total = list.reduce((s, p) => s + p.value, 0);
   if (!total) return <div className="empty">{empty}</div>;
@@ -218,7 +218,13 @@ export function PieChart({ parts, center, empty = "データがありません" 
             a += (p.value / total) * Math.PI * 2;
             return <path key={p.label} d={arcPath(cx, cy, r0, r1, a0, Math.max(a0 + 0.001, a1))} fill={p.color} />;
           })}
-        {center && <text x={cx} y={cy + 5} textAnchor="middle" fontSize={15} className="ctr" fill="var(--ink)">{center}</text>}
+        {center && (
+          <g>
+            <rect x={cx - 46} y={cy - 26} width={92} height={52} rx={12} fill="var(--surface-2)" />
+            <text x={cx} y={cy - 6} textAnchor="middle" fontSize={11.5} fill="var(--ink-2)" fontWeight={500}>{center.label}</text>
+            <text x={cx} y={cy + 16} textAnchor="middle" fontSize={20} className="ctr" fill="var(--ink)">{center.value}</text>
+          </g>
+        )}
       </svg>
       <div className="legend">
         {list.map((p) => (
