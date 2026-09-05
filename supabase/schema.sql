@@ -99,3 +99,75 @@ do $$ begin
   alter table public.shop_members drop constraint if exists shop_members_role_check;
   alter table public.shop_members add constraint shop_members_role_check check (role in ('owner','staff','cast'));
 exception when others then null; end $$;
+
+-- ============================================================
+-- QR での招待（メールなしで店に入れる）
+-- ============================================================
+
+-- メンバーを「ログインした人そのもの」でも見分けられるようにする
+alter table public.shop_members add column if not exists user_id uuid references auth.users(id) on delete cascade;
+alter table public.shop_members add column if not exists name text;
+create index if not exists shop_members_user on public.shop_members (user_id);
+
+-- 自分がその店のメンバーか（メール一致 か 本人一致）
+create or replace function public.is_member(sid uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.shops s where s.id = sid and s.owner = auth.uid())
+      or exists (select 1 from public.shop_members m where m.shop_id = sid
+                 and (m.user_id = auth.uid() or lower(m.email) = public.my_email()));
+$$;
+
+-- 招待。token を QR に入れる。期限つき・1回だけ
+create table if not exists public.shop_invites (
+  token uuid primary key default gen_random_uuid(),
+  shop_id uuid not null references public.shops(id) on delete cascade,
+  role text not null default 'staff' check (role in ('staff','cast')),
+  name text not null default '',
+  cast_id text,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  used_by uuid,
+  created_at timestamptz not null default now()
+);
+create index if not exists shop_invites_shop on public.shop_invites (shop_id);
+
+alter table public.shop_invites enable row level security;
+drop policy if exists invites_select on public.shop_invites;
+create policy invites_select on public.shop_invites for select using (public.is_owner(shop_id));
+drop policy if exists invites_insert on public.shop_invites;
+create policy invites_insert on public.shop_invites for insert with check (public.is_owner(shop_id));
+drop policy if exists invites_delete on public.shop_invites;
+create policy invites_delete on public.shop_invites for delete using (public.is_owner(shop_id));
+
+-- QR を読んだ人が自分を店に加える。まだメンバーでないので security definer で通す
+-- 返り値は json（出力名と列名がぶつからないようにするため）
+create or replace function public.redeem_invite(t uuid)
+returns json
+language plpgsql security definer set search_path = public as $$
+declare inv public.shop_invites; uid uuid := auth.uid(); sname text;
+begin
+  if uid is null then raise exception 'ログインしていません'; end if;
+  select * into inv from public.shop_invites where token = t for update;
+  if inv is null then raise exception 'この招待は見つかりません'; end if;
+  if inv.used_at is not null then raise exception 'この招待は使用済みです'; end if;
+  if inv.expires_at < now() then raise exception 'この招待は期限切れです'; end if;
+
+  insert into public.shop_members as sm (shop_id, email, role, user_id, name)
+  values (inv.shop_id, 'qr:' || uid::text, inv.role, uid, inv.name)
+  on conflict (shop_id, email) do update
+    set role = excluded.role, user_id = excluded.user_id, name = excluded.name;
+
+  update public.shop_invites set used_at = now(), used_by = uid where token = inv.token;
+
+  select s.name into sname from public.shops s where s.id = inv.shop_id;
+  return json_build_object('shop_id', inv.shop_id, 'shop_name', coalesce(sname, ''), 'role', inv.role, 'cast_id', inv.cast_id);
+end $$;
+
+revoke all on function public.redeem_invite(uuid) from public;
+grant execute on function public.redeem_invite(uuid) to authenticated;
+
+-- 期限切れの招待を消す（任意）
+create or replace function public.purge_invites() returns void
+language sql security definer set search_path = public as $$
+  delete from public.shop_invites where expires_at < now() - interval '1 day';
+$$;

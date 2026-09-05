@@ -10,7 +10,9 @@ export const cloudConfigured = !!supabase;
 
 export interface ShopRow { id: string; name: string; owner: string; created_at: string }
 export type MemberRole = "owner" | "staff" | "cast";
-export interface MemberRow { shop_id: string; email: string; role: MemberRole; created_at: string }
+export interface MemberRow { shop_id: string; email: string; role: MemberRole; created_at: string; name?: string | null; user_id?: string | null }
+export interface InviteRow { token: string; shop_id: string; role: "staff" | "cast"; name: string; cast_id: string | null; expires_at: string; used_at: string | null }
+export interface Redeemed { shop_id: string; shop_name: string; role: string; cast_id: string | null }
 export interface RemoteLedger { data: unknown; version: number; updated_at: string; updated_by: string | null }
 
 function sb(): SupabaseClient {
@@ -97,6 +99,34 @@ export async function addMember(shopId: string, email: string, role: "staff" | "
 export async function removeMember(shopId: string, email: string): Promise<void> {
   const { error } = await sb().from("shop_members").delete().eq("shop_id", shopId).eq("email", email);
   if (error) fail(error, "メンバーを外せませんでした");
+}
+
+/* ---------- QR での招待 ---------- */
+
+/** 期限つき・1回だけの招待を作る。token を QR に入れる */
+export async function createInvite(shopId: string, role: "staff" | "cast", name: string, castId: string | null, minutes = 30): Promise<InviteRow> {
+  const expires = new Date(Date.now() + minutes * 60 * 1000).toISOString();
+  const { data, error } = await sb().from("shop_invites")
+    .insert({ shop_id: shopId, role, name: name.trim(), cast_id: castId, expires_at: expires })
+    .select("*").single();
+  if (error) fail(error, "招待を作れませんでした");
+  return data as InviteRow;
+}
+export async function cancelInvite(token: string): Promise<void> {
+  await sb().from("shop_invites").delete().eq("token", token);
+}
+/** 名前を持たない匿名のログイン。QR を読んだ人に使う */
+export async function signInAnonymously(): Promise<void> {
+  const { error } = await sb().auth.signInAnonymously();
+  if (error) fail(error, "ログインできませんでした");
+}
+/** QR の token を使って、自分をその店のメンバーにする */
+export async function redeemInvite(token: string): Promise<Redeemed> {
+  const { data, error } = await sb().rpc("redeem_invite", { t: token });
+  if (error) fail(error, "招待を使えませんでした");
+  const row = (Array.isArray(data) ? data[0] : data) as Redeemed | null;
+  if (!row || !row.shop_id) throw new Error("この招待は使えませんでした");
+  return row;
 }
 
 /* ---------- 台帳 ---------- */

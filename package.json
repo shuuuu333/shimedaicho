@@ -14,12 +14,14 @@
     "@supabase/supabase-js": "^2.112.4",
     "dexie": "^4.4.5",
     "immer": "^11.1.18",
+    "qrcode": "^1.5.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "^6.1.1",

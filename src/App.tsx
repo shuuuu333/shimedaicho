@@ -27,7 +27,20 @@ export default function App() {
   const name = useApp((s) => s.ledger.shop.name);
   const cloudInit = useCloud((s) => s.init);
   const role = useCloud((s) => s.role());
+  const joinByToken = useCloud((s) => s.joinByToken);
+  const showToast = useApp((s) => s.showToast);
   useEffect(() => { void init().then(() => cloudInit()); }, [init, cloudInit]);
+
+  // QR を読んで開いたとき（?join=…）は、その招待でお店に入る
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get("join");
+    if (!token) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("join");
+    window.history.replaceState(null, "", url.toString());
+    try { localStorage.setItem("shimedaicho.welcomed", "1"); } catch { /* ignore */ }
+    void joinByToken(token).then((r) => showToast(r.message));
+  }, [joinByToken, showToast]);
   const tabs = role === "cast" ? TABS.filter((t) => t.id === "shift")
     : role === "staff" ? TABS.filter((t) => t.id === "day" || t.id === "shift")
     : TABS;

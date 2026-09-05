@@ -36,6 +36,10 @@ export interface CloudState {
   addMember(email: string, role?: "staff" | "cast"): Promise<void>;
   removeMember(email: string): Promise<void>;
   syncNow(): Promise<void>;
+  /** QR を作る（オーナー用） */
+  makeInvite(role: "staff" | "cast", name: string, castId: string | null): Promise<api.InviteRow | null>;
+  /** QR から入る。ログインしていなければ匿名でログインしてから加わる */
+  joinByToken(token: string): Promise<{ ok: boolean; message: string }>;
   isOwner(): boolean;
   /** 選択中の店での自分の役割。店を選んでいなければ owner 扱い（端末内モード） */
   role(): "owner" | "staff" | "cast";
@@ -266,6 +270,32 @@ export const useCloud = create<CloudState>()((set, get) => {
       catch (e) { set({ error: msg(e) }); }
       finally { set({ busy: false }); }
     },
+    async makeInvite(role, name, castId) {
+      const { shopId } = get();
+      if (!shopId) return null;
+      set({ busy: true, error: null });
+      try { return await api.createInvite(shopId, role, name, castId); }
+      catch (e) { set({ error: msg(e) }); return null; }
+      finally { set({ busy: false }); }
+    },
+    async joinByToken(token) {
+      set({ busy: true, error: null });
+      try {
+        if (!get().session) {
+          await api.signInAnonymously();
+          const s2 = await api.getSession();
+          set({ session: s2, email: s2?.user.email ?? null });
+        }
+        const r = await api.redeemInvite(token);
+        await get().refreshShops();
+        await get().selectShop(r.shop_id);
+        return { ok: true, message: `${r.shop_name || "お店"}に入りました` };
+      } catch (e) {
+        const m = msg(e);
+        set({ error: m });
+        return { ok: false, message: m };
+      } finally { set({ busy: false }); }
+    },
     async syncNow() {
       if (dirty.days.size || dirty.meta) await push(); else await pull();
     },
@@ -278,7 +308,8 @@ export const useCloud = create<CloudState>()((set, get) => {
       const { session, shopId, members, email } = get();
       if (!session || !shopId) return "owner";
       if (get().isOwner()) return "owner";
-      const me = members.find((x) => x.email.toLowerCase() === (email ?? "").toLowerCase());
+      const uid = session.user.id;
+      const me = members.find((x) => x.user_id === uid || x.email.toLowerCase() === (email ?? "").toLowerCase());
       return me?.role === "cast" ? "cast" : "staff";
     },
   };

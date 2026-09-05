@@ -4,6 +4,7 @@ import { Notice } from "./Notice";
 import { Trash } from "../icons";
 import { useApp } from "../../state/store";
 import { LoginForm } from "./LoginForm";
+import { InviteSheet } from "./InviteSheet";
 
 const fmtAt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—");
 
@@ -16,38 +17,11 @@ export function CloudCard() {
   const L = useApp((s) => s.ledger);
   const update = useApp((s) => s.update);
   const shop = c.shops.find((s) => s.id === c.shopId) ?? null;
-  const showToast = useApp((s) => s.showToast);
-
-  /** LINE などで送る案内文。コードはメールで本人に届くので、ここではリンクと手順を渡す */
-  const inviteText = (email: string, role: string) => {
-    const url = window.location.origin + window.location.pathname;
-    const what = role === "cast" ? "自分のシフトと給料が見られます。" : "日報の入力とシフトが見られます。";
-    return [
-      `${L.shop.name || "お店"}の「締め台帳」に招待しました。`,
-      what,
-      "",
-      "▼はじめかた",
-      `1. このリンクを開く\n${url}`,
-      `2. 「ログインして始める」を押して、${email} を入れる`,
-      "3. そのアドレスに届く6桁のコードを入れる",
-      "",
-      "※コードはメールに届きます。迷惑メールもご確認ください。",
-      "※ホーム画面に追加すると、アプリのように使えます。",
-    ].join("\n");
-  };
-  const sendInvite = async (email: string, role: string) => {
-    const text = inviteText(email, role);
-    try {
-      if (navigator.share) { await navigator.share({ text }); return; }
-      await navigator.clipboard.writeText(text);
-      showToast("案内をコピーしました。LINEなどに貼ってください");
-    } catch (e) {
-      if ((e as Error).name === "AbortError") return;
-      try { await navigator.clipboard.writeText(text); showToast("案内をコピーしました"); }
-      catch { showToast("コピーできませんでした"); }
-    }
-  };
   const owner = c.isOwner();
+  const [inviting, setInviting] = useState(false);
+  /** QR で入った人はメールを持たないので、名前で見せる */
+  const label = (mb: { email: string; name?: string | null }) =>
+    mb.email.startsWith("qr:") ? (mb.name || "QRで参加した人") : mb.email;
 
   if (!c.configured) {
     return (
@@ -101,12 +75,15 @@ export function CloudCard() {
 
           {shop && owner && (
             <div className="sec">
-              <span className="lbl" style={{ display: "block", fontSize: 11.5, color: "var(--ink-2)", marginBottom: 4 }}>メンバー（この店のデータを見て入力できる人）</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <span className="lbl" style={{ margin: 0, flex: 1 }}>メンバー（この店を使える人）</span>
+                <button type="button" className="btn sm primary" onClick={() => setInviting(true)}>QRで招待</button>
+              </div>
               {c.members.map((mb) => {
                 const linked = L.casts.find((x) => (x.email ?? "").toLowerCase() === mb.email.toLowerCase());
                 return (
                   <div key={mb.email} className="lrow" style={{ padding: "9px 0" }}>
-                    <div className="g"><div className="t" style={{ fontSize: 13.5 }}>{mb.email}</div>
+                    <div className="g"><div className="t" style={{ fontSize: 13.5 }}>{label(mb)}</div>
                       <div className="s">{mb.role === "owner" ? "オーナー" : mb.role === "cast" ? `キャスト${linked ? ` ・ ${linked.name}` : "（結び付け待ち）"}` : "スタッフ"}</div></div>
                     {mb.role === "cast" && (
                       <select className="inp" style={{ width: 116, padding: "8px 6px", fontSize: 12.5, minHeight: 38 }}
@@ -121,12 +98,8 @@ export function CloudCard() {
                       </select>
                     )}
                     {mb.role !== "owner" && (
-                      <>
-                        <button type="button" className="btn sm" aria-label={`${mb.email} に案内を送る`}
-                          onClick={() => void sendInvite(mb.email, mb.role)}>案内を送る</button>
-                        <button type="button" className="iconbtn" aria-label={`${mb.email} を外す`} disabled={c.busy}
-                          onClick={() => { if (window.confirm(`${mb.email} を外しますか？`)) void c.removeMember(mb.email); }}><Trash /></button>
-                      </>
+                      <button type="button" className="iconbtn" aria-label={`${label(mb)} を外す`} disabled={c.busy}
+                        onClick={() => { if (window.confirm(`${label(mb)} を外しますか？`)) void c.removeMember(mb.email); }}><Trash /></button>
                     )}
                   </div>
                 );
@@ -148,6 +121,7 @@ export function CloudCard() {
           {shop && !owner && <div className="hint" style={{ marginTop: 10 }}>あなたはこの店の<b>スタッフ</b>です。日報の入力ができます。給料・売上の集計と設定はオーナーのみが見られます。</div>}
         </>
       )}
+      {inviting && <InviteSheet onClose={() => setInviting(false)} />}
     </div>
   );
 }
