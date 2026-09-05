@@ -192,3 +192,8 @@
 .iconbtn.gear svg,.iconbtn.back svg{width:20px; height:20px}
 .topbar .savechip{margin-left:auto}
 .app.setpage{padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+
+/* 円グラフの中に書く文字。どの色の上でも読めるよう白＋暗い縁取り */
+.pie .pielabel text{fill:#FFFFFF; paint-order:stroke; stroke:rgba(0,0,0,.42); stroke-width:2.6px;
+  stroke-linejoin:round; pointer-events:none}
+.pie svg{width:168px; height:168px}

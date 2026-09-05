@@ -69,16 +69,16 @@ function BreakdownCard({ a, L, m }: { a: ReturnType<typeof monthTotals>; L: Retu
   const contrib = useMemo(() => castContribution(L, m), [L, m]);
   const dow = useMemo(() => weekdaySales(a.series), [a]);
   const useParts: PiePart[] = [
-    { label: "人件費", value: a.laborAll, color: C.labor },
-    { label: "経費・手数料", value: a.costAll, color: C.cost },
-    { label: "営業利益", value: Math.max(0, a.profit), color: C.rest },
+    { label: "人件費", value: a.laborAll, color: C.labor, short: "人件費" },
+    { label: "経費・手数料", value: a.costAll, color: C.cost, short: "経費" },
+    { label: "営業利益", value: Math.max(0, a.profit), color: C.rest, short: "利益" },
   ];
   const top = contrib.rows.slice(0, 7);
   const rest = contrib.rows.slice(7).reduce((s, r) => s + r.value, 0);
-  const castParts: PiePart[] = [...top.map((r, i) => ({ label: r.name, value: r.value, color: PALETTE[i % PALETTE.length] })), ...(rest > 0 ? [{ label: "その他", value: rest, color: C.rest }] : [])];
+  const castParts: PiePart[] = [...top.map((r, i) => ({ label: r.name, value: r.value, color: PALETTE[i % PALETTE.length], short: r.name.slice(0, 3) })), ...(rest > 0 ? [{ label: "その他", value: rest, color: C.rest, short: "他" }] : [])];
   // 曜日はそれぞれ違う色にする。赤は「赤字」用に空けておく
   const dowColors = ["#9B8AFA", "#4C9AFF", "#22B8CF", "#2FBF9B", "#7FC24A", "#E0B13C", "#E8843D"];
-  const dowParts: PiePart[] = dow.map((v, i) => ({ label: WD[i] + "曜", value: v, color: dowColors[i] }));
+  const dowParts: PiePart[] = dow.map((v, i) => ({ label: WD[i] + "曜", value: v, color: dowColors[i], short: WD[i] }));
   const sub = kind === "bar" ? `今月の売上 ${yen(a.sales)} の内訳`
     : kind === "use" ? `売上 ${yen(a.sales)} が何に使われたか`
     : kind === "cast" ? (contrib.basis === "target" ? "売上%型バック（ボトルなど）の対象売上で見た貢献" : "バック額で見た貢献（売上%型の項目が無いため）")
@@ -123,9 +123,9 @@ function YearView() {
   const y = useMemo(() => yearTotals(L, year), [L, year]);
   const laborRate = pct(y.laborAll, y.sales);
   const useParts: PiePart[] = [
-    { label: "人件費", value: y.laborAll, color: C.labor },
-    { label: "経費・手数料", value: y.costAll, color: C.cost },
-    { label: "営業利益", value: Math.max(0, y.profit), color: C.rest },
+    { label: "人件費", value: y.laborAll, color: C.labor, short: "人件費" },
+    { label: "経費・手数料", value: y.costAll, color: C.cost, short: "経費" },
+    { label: "営業利益", value: Math.max(0, y.profit), color: C.rest, short: "利益" },
   ];
   const pickMonth = (m: string) => { setUI({ month: m, monthView: "month", calDay: null, castDetail: null }); window.scrollTo(0, 0); };
   return (

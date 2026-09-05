@@ -190,7 +190,9 @@ export function CastChart({ rows }: { rows: CastMonthRow[] }) {
    円グラフ・年グラフ
    ============================================================ */
 
-export interface PiePart { label: string; value: number; color: string }
+export interface PiePart { label: string; value: number; color: string;
+  /** 切れ端の中に書く短い名前。省くと label の先頭3文字 */
+  short?: string }
 /** 割当用の色（順に使う） */
 export const PALETTE = [C.cash, C.card, C.labor, C.cost, "#00A6B8", "#B87BD6", "#D68A4F", C.muted];
 
@@ -201,23 +203,36 @@ function arcPath(cx: number, cy: number, r0: number, r1: number, a0: number, a1:
   return `M${x0} ${y0} A${r1} ${r1} 0 ${large} 1 ${x1} ${y1} L${x2} ${y2} A${r0} ${r0} 0 ${large} 0 ${x3} ${y3} Z`;
 }
 
-/** ドーナツ型の円グラフ。値 0 の部品は描かず、凡例に金額と割合を出す */
+/** ドーナツ型の円グラフ。大きい切れ端には名前と割合を直接書き込み、
+ *  細い切れ端は下の凡例で補う。文字は白＋暗い縁取りで、どの色の上でも読めるようにする。 */
 export function PieChart({ parts, center, empty = "データがありません" }: { parts: PiePart[]; center?: { label: string; value: string }; empty?: string }) {
   const list = parts.filter((p) => p.value > 0);
   const total = list.reduce((s, p) => s + p.value, 0);
   if (!total) return <div className="empty">{empty}</div>;
   let a = -Math.PI / 2;
-  const cx = 100, cy = 100, r1 = 90, r0 = 56;
+  const cx = 100, cy = 100, r1 = 90, r0 = 56, rMid = (r0 + r1) / 2;
+  const slices = list.map((p) => {
+    const share = p.value / total;
+    const a0 = a;
+    const a1 = a + share * Math.PI * 2;
+    a = a1;
+    const mid = (a0 + a1) / 2;
+    return { ...p, share, a0, a1, mid, x: cx + rMid * Math.cos(mid), y: cy + rMid * Math.sin(mid) };
+  });
   return (
     <div className="pie">
       <svg viewBox="0 0 200 200" role="img" aria-label={list.map((p) => `${p.label} ${pct(p.value, total).toFixed(0)}%`).join("、")}>
-        {list.length === 1
-          ? <circle cx={cx} cy={cy} r={(r0 + r1) / 2} fill="none" stroke={list[0].color} strokeWidth={r1 - r0} />
-          : list.map((p) => {
-            const a0 = a, a1 = a + (p.value / total) * Math.PI * 2 - 0.02;
-            a += (p.value / total) * Math.PI * 2;
-            return <path key={p.label} d={arcPath(cx, cy, r0, r1, a0, Math.max(a0 + 0.001, a1))} fill={p.color} />;
-          })}
+        {slices.length === 1
+          ? <circle cx={cx} cy={cy} r={rMid} fill="none" stroke={slices[0].color} strokeWidth={r1 - r0} />
+          : slices.map((p) => (
+            <path key={p.label} d={arcPath(cx, cy, r0, r1, p.a0, Math.max(p.a0 + 0.001, p.a1 - 0.02))} fill={p.color} />
+          ))}
+        {slices.filter((p) => p.share >= 0.085).map((p) => (
+          <g key={"t" + p.label} className="pielabel">
+            <text x={p.x} y={p.y - 3} textAnchor="middle" fontSize={10.5} fontWeight={500}>{p.short ?? p.label.slice(0, 3)}</text>
+            <text x={p.x} y={p.y + 10} textAnchor="middle" fontSize={11.5} fontWeight={700} className="num">{(p.share * 100).toFixed(0)}%</text>
+          </g>
+        ))}
         {center && (
           <g>
             <rect x={cx - 46} y={cy - 26} width={92} height={52} rx={12} fill="var(--surface-2)" />
