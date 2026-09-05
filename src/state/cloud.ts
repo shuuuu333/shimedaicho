@@ -33,12 +33,12 @@ export interface CloudState {
   createShop(name: string): Promise<void>;
   selectShop(id: string | null): Promise<void>;
   renameShop(name: string): Promise<void>;
-  addMember(email: string): Promise<void>;
+  addMember(email: string, role?: "staff" | "cast"): Promise<void>;
   removeMember(email: string): Promise<void>;
   syncNow(): Promise<void>;
   isOwner(): boolean;
   /** 選択中の店での自分の役割。店を選んでいなければ owner 扱い（端末内モード） */
-  role(): "owner" | "staff";
+  role(): "owner" | "staff" | "cast";
 }
 
 const LS_SHOP = "shimedaicho.shopId";
@@ -250,11 +250,11 @@ export const useCloud = create<CloudState>()((set, get) => {
       if (!shopId) return;
       try { await api.renameShop(shopId, name); await get().refreshShops(); } catch (e) { set({ error: msg(e) }); }
     },
-    async addMember(email) {
+    async addMember(email, role = "staff") {
       const { shopId } = get();
       if (!shopId) return;
       set({ busy: true, error: null });
-      try { await api.addMember(shopId, email); set({ members: await api.listMembers(shopId) }); }
+      try { await api.addMember(shopId, email, role); set({ members: await api.listMembers(shopId) }); }
       catch (e) { set({ error: msg(e) }); }
       finally { set({ busy: false }); }
     },
@@ -275,9 +275,11 @@ export const useCloud = create<CloudState>()((set, get) => {
       return !!(session && shop && shop.owner === session.user.id);
     },
     role() {
-      const { session, shopId } = get();
+      const { session, shopId, members, email } = get();
       if (!session || !shopId) return "owner";
-      return get().isOwner() ? "owner" : "staff";
+      if (get().isOwner()) return "owner";
+      const me = members.find((x) => x.email.toLowerCase() === (email ?? "").toLowerCase());
+      return me?.role === "cast" ? "cast" : "staff";
     },
   };
 });

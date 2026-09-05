@@ -3,15 +3,17 @@ import { useApp, type Tab } from "./state/store";
 import { useCloud } from "./state/cloud";
 import { SaveStatus } from "./ui/components/SaveStatus";
 import { Toast } from "./ui/components/Toast";
-import { IcoCast, IcoDay, IcoMonth, IcoSet } from "./ui/icons";
+import { IcoCast, IcoDay, IcoMonth, IcoSet, IcoShift } from "./ui/icons";
 import { Month } from "./ui/screens/Month";
 import { DayReport } from "./ui/screens/DayReport";
 import { Casts } from "./ui/screens/Casts";
+import { Shifts } from "./ui/screens/Shifts";
 import { Settings } from "./ui/screens/Settings";
 
 const TABS: { id: Tab; label: string; Icon: ComponentType; Screen: ComponentType }[] = [
   { id: "month", label: "今月", Icon: IcoMonth, Screen: Month },
   { id: "day", label: "日報", Icon: IcoDay, Screen: DayReport },
+  { id: "shift", label: "シフト", Icon: IcoShift, Screen: Shifts },
   { id: "cast", label: "キャスト", Icon: IcoCast, Screen: Casts },
   { id: "set", label: "設定", Icon: IcoSet, Screen: Settings },
 ];
@@ -25,7 +27,9 @@ export default function App() {
   const cloudInit = useCloud((s) => s.init);
   const role = useCloud((s) => s.role());
   useEffect(() => { void init().then(() => cloudInit()); }, [init, cloudInit]);
-  const tabs = role === "staff" ? TABS.filter((t) => t.id === "day" || t.id === "set") : TABS;
+  const tabs = role === "cast" ? TABS.filter((t) => t.id === "shift" || t.id === "set")
+    : role === "staff" ? TABS.filter((t) => t.id === "day" || t.id === "shift" || t.id === "set")
+    : TABS;
   useEffect(() => { if (!tabs.some((t) => t.id === tab)) setUI({ tab: "day", sheet: null }); }, [tabs, tab, setUI]);
 
   const Screen = (tabs.find((t) => t.id === tab) ?? tabs[0]).Screen;

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useApp } from "../../state/store";
 import { NumberField } from "../components/NumberField";
+import { TimeField } from "../components/TimeField";
 import { Moon, Phone, Sun, Trash } from "../icons";
 import { CloudCard } from "../components/CloudCard";
 import { InstallCard } from "../components/InstallCard";
@@ -87,7 +88,7 @@ export function Settings() {
   };
   const ago = daysAgo(lastBackupAt);
 
-  if (role === "staff") {
+  if (role === "staff" || role === "cast") {
     return (
       <>
         {themeCard}
@@ -119,8 +120,8 @@ export function Settings() {
             </select></label>
         </div>
         <div className="row2">
-          <label className="field"><span className="lbl">出勤時刻の初期値</span><input className="inp" type="time" value={S.openTime} onChange={(e) => shop("openTime", e.target.value)} /></label>
-          <label className="field"><span className="lbl">退勤時刻の初期値</span><input className="inp" type="time" value={S.closeTime} onChange={(e) => shop("closeTime", e.target.value)} /></label>
+          <label className="field"><span className="lbl">出勤時刻の初期値</span><TimeField value={S.openTime} ariaLabel="出勤時刻の初期値" onChange={(v) => shop("openTime", v)} /></label>
+          <label className="field"><span className="lbl">退勤時刻の初期値</span><TimeField value={S.closeTime} ariaLabel="退勤時刻の初期値" onChange={(v) => shop("closeTime", v)} /></label>
         </div>
         <div className="hint" style={{ margin: "-5px 0 11px" }}>日報で出勤にすると、この時刻が自動で入ります。遅刻・早退はその場のボタンで直せます。</div>
         <label className="field"><span className="lbl">派遣の基本日給（保証額）</span><NumberField value={S.dispatchGuarantee} onChange={(v) => shop("dispatchGuarantee", v ?? 0)} /></label>

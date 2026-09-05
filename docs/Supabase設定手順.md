@@ -74,3 +74,15 @@ Authentication → Emails → Templates → **Magic link or OTP** を開き、�
 <p style="color:#888;font-size:12px">このメールに心当たりがなければ無視してください。</p>
 ```
 件名は「締め台帳 ログインコード」など。
+
+## 6. 新しい人がログインできるようにする（重要）
+
+Authentication → Sign In / Providers → Email の **Confirm email を OFF** にする。
+
+ON のままだと、まだ登録していないメールアドレスには「Magic link or OTP」ではなく
+**「Confirm sign up」テンプレート**（既定は英語・6桁コードなし）が飛び、アプリのコード入力とかみ合わない。
+OFF にすると、新規も既存も同じ日本語＋6桁コードのメールになる。
+
+保険として「Confirm sign up」テンプレートも日本語化しておく（件名「締め台帳 ログインコード」、本文は 5-3 と同じ）。
+
+RLS があるので、誰かが勝手にアカウントを作っても、店に招待されていなければ何も見えない。

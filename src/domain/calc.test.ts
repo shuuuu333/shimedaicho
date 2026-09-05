@@ -279,3 +279,55 @@ describe("月ごとの時給", () => {
     expect(dirty.casts[0].wages).toEqual([{ from: "2026-06", wage: 2400 }]);
   });
 });
+
+describe("ランキングとシフト", () => {
+  const S = {
+    v: 3,
+    shop: { cardFeeRate: 0, openingCash: 0, openingDate: "2026-01-01", defaultWage: 2000, roundMinutes: 15, fixedLabor: 0, fixedCost: 0, dispatchGuarantee: 10000, openTime: "20:00", closeTime: "01:00", name: "" },
+    backItems: [
+      { id: "d1", name: "ドリンク", type: "count", rate: 500, rateD: 500 },
+      { id: "b2", name: "指名", type: "count", rate: 1000, rateD: 1000 },
+      { id: "b4", name: "ボトル", type: "amount", rate: 20, rateD: 10 },
+    ],
+    casts: [{ id: "a", name: "あい", wage: 2000, active: true }, { id: "b", name: "みく", wage: 2000, active: true }],
+    days: {
+      "2026-09-01": {
+        cashSales: 0, cardSales: 0, guests: null, expenses: [], bankDeposit: null, cardReceived: null, cashCounted: null, payout: null,
+        shifts: {
+          a: { on: true, in: "20:00", out: "00:00", breakMin: null, backs: { d1: 4, b2: 2, b4: 50000 }, deduct: null, paid: null },
+          b: { on: true, in: "20:00", out: "00:00", breakMin: null, backs: { d1: 1, b2: 6, b4: 20000 }, deduct: null, paid: null },
+        },
+        dispatch: [{ id: "x", name: "ゆき", guarantee: null, in: "", out: "", breakMin: null, backs: { d1: 3, b4: 90000 }, deduct: null, paid: null }],
+        settle: [],
+      },
+    },
+    plans: { "2026-09-05": ["a"], "2026-09-06": ["a", "b"], "2026-09-07": ["zzz"], "bad-date": ["a"] },
+  };
+  const L = migrate(S);
+
+  it("plans は日付とIDが正しいものだけ残る", () => {
+    expect(Object.keys(L.plans ?? {}).sort()).toEqual(["2026-09-05", "2026-09-06"]);
+    expect(L.plans!["2026-09-06"]).toEqual(["a", "b"]);
+    expect(migrate(JSON.parse(JSON.stringify(L))).plans).toEqual(L.plans);
+  });
+
+  it("castRanking は指標ごとに並び替わる", () => {
+    const t = C.castRanking(L, "2026-09", "target");
+    expect(t.map((r) => [r.name, r.value])).toEqual([["ゆき", 90000], ["あい", 50000], ["みく", 20000]]);
+    const cnt = C.castRanking(L, "2026-09", "count");
+    expect(cnt.map((r) => [r.name, r.value])).toEqual([["みく", 7], ["あい", 6], ["ゆき", 3]]);
+    const back = C.castRanking(L, "2026-09", "back");
+    // あい: 2000 + 2000 + 10000 = 14000 / みく: 500 + 6000 + 4000 = 10500 / ゆき(派遣): 1500 + 9000 = 10500
+    expect(back.map((r) => r.value)).toEqual([14000, 10500, 10500]);
+    expect(back[0].name).toBe("あい");
+    expect(t.find((r) => r.name === "ゆき")!.isDispatch).toBe(true);
+  });
+
+  it("castShiftDays は予定と実績をまとめる", () => {
+    const d = C.castShiftDays(L, "a", "2026-09");
+    expect(d.map((x) => x.date)).toEqual(["2026-09-01", "2026-09-05", "2026-09-06"]);
+    expect(d[0]).toMatchObject({ planned: false, worked: true, hours: 4 });
+    expect(d[1]).toMatchObject({ planned: true, worked: false, hours: 0, gross: 0 });
+    expect(C.castShiftDays(L, "b", "2026-09").length).toBe(2);
+  });
+});

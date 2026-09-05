@@ -23,6 +23,21 @@ export function defaultShop(): Shop {
   };
 }
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+/** シフト予定。日付とキャストIDの形が正しいものだけ残す */
+function toPlans(v: unknown, castIds: Set<string>): Record<string, string[]> | undefined {
+  if (!isObj(v)) return undefined;
+  const out: Record<string, string[]> = {};
+  for (const k of Object.keys(v)) {
+    if (!DATE_RE.test(k)) continue;
+    const list = v[k];
+    if (!Array.isArray(list)) continue;
+    const ids = [...new Set(list.filter((x): x is string => typeof x === "string" && castIds.has(x)))];
+    if (ids.length) out[k] = ids;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 export function defaultLedger(): Ledger {
   return { v: 3, shop: defaultShop(), backItems: defaultBacks(), casts: [], days: {} };
 }
@@ -119,6 +134,8 @@ function toCast(v: unknown): Cast | null {
   const c: Cast = { id: str(v.id) || uid(), name: str(v.name), wage: toNum(v.wage), active: v.active !== false };
   const wages = toWages(v.wages);
   if (wages) c.wages = wages;
+  const email = str(v.email).trim().toLowerCase();
+  if (email.includes("@")) c.email = email;
   return c;
 }
 function toBackItem(v: unknown): BackItem | null {
@@ -169,11 +186,11 @@ export function migrate(input: unknown): Ledger {
     closeTime: str(sh.closeTime, ds.closeTime),
   };
 
-  return {
-    v: 3, shop, backItems: items,
-    casts: Array.isArray(o.casts) ? o.casts.map(toCast).filter((x): x is Cast => !!x) : [],
-    days,
-  };
+  const casts = Array.isArray(o.casts) ? o.casts.map(toCast).filter((x): x is Cast => !!x) : [];
+  const out: Ledger = { v: 3, shop, backItems: items, casts, days };
+  const plans = toPlans(o.plans, new Set(casts.map((c) => c.id)));
+  if (plans) out.plans = plans;
+  return out;
 }
 
 /** バックアップ JSON らしいか（読み込み前の軽い検査） */

@@ -1,7 +1,7 @@
 /** 計算ロジック。旧アーティファクト §3 を型付きで移植。演算順序は同じに保つ（test/legacy-calc.js と同値）。 */
 import type {
   BackAmounts, BackItem, Balances, Cast, CastMonthRow, DayRecord, DayTotals, DispatchMonthRow,
-  DispatchRow, Ledger, MonthTotals, Owed, Pay, Settlement, Shift, Shop, WageChange,
+  DispatchRow, Ledger, MonthTotals, Owed, Pay, RankMetric, RankRow, Settlement, Shift, Shop, WageChange,
 } from "./types";
 
 export const num = (v: number | null | undefined): number => (v == null || !Number.isFinite(v) ? 0 : v);
@@ -353,6 +353,56 @@ export function castContribution(L: Ledger, m: string): { rows: Contribution[]; 
   }
   const rows = [...map.values()].filter((r) => r.value > 0).sort((a, b) => b.value - a.value);
   return { rows, basis };
+}
+
+/** キャスト別のランキング。派遣も名前で混ぜる。
+ *  target = 売上%型バックの対象売上 / back = バック額 / count = 件数型バックの本数 */
+export function castRanking(L: Ledger, m: string, metric: RankMetric): RankRow[] {
+  const amountIds = L.backItems.filter((b) => b.type === "amount").map((b) => b.id);
+  const countIds = L.backItems.filter((b) => b.type === "count").map((b) => b.id);
+  const map = new Map<string, RankRow>();
+  const add = (id: string, name: string, isDispatch: boolean, p: Pay) => {
+    const v = metric === "back" ? p.backTotal
+      : metric === "count" ? countIds.reduce((sm, bid) => sm + p.backs[bid].qty, 0)
+      : amountIds.reduce((sm, bid) => sm + p.backs[bid].qty, 0);
+    const cur = map.get(id) ?? { id, name, value: 0, isDispatch };
+    cur.value += v;
+    map.set(id, cur);
+  };
+  for (const k of monthKeys(L, m)) {
+    const d = L.days[k];
+    for (const cid of Object.keys(d.shifts ?? {})) {
+      const sh = d.shifts[cid];
+      if (!sh?.on) continue;
+      const c = castById(L, cid);
+      add("c:" + cid, c ? c.name || "（名前なし）" : "（削除済み）", false, payOf(L, cid, sh, k));
+    }
+    for (const row of d.dispatch ?? []) {
+      const name = (row.name ?? "").trim() || "（名前なし）";
+      add("d:" + name, name, true, dispatchPay(L, row));
+    }
+  }
+  return [...map.values()].filter((r) => r.value > 0).sort((a, b) => b.value - a.value || a.name.localeCompare(b.name, "ja"));
+}
+
+/** その月に「予定」か「実績」がある日を、キャストごとに返す */
+export interface ShiftDay { date: string; planned: boolean; worked: boolean; hours: number; gross: number }
+export function castShiftDays(L: Ledger, castId: string, m: string): ShiftDay[] {
+  const dates = new Set<string>();
+  for (const k of Object.keys(L.plans ?? {})) if (k.startsWith(m) && (L.plans![k] ?? []).includes(castId)) dates.add(k);
+  for (const k of monthKeys(L, m)) if (L.days[k].shifts?.[castId]?.on) dates.add(k);
+  return [...dates].sort().map((date) => {
+    const sh = L.days[date]?.shifts?.[castId];
+    const worked = !!sh?.on;
+    const p = worked ? payOf(L, castId, sh, date) : null;
+    return {
+      date,
+      planned: (L.plans?.[date] ?? []).includes(castId),
+      worked,
+      hours: p ? p.hours : 0,
+      gross: p ? p.gross : 0,
+    };
+  });
 }
 
 /** 曜日別の売上合計（0=日 … 6=土） */

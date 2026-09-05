@@ -6,6 +6,7 @@ import { emptyDay } from "../../domain/migrate";
 import { backRate, calcBacks, cashAsOf, castWageAt, dayTotals, dispatchNames, dispatchPay, num, payOf, unpaidFor, whoLabel } from "../../domain/calc";
 import { WD, addMinutes, dayLabel, jp, shiftDay, shiftMonth, todayISO, uid, yen } from "../../domain/format";
 import { NumberField } from "../components/NumberField";
+import { TimeField } from "../components/TimeField";
 import { Stepper } from "../components/Stepper";
 import { BottomSheet } from "../components/BottomSheet";
 import { ChevLeft, ChevRight, Copy, Trash } from "../icons";
@@ -200,8 +201,8 @@ function CastSheet({ L, dk, d, castId, edit, onClose }: { L: Ledger; dk: string;
       footer={<><span className="sum">支給額 <b>{yen(p.gross)}</b><br />未払い残 {yen(p.unpaid)}</span>
         <button type="button" className="btn sm danger" onClick={() => { set((s) => { s.on = false; }); onClose(); }}>出勤を外す</button></>}>
       <div className="row2">
-        <label className="field" style={{ margin: 0 }}><span className="lbl">出勤</span><input className="inp" type="time" value={sh.in} onChange={(e) => set((s) => { s.in = e.target.value; })} /></label>
-        <label className="field" style={{ margin: 0 }}><span className="lbl">退勤</span><input className="inp" type="time" value={sh.out} onChange={(e) => set((s) => { s.out = e.target.value; })} /></label>
+        <label className="field" style={{ margin: 0 }}><span className="lbl">出勤</span><TimeField value={sh.in} ariaLabel="出勤時刻" onChange={(v) => set((s) => { s.in = v; })} /></label>
+        <label className="field" style={{ margin: 0 }}><span className="lbl">退勤</span><TimeField value={sh.out} ariaLabel="退勤時刻" onChange={(v) => set((s) => { s.out = v; })} /></label>
       </div>
       <div className="quick" style={{ marginTop: 8 }}>
         <button type="button" className="btn" onClick={() => set((s) => { s.in = addMinutes(s.in || L.shop.openTime, 30); })}>遅刻 +30分</button>

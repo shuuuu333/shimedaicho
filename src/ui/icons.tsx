@@ -14,5 +14,6 @@ export const Phone = ({ size = 15 }: P) => <svg {...base(size)}><rect x="5" y="2
 export const Copy = ({ size = 15 }: P) => <svg {...base(size)}><rect x="8" y="8" width="12" height="12" rx="3" /><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" /></svg>;
 export const IcoMonth = () => <svg {...base(21)} strokeWidth={1.8}><path d="M4 19V9m5 10V5m5 14v-7m5 7V8" /></svg>;
 export const IcoDay = () => <svg {...base(21)} strokeWidth={1.8}><rect x="3.5" y="4.5" width="17" height="16" rx="2.5" /><path d="M3.5 9.5h17M8 3v3m8-3v3M9 14h6" /></svg>;
+export const IcoShift = () => <svg {...base(21)} strokeWidth={1.8}><rect x="3" y="4.5" width="18" height="16" rx="3.5" /><path d="M3 9.5h18M8 3v3m8-3v3" /><circle cx="8.5" cy="14" r="1.3" fill="currentColor" stroke="none" /><circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none" /><circle cx="15.5" cy="17" r="1.3" fill="currentColor" stroke="none" /></svg>;
 export const IcoCast = () => <svg {...base(21)} strokeWidth={1.8}><circle cx="12" cy="8" r="3.5" /><path d="M4.5 20c0-3.6 3.4-6 7.5-6s7.5 2.4 7.5 6" /></svg>;
 export const IcoSet = () => <svg {...base(21)} strokeWidth={1.8}><circle cx="12" cy="12" r="3" /><path d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3m13.4-6.4-1.6 1.6M9.2 14.8l-1.6 1.6m10.8 0-1.6-1.6M9.2 9.2 7.6 7.6" /></svg>;

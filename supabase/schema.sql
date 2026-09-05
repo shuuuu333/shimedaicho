@@ -15,7 +15,7 @@ create table if not exists public.shops (
 create table if not exists public.shop_members (
   shop_id uuid not null references public.shops(id) on delete cascade,
   email text not null,
-  role text not null default 'staff' check (role in ('owner','staff')),
+  role text not null default 'staff' check (role in ('owner','staff','cast')),
   created_at timestamptz not null default now(),
   primary key (shop_id, email)
 );
@@ -93,3 +93,9 @@ end $$;
 drop trigger if exists ledgers_bump on public.ledgers;
 create trigger ledgers_bump before update on public.ledgers
   for each row execute function public.bump_ledger_version();
+
+-- 既存プロジェクト向け: 役割に 'cast' を足す
+do $$ begin
+  alter table public.shop_members drop constraint if exists shop_members_role_check;
+  alter table public.shop_members add constraint shop_members_role_check check (role in ('owner','staff','cast'));
+exception when others then null; end $$;

@@ -117,3 +117,61 @@
 .snap .g{flex:1; min-width:0}
 .snap .s{font-size:11px; color:var(--ink-3)}
 .stack>*+*{margin-top:8px}
+
+/* 時刻の入力（OSのピッカーを透明に重ねる） */
+.timefield{position:relative; display:flex; align-items:center; gap:8px; width:100%; min-width:0;
+  background:var(--surface-2); border:1px solid transparent; border-radius:12px;
+  padding:0 13px; min-height:46px; cursor:pointer; -webkit-tap-highlight-color:transparent}
+.timefield:active{background:var(--surface-3)}
+.timefield:focus-within{border-color:var(--accent); background:var(--surface)}
+.timefield .tv{flex:1; min-width:0; font-size:17px; font-weight:600; letter-spacing:.02em; color:var(--ink)}
+.timefield .tv.ph{color:var(--ink-3); font-weight:500}
+.timefield .ti{flex:none; color:var(--ink-3)}
+.timefield input{position:absolute; inset:0; width:100%; height:100%; opacity:0; border:0; padding:0;
+  background:transparent; cursor:pointer; -webkit-appearance:none; appearance:none}
+
+/* ログインの手順 */
+.steprow{display:flex; align-items:center; gap:11px; padding:9px 0}
+.steprow .g{flex:1; min-width:0}
+.steprow .t{font-size:14.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.steprow .s{font-size:11.5px; color:var(--ink-3)}
+.stepno{flex:none; width:24px; height:24px; border-radius:999px; display:grid; place-items:center;
+  font-size:12px; font-weight:700; background:var(--surface-2); color:var(--ink-3);
+  font-family:"IBM Plex Mono",ui-monospace,monospace}
+.stepno.now{background:var(--accent); color:var(--accent-ink)}
+.stepno.done{background:var(--good-bg); color:var(--good)}
+.help{margin-top:12px; border-top:1px solid var(--line); padding-top:10px}
+.help summary{font-size:12.5px; color:var(--ink-2); font-weight:500; cursor:pointer; list-style:none;
+  display:flex; align-items:center; gap:6px; min-height:32px}
+.help summary::-webkit-details-marker{display:none}
+.help summary::before{content:"？"; width:18px; height:18px; border-radius:999px; background:var(--surface-2);
+  color:var(--ink-3); font-size:11px; display:grid; place-items:center; flex:none}
+.help[open] summary{margin-bottom:4px}
+.help ul{margin:0; padding-left:18px; font-size:11.5px; color:var(--ink-3); line-height:1.6}
+.help li+li{margin-top:4px}
+
+/* シフトのカレンダー */
+.cal-cell.shiftcell{min-height:48px; align-items:center; justify-content:center; gap:3px; padding:4px}
+.cal-cell.shiftcell .cd{font-size:12.5px; color:var(--ink-2); font-weight:500}
+.cal-cell.shiftcell .cn{font-size:10px; color:var(--ink-3); font-weight:600}
+.cal-cell.shiftcell.planned{background:transparent; box-shadow:inset 0 0 0 1.5px var(--accent)}
+.cal-cell.shiftcell.planned .cd{color:var(--accent)}
+.cal-cell.shiftcell.worked{background:var(--accent)}
+.cal-cell.shiftcell.worked .cd,.cal-cell.shiftcell.worked .cn{color:var(--accent-ink)}
+.cal-cell.shiftcell.today .cd{text-decoration:underline; text-underline-offset:3px}
+.cal-cell.shiftcell.sel{box-shadow:0 0 0 2px var(--accent)}
+
+/* ランキング */
+.rankrow{display:flex; align-items:center; gap:11px; padding:9px 0; border-bottom:1px solid var(--line)}
+.rankrow:last-child{border-bottom:0}
+.rankrow .rk{flex:none; width:24px; height:24px; border-radius:8px; display:grid; place-items:center;
+  font-size:12px; font-weight:700; background:var(--surface-2); color:var(--ink-3);
+  font-family:"IBM Plex Mono",ui-monospace,monospace}
+.rankrow .g{flex:1; min-width:0}
+.rankrow .t{font-size:14.5px; font-weight:500; display:flex; align-items:center; gap:6px; min-width:0}
+.rankrow .t .tag{font-size:10px; font-weight:600; color:var(--ink-3); background:var(--surface-2);
+  border-radius:5px; padding:1px 5px; flex:none}
+.rankrow .t .tag.me{color:var(--accent); background:var(--accent-soft)}
+.rankrow .bar{display:block; height:4px; border-radius:2px; background:var(--surface-2); margin-top:5px; overflow:hidden}
+.rankrow .bar i{display:block; height:100%; border-radius:2px; background:var(--accent)}
+.rankrow .a{flex:none; font-weight:600; font-size:15px}

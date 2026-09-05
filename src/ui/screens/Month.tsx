@@ -1,13 +1,66 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useApp } from "../../state/store";
-import { balances, castContribution, castMonth, dayTotals, missingDays, monthTotals, owedList, pct, weekdaySales, yearTotals } from "../../domain/calc";
+import { useCloud } from "../../state/cloud";
+import type { RankMetric } from "../../domain/types";
+import { balances, castContribution, castRanking, dayTotals, missingDays, monthTotals, owedList, pct, weekdaySales, yearTotals } from "../../domain/calc";
 import { WD, dayLabel, jp, shiftDay, shiftMonth, todayISO, yen, yenShort } from "../../domain/format";
-import { C, Calendar, CastChart, CompositionChart, DailyChart, PALETTE, PieChart, YearChart, type PiePart } from "../charts";
+import { C, Calendar, CompositionChart, DailyChart, PALETTE, PieChart, YearChart, type PiePart } from "../charts";
 import { MonthBar } from "../components/MonthBar";
 import { ChevLeft, ChevRight, Plus } from "../icons";
 import { csvFilename, monthCSV, offerFile } from "../../data/backup";
 
 type PieKind = "bar" | "use" | "cast" | "dow";
+
+const METRICS: { id: RankMetric; label: string; unit: string; sub: string }[] = [
+  { id: "target", label: "売上", unit: "円", sub: "ボトルなど「売上%」型バックの対象売上" },
+  { id: "back", label: "バック", unit: "円", sub: "ドリンク・指名・同伴・ボトルの合計" },
+  { id: "count", label: "本数", unit: "本", sub: "件数で付けるバックの本数の合計" },
+];
+
+/** キャスト別のランキング。キャストから見るときは金額を伏せる */
+function RankingCard({ L, m }: { L: ReturnType<typeof useApp.getState>["ledger"]; m: string }) {
+  const [metric, setMetric] = useState<RankMetric>("target");
+  const role = useCloud((s) => s.role());
+  const myEmail = useCloud((s) => s.email);
+  const rows = useMemo(() => castRanking(L, m, metric), [L, m, metric]);
+  const info = METRICS.find((x) => x.id === metric)!;
+  const hide = role === "cast";
+  const myId = useMemo(() => {
+    if (!hide || !myEmail) return null;
+    const e = myEmail.toLowerCase();
+    const c = L.casts.find((x) => (x.email ?? "").toLowerCase() === e);
+    return c ? "c:" + c.id : null;
+  }, [L.casts, myEmail, hide]);
+  const top = rows[0]?.value ?? 1;
+  const medal = ["#E8B44F", "#B8BEC9", "#C98A5A"];
+
+  return (
+    <div className="card">
+      <div className="cardhead">
+        <h2>キャスト別のランキング</h2>
+        <div className="seg" role="group" aria-label="ランキングの基準">
+          {METRICS.map((x) => (
+            <button key={x.id} type="button" aria-pressed={metric === x.id} onClick={() => setMetric(x.id)}>{x.label}</button>
+          ))}
+        </div>
+      </div>
+      <p className="sub">{info.sub}{hide ? "。金額はオーナーだけが見られます。" : ""}</p>
+      {rows.length ? rows.slice(0, 10).map((r, i) => {
+        const mine = myId === r.id;
+        return (
+          <div key={r.id} className="rankrow">
+            <span className="rk" style={i < 3 ? { background: medal[i], color: "#14171E" } : undefined}>{i + 1}</span>
+            <span className="g">
+              <span className="t">{r.name}{r.isDispatch && <span className="tag">派遣</span>}{mine && <span className="tag me">あなた</span>}</span>
+              <span className="bar"><i style={{ width: `${Math.max(3, (r.value / top) * 100).toFixed(1)}%` }} /></span>
+            </span>
+            <span className="a num">{hide && !mine ? "—" : metric === "count" ? `${jp(r.value)}${info.unit}` : jp(r.value)}</span>
+          </div>
+        );
+      }) : <div className="empty">この月はまだ記録がありません</div>}
+    </div>
+  );
+}
 
 /** 売上の使われ方カードの中身（横棒／円 3 種） */
 function BreakdownCard({ a, L, m }: { a: ReturnType<typeof monthTotals>; L: ReturnType<typeof useApp.getState>["ledger"]; m: string }) {
@@ -151,7 +204,6 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
   const a = useMemo(() => monthTotals(L, m), [L, m]);
   const prev = useMemo(() => monthTotals(L, shiftMonth(m, -1)), [L, m]);
   const b = useMemo(() => balances(L), [L]);
-  const rows = useMemo(() => castMonth(L, m), [L, m]);
 
   const today = todayISO(), isCur = m === today.slice(0, 7);
   const diff = b.lastCount != null ? b.lastCount - b.cash : null;
@@ -283,10 +335,7 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
 
       <BreakdownCard a={a} L={L} m={m} />
 
-      <div className="card">
-        <h2>在籍キャスト別の給料</h2><p className="sub">時給＋バック−控除。多い順に最大8名。派遣はキャスト画面に出ます。</p>
-        <CastChart rows={rows} />
-      </div>
+      <RankingCard L={L} m={m} />
 
       <div className="card">
         <h2>日別の明細</h2><p className="sub">行をタップするとその日の日報が開きます。横にスクロールできます。</p>

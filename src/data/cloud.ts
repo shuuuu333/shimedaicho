@@ -9,15 +9,34 @@ export const supabase: SupabaseClient | null = url && anon ? createClient(url, a
 export const cloudConfigured = !!supabase;
 
 export interface ShopRow { id: string; name: string; owner: string; created_at: string }
-export interface MemberRow { shop_id: string; email: string; role: "owner" | "staff"; created_at: string }
+export type MemberRole = "owner" | "staff" | "cast";
+export interface MemberRow { shop_id: string; email: string; role: MemberRole; created_at: string }
 export interface RemoteLedger { data: unknown; version: number; updated_at: string; updated_by: string | null }
 
 function sb(): SupabaseClient {
   if (!supabase) throw new Error("クラウド同期が設定されていません");
   return supabase;
 }
-function fail(e: { message?: string } | null, what: string): never {
-  throw new Error(`${what}: ${e?.message ?? "不明なエラー"}`);
+/** Supabase のエラーを日本語にする */
+function authMessage(e: { message?: string; code?: string; status?: number } | null, what: string): string {
+  const code = e?.code ?? "";
+  const msg = e?.message ?? "";
+  if (code === "over_email_send_rate_limit" || /rate limit|too many/i.test(msg))
+    return "メールを送りすぎです。1 分ほど待ってから、もう一度お試しください。";
+  if (code === "otp_expired" || /expired/i.test(msg))
+    return "コードの期限が切れています。もう一度メールを送ってください。";
+  if (code === "invalid_credentials" || /invalid|token/i.test(msg))
+    return "コードが違います。メールの数字をもう一度確かめてください。";
+  if (code === "email_address_invalid" || /invalid.*email/i.test(msg))
+    return "メールアドレスの形が正しくないようです。";
+  if (code === "signup_disabled" || /signups? not allowed/i.test(msg))
+    return "新しいアカウントを作れない設定になっています。オーナーに伝えてください。";
+  if (e?.status === 0 || /fetch|network/i.test(msg))
+    return "通信できませんでした。電波を確かめて、もう一度お試しください。";
+  return `${what}: ${msg || "不明なエラー"}`;
+}
+function fail(e: { message?: string; code?: string; status?: number } | null, what: string): never {
+  throw new Error(authMessage(e, what));
 }
 
 /* ---------- 認証 ---------- */
@@ -30,7 +49,10 @@ export function onAuth(cb: (s: Session | null) => void): () => void {
   return () => data.subscription.unsubscribe();
 }
 export async function signInWithEmail(email: string): Promise<void> {
-  const { error } = await sb().auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin + window.location.pathname } });
+  const { error } = await sb().auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: true, emailRedirectTo: window.location.origin + window.location.pathname },
+  });
   if (error) fail(error, "ログインメールを送れませんでした");
 }
 /** メールに書かれた 6 桁のコードでログイン */
@@ -68,8 +90,8 @@ export async function listMembers(shopId: string): Promise<MemberRow[]> {
   if (error) fail(error, "メンバーを取れませんでした");
   return (data ?? []) as MemberRow[];
 }
-export async function addMember(shopId: string, email: string): Promise<void> {
-  const { error } = await sb().from("shop_members").insert({ shop_id: shopId, email: email.trim().toLowerCase(), role: "staff" });
+export async function addMember(shopId: string, email: string, role: "staff" | "cast" = "staff"): Promise<void> {
+  const { error } = await sb().from("shop_members").insert({ shop_id: shopId, email: email.trim().toLowerCase(), role });
   if (error) fail(error, "メンバーを追加できませんでした");
 }
 export async function removeMember(shopId: string, email: string): Promise<void> {

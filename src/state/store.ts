@@ -11,7 +11,7 @@ import { LocalRepository } from "../data/localRepository";
 export type SaveState = "loading" | "saving" | "saved" | "error";
 /** 見た目: 端末に合わせる / 明るい / 暗い */
 export type Theme = "auto" | "light" | "dark";
-export type Tab = "month" | "day" | "cast" | "set";
+export type Tab = "month" | "day" | "shift" | "cast" | "set";
 export type Sheet = { kind: "cast"; id: string } | { kind: "disp"; id: string } | null;
 
 export interface UIState {

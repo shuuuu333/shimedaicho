@@ -31,6 +31,8 @@ export interface Cast {
   active: boolean;
   /** 月ごとの時給変更。過去の締めは当時の時給のまま計算される */
   wages?: WageChange[];
+  /** ログイン用のメール。本人がシフトを見るときに使う */
+  email?: string;
 }
 
 export interface Shop {
@@ -111,6 +113,8 @@ export interface Ledger {
   casts: Cast[];
   /** YYYY-MM-DD → 日報 */
   days: Record<string, DayRecord>;
+  /** YYYY-MM-DD → その日のシフト予定に入っているキャストID。実績は days[].shifts */
+  plans?: Record<string, string[]>;
 }
 
 /* ---------- 集計結果 ---------- */
@@ -184,4 +188,13 @@ export interface Owed {
   who: string;
   name: string;
   unpaid: number;
+}
+
+/** ランキングの並べ替え方 */
+export type RankMetric = "target" | "back" | "count";
+export interface RankRow {
+  id: string;
+  name: string;
+  value: number;
+  isDispatch: boolean;
 }
