@@ -174,12 +174,58 @@ describe("旧コードとの同値性", () => {
     expect(C.balances(L).lastCount).toBe(150000);
   });
 
-  it("migrate：v3 は往復で変わらない、壊れた入力は既定値", () => {
+  it("migrate：往復で変わらない、壊れた入力は既定値", () => {
     const L = migrate(randomLegacyState(7));
     expect(migrate(JSON.parse(JSON.stringify(L)))).toEqual(L);
-    expect(migrate(null).v).toBe(3);
+    expect(migrate(null).v).toBe(4);
     expect(migrate("x").casts).toEqual([]);
-    expect(migrate({ backItems: [{ id: "b1", name: "ドリンクバック" }, {}, {}, {}], days: {} }).backItems.map((b) => b.id)).toEqual(["d1", "d2", "d3", "b2", "b3", "b4"]);
+    expect(migrate({ backItems: [{ id: "b1", name: "ドリンクバック" }, {}, {}, {}], days: {} }).backItems.map((b) => b.id)).toEqual(["d1", "d2", "d3", "b2", "b5", "b3", "b6", "b4"]);
+  });
+
+  it("migrate：v3 の台帳はレジのマスタを既定で補う（日報は触らない）", () => {
+    const v3 = migrate(randomLegacyState(3));
+    const raw = JSON.parse(JSON.stringify(v3)) as Record<string, unknown>;
+    delete raw.menu; delete raw.seats; delete raw.posRule;
+    raw.v = 3;
+
+    const L = migrate(raw);
+    expect(L.v).toBe(4);
+    expect(L.menu?.length).toBeGreaterThan(0);
+    expect(L.seats?.length).toBeGreaterThan(0);
+    expect(L.posRule?.setMinutes).toBe(60);
+    // 日報・キャスト・バックは v3 のまま（無損失であること）
+    expect(L.days).toEqual(v3.days);
+    expect(L.casts).toEqual(v3.casts);
+    expect(L.backItems).toEqual(v3.backItems);
+  });
+
+  it("migrate：レジのマスタと manual は往復しても壊れない", () => {
+    const src = {
+      v: 4,
+      shop: {}, casts: [], backItems: [],
+      menu: [{ id: "x1", name: "生ビール", price: "800", category: "ドリンク", kind: "normal" },
+             { id: "x2", name: "キャスドリ", price: 1500, category: "キャスト", kind: "castLinked", backItemId: "d2" },
+             { id: "x3", name: "変な種類", price: 100, category: "", kind: "こわれている" },
+             { id: "m-set", name: "セット 60分", price: 1500, category: "セット", kind: "set" },
+             // kind が normal に正規化されたあとで保存された版も落とせること
+             { id: "m-ext", name: "延長 30分", price: 1000, category: "セット", kind: "normal" }],
+      seats: [{ id: "s1", name: "カウンター1", sort: 1 }],
+      posRule: { setMinutes: "45", taxIncluded: false, roundTo: 0 },
+      days: { "2026-09-01": { cashSales: "1000", manual: ["cashSales", "cashSales", 7], shifts: {}, dispatch: [], expenses: [], settle: [] } },
+    };
+    const L = migrate(src);
+    expect(L.menu?.[0]).toMatchObject({ id: "x1", price: 800, kind: "normal" });
+    expect(L.menu?.[1].backItemId).toBe("d2");
+    expect(L.menu?.[2].kind).toBe("normal");            // 知らない種類は normal に倒す
+    // 初期の版が持っていたセット・延長の商品は落とす（セット料金を二重に取らないため）
+    expect(L.menu).toHaveLength(3);
+    expect(L.menu?.some((m) => m.id === "m-set" || m.id === "m-ext")).toBe(false);
+    expect(L.seats).toEqual([{ id: "s1", name: "カウンター1", sort: 1 }]);
+    expect(L.posRule?.setMinutes).toBe(45);
+    expect(L.posRule?.taxIncluded).toBe(false);
+    expect(L.posRule?.roundTo).toBe(1);                 // 0 は丸め無し(1)に寄せる
+    expect(L.days["2026-09-01"].manual).toEqual(["cashSales"]);  // 重複と型違いを落とす
+    expect(migrate(JSON.parse(JSON.stringify(L)))).toEqual(L);
   });
 });
 
@@ -230,7 +276,7 @@ describe("円グラフ・年表示の集計", () => {
 
 describe("月ごとの時給", () => {
   const base = {
-    v: 3,
+    v: 4,
     shop: { cardFeeRate: 0, openingCash: 0, openingDate: "2026-01-01", defaultWage: 2000, roundMinutes: 15, fixedLabor: 0, fixedCost: 0, dispatchGuarantee: 0, openTime: "20:00", closeTime: "01:00", name: "" },
     backItems: [],
     casts: [{ id: "a", name: "A", wage: 2000, active: true, wages: [{ from: "2026-05", wage: 2500 }, { from: "2026-08", wage: 3000 }] },
@@ -282,7 +328,7 @@ describe("月ごとの時給", () => {
 
 describe("ランキングとシフト", () => {
   const S = {
-    v: 3,
+    v: 4,
     shop: { cardFeeRate: 0, openingCash: 0, openingDate: "2026-01-01", defaultWage: 2000, roundMinutes: 15, fixedLabor: 0, fixedCost: 0, dispatchGuarantee: 10000, openTime: "20:00", closeTime: "01:00", name: "" },
     backItems: [
       { id: "d1", name: "ドリンク", type: "count", rate: 500, rateD: 500 },
@@ -340,7 +386,7 @@ describe("現金の動き", () => {
     shifts: {}, dispatch: [], settle: [],
   });
   const L = migrate({
-    v: 3,
+    v: 4,
     shop: { cardFeeRate: 0, openingCash: 50000, openingDate: "2026-09-01", defaultWage: 2000, roundMinutes: 15, fixedLabor: 0, fixedCost: 0, dispatchGuarantee: 0, openTime: "20:00", closeTime: "01:00", name: "" },
     backItems: [], casts: [],
     days: {

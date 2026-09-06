@@ -1,5 +1,6 @@
-/** 締め台帳のデータモデル（v3）。
- *  数値は number | null（null = 未入力）。旧アーティファクト(v2)の文字列は migrate.ts で変換する。 */
+/** 締め台帳のデータモデル（v4）。
+ *  数値は number | null（null = 未入力）。旧アーティファクト(v2)の文字列は migrate.ts で変換する。
+ *  v4 でレジ（メニュー・席・会計ルール・伝票）を足した。伝票 Check だけは台帳の外（Dexie の checks）に置く。 */
 
 export type BackType = "count" | "amount";
 export type PayMethod = "cash" | "card" | "bank";
@@ -104,10 +105,13 @@ export interface DayRecord {
   shifts: Record<string, Shift>;
   dispatch: DispatchRow[];
   settle: Settlement[];
+  /** 手で直した欄。レジからの自動反映がここを上書きしない。
+   *  "cashSales" | "cardSales" | "guests" | "shift:<castId>" の形 */
+  manual?: string[];
 }
 
 export interface Ledger {
-  v: 3;
+  v: 4;
   shop: Shop;
   backItems: BackItem[];
   casts: Cast[];
@@ -115,6 +119,153 @@ export interface Ledger {
   days: Record<string, DayRecord>;
   /** YYYY-MM-DD → その日のシフト予定に入っているキャストID。実績は days[].shifts */
   plans?: Record<string, string[]>;
+  /** レジの商品 */
+  menu?: MenuItem[];
+  /** レジの席 */
+  seats?: Seat[];
+  /** レジの会計ルール */
+  posRule?: PosRule;
+}
+
+/* ---------- レジ（v4） ---------- */
+
+/** 商品の種類。
+ *  normal     … ふつうの商品（お客様のドリンク・フード）
+ *  castLinked … キャストに紐づけて売る（キャストドリンク・チェキ・指名）
+ *  セットと延長はここに入れない。金額の出どころは PosRule と Check.sets の 1 つに決めてある
+ *  （メニューの行にも持たせると、同じセット料金を二重に取る事故が起きる） */
+export type MenuKind = "normal" | "castLinked";
+
+export interface MenuItem {
+  id: string;
+  name: string;
+  price: number;
+  /** 伝票画面のタブになる */
+  category: string;
+  kind: MenuKind;
+  /** 締めのバック項目 id。ここが「レジ → 給料」の接続点 */
+  backItemId?: string;
+  active: boolean;
+  sort: number;
+}
+
+/** 席。ガールズバーはカウンター番号、コンカフェはテーブル */
+export interface Seat {
+  id: string;
+  name: string;
+  sort: number;
+}
+
+/** 会計のルール */
+export interface PosRule {
+  /** 1 セットの分数 */
+  setMinutes: number;
+  /** セット料金（1 人あたり）の既定 */
+  setPrice: number;
+  /** 入店のときに 1 タップで選べるセット料金。店の料金プランを並べておく */
+  setPriceOptions: number[];
+  extendMinutes: number;
+  /** 延長料金（1 人あたり・extendMinutes ぶん） */
+  extendPrice: number;
+  /** テーブルチャージ %。20 なら ¥2,000 の商品が ¥2,400 になる */
+  tableChargeRate: number;
+  /** テーブルチャージをセット料金にもかけるか。false なら商品だけ */
+  tableChargeOnSet: boolean;
+  /** 消費税 % */
+  taxRate: number;
+  /** 単価が税込みか */
+  taxIncluded: boolean;
+  /** 残り何分でアラートを出すか */
+  alertBeforeMin: number;
+  /** 時間が来たら確認なしで延長を足すか */
+  autoExtend: boolean;
+  /** 会計の丸め単位。1 なら丸めない */
+  roundTo: number;
+}
+
+/** 延長 1 回ぶん。押した時点の分数と単価（1 人あたり）を写しておく。
+ *  「＋30分」と「＋1時間」を混ぜて押せるように、回数ではなく 1 件ずつ持つ */
+export interface CheckExtend {
+  min: number;
+  price: number;
+  at: string;
+}
+
+/** 取消の記録。行は消さずにこれを付ける（不正防止） */
+export interface VoidMark {
+  at: string;
+  by: string;
+  reason: string;
+}
+
+export interface CheckLine {
+  id: string;
+  menuId: string;
+  /** 名前・単価・種類・バック項目は打った時点の値を写す。
+   *  後でマスタを変えても、過去の伝票と給料は変わらない */
+  name: string;
+  price: number;
+  qty: number;
+  kind: MenuKind;
+  castId?: string;
+  backItemId?: string;
+  voided?: VoidMark;
+  at: string;
+}
+
+export interface Payment {
+  method: Exclude<PayMethod, "bank">;
+  amount: number;
+}
+
+export interface Discount {
+  name: string;
+  amount: number;
+}
+
+/** 伝票に起きたことの記録。誰が・いつ・何を */
+export interface CheckLog {
+  at: string;
+  by: string;
+  act: string;
+  detail?: string;
+}
+
+export interface Check {
+  id: string;
+  /** 営業日 YYYY-MM-DD。日跨ぎの分は開店日に寄せる */
+  date: string;
+  seatId: string | null;
+  guests: number;
+  /** この伝票のセット料金（1 人あたり）。入店した時点の値を写す。
+   *  あとで店の設定を変えても、過去の会計は変わらない */
+  setPrice: number;
+  enteredAt: string;
+  closedAt?: string;
+  /** 延長。空なら最初のセットだけ */
+  extends: CheckExtend[];
+  lines: CheckLine[];
+  discount?: Discount;
+  payments: Payment[];
+  /** 預り金 */
+  received?: number;
+  status: "open" | "closed";
+  log: CheckLog[];
+}
+
+/** 伝票の金額の内訳 */
+export interface CheckTotals {
+  /** セット＋延長 */
+  setAmount: number;
+  /** 商品の合計 */
+  itemAmount: number;
+  subtotal: number;
+  /** テーブルチャージ */
+  tableCharge: number;
+  tax: number;
+  discount: number;
+  /** 丸めたあとの請求額 */
+  total: number;
 }
 
 /* ---------- 集計結果 ---------- */
