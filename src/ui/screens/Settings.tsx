@@ -5,6 +5,7 @@ import { TimeField } from "../components/TimeField";
 import { DateField } from "../components/DateField";
 import { Moon, Phone, Sun, Trash } from "../icons";
 import { CloudCard } from "../components/CloudCard";
+import { PosSettings } from "./Menu";
 import { InstallCard } from "../components/InstallCard";
 import { useCloud } from "../../state/cloud";
 import { uid } from "../../domain/format";
@@ -180,6 +181,8 @@ export function Settings() {
         <div className="hint" style={{ marginTop: 8 }}>「件数」は 単価×本数。「売上%」は 対象売上×％（ボトルやシャンパン向け）。ドリンクはサイズごとに行を分けてください。</div>
         <div className="btnrow" style={{ marginTop: 10 }}><button type="button" className="btn sm" onClick={() => update((LL) => { LL.backItems.push({ id: uid(), name: "", type: "count", rate: 0, rateD: 0 }); })}>＋ 項目を足す</button></div>
       </div>
+
+      <PosSettings />
 
       <div className="card" id="set-cash">
         <h2>現金の起点</h2><p className="sub">ここを基準に、日報から現金残を積み上げます</p>

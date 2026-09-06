@@ -4,7 +4,8 @@ import { useCloud } from "./state/cloud";
 import { SaveStatus } from "./ui/components/SaveStatus";
 import { Toast } from "./ui/components/Toast";
 import { Welcome } from "./ui/components/Welcome";
-import { ChevLeft, IcoCast, IcoDay, IcoMonth, IcoSet, IcoShift } from "./ui/icons";
+import { ChevLeft, IcoCast, IcoDay, IcoMonth, IcoReg, IcoSet, IcoShift } from "./ui/icons";
+import { Register } from "./ui/screens/Register";
 import { Month } from "./ui/screens/Month";
 import { DayReport } from "./ui/screens/DayReport";
 import { Casts } from "./ui/screens/Casts";
@@ -13,6 +14,7 @@ import { Settings } from "./ui/screens/Settings";
 
 /** 下のタブに並ぶ4つ。設定は右上の歯車から開く */
 const TABS: { id: Tab; label: string; Icon: ComponentType; Screen: ComponentType }[] = [
+  { id: "reg", label: "レジ", Icon: IcoReg, Screen: Register },
   { id: "month", label: "今月", Icon: IcoMonth, Screen: Month },
   { id: "day", label: "日報", Icon: IcoDay, Screen: DayReport },
   { id: "shift", label: "シフト", Icon: IcoShift, Screen: Shifts },
@@ -42,7 +44,7 @@ export default function App() {
     void joinByToken(token).then((r) => showToast(r.message));
   }, [joinByToken, showToast]);
   const tabs = role === "cast" ? TABS.filter((t) => t.id === "shift")
-    : role === "staff" ? TABS.filter((t) => t.id === "day" || t.id === "shift")
+    : role === "staff" ? TABS.filter((t) => t.id === "reg" || t.id === "day" || t.id === "shift")
     : TABS;
   useEffect(() => {
     if (tab !== "set" && !tabs.some((t) => t.id === tab)) setUI({ tab: tabs[0].id, sheet: null });

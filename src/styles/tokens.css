@@ -9,7 +9,7 @@
   --ink:#14171E; --ink-2:#5C6779; --ink-3:#8A93A3;
   --line:#E3E6EB; --line-strong:#D5DAE2;
   --accent:#2563EB; --accent-ink:#FFFFFF; --accent-soft:#E8EFFD;
-  --good:#0E9F6E; --good-bg:#E7F6EF; --warn:#B4700E; --crit:#D92D20; --crit-bg:#FDECEA;
+  --good:#0E9F6E; --good-bg:#E7F6EF; --warn:#B4700E; --warn-bg:#FDF4E6; --crit:#D92D20; --crit-bg:#FDECEA;
   --s-cash:#2563EB; --s-card:#7C5CE0; --s-labor:#0E9F6E; --s-cost:#B4700E;
   --s-rest:#2563EB; --s-muted:#C3C9D4;
   --grid:#EDEFF3; --axis:#D5DAE2;
@@ -25,7 +25,7 @@
     --ink:#FFFFFF; --ink-2:#9AA5B8; --ink-3:#626C7D;
     --line:#232833; --line-strong:#2C323E;
     --accent:#4C9AFF; --accent-ink:#0B0D11; --accent-soft:#152238;
-    --good:#3DBE8B; --good-bg:#10281F; --warn:#E8A33D; --crit:#FF5A52; --crit-bg:#2A1614;
+    --good:#3DBE8B; --good-bg:#10281F; --warn:#E8A33D; --warn-bg:#2A2113; --crit:#FF5A52; --crit-bg:#2A1614;
     --s-cash:#4C9AFF; --s-card:#9B8AFA; --s-labor:#3DBE8B; --s-cost:#E8A33D;
     --s-rest:#4C9AFF; --s-muted:#3A414F;
     --grid:#1A1E26; --axis:#2C323E;
@@ -39,7 +39,7 @@
   --ink:#FFFFFF; --ink-2:#9AA5B8; --ink-3:#626C7D;
   --line:#232833; --line-strong:#2C323E;
   --accent:#4C9AFF; --accent-ink:#0B0D11; --accent-soft:#152238;
-  --good:#3DBE8B; --good-bg:#10281F; --warn:#E8A33D; --crit:#FF5A52; --crit-bg:#2A1614;
+  --good:#3DBE8B; --good-bg:#10281F; --warn:#E8A33D; --warn-bg:#2A2113; --crit:#FF5A52; --crit-bg:#2A1614;
   --s-cash:#4C9AFF; --s-card:#9B8AFA; --s-labor:#3DBE8B; --s-cost:#E8A33D;
   --s-rest:#4C9AFF; --s-muted:#3A414F;
   --grid:#1A1E26; --axis:#2C323E;
