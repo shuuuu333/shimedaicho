@@ -170,8 +170,8 @@ function YearView() {
       </div>
 
       <div className="card">
-        <h2>月別の売上と利益</h2><p className="sub">棒が売上（下が現金、上がカード）、線が営業利益。棒をタップするとその月へ。</p>
-        <YearChart months={y.months} onPick={pickMonth} />
+        <h2>月別の売上と利益</h2><p className="sub">棒が売上（下が現金、上がカード）、線が営業利益。棒に触れると内訳が出ます。</p>
+        <YearChart months={y.months} />
       </div>
 
       <div className="card">

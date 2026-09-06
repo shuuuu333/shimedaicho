@@ -66,6 +66,7 @@ export function DayReport() {
       {step === 3 && <ExpenseStep d={d} edit={edit} t={t} updateWithUndo={updateWithUndo} dk={dk} />}
       {step === 4 && <CloseStep L={L} dk={dk} d={d} edit={edit} t={t} updateWithUndo={updateWithUndo} />}
 
+      <div className="wizspacer" />
       <div className="wizfoot">
         {step > 0 && <button type="button" className="btn" onClick={() => go(step - 1)}>戻る</button>}
         {step < 4
