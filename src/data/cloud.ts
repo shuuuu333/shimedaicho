@@ -149,6 +149,25 @@ export async function signInAnonymously(): Promise<void> {
   const { error } = await sb().auth.signInAnonymously();
   if (error) fail(error, "ログインできませんでした");
 }
+
+/** Supabase 側で設定する LINE の名前。
+ *  LINE の id_token は HS256 で署名されていて、Supabase の OIDC 検証（ES256）と
+ *  合わない。そのため OIDC ではなく「OAuth2 プロバイダ」として手で設定する
+ *  （authorize / token / userinfo の 3 つの URL を直接入れる）。 */
+export const LINE_PROVIDER = "custom:line";
+
+/** LINE でログインする。LINE の画面に飛んで、戻ってくる */
+export async function signInWithLine(redirectTo: string): Promise<void> {
+  const { error } = await sb().auth.signInWithOAuth({
+    provider: LINE_PROVIDER as "google",   // 独自プロバイダは型に無いので合わせる
+    options: { redirectTo },
+  });
+  if (error) {
+    if (/provider is not enabled|unsupported/i.test(error.message))
+      throw new Error("LINEログインがまだ Supabase 側で有効になっていません。設定を確かめてください。");
+    fail(error, "LINEでログインできませんでした");
+  }
+}
 /** QR の token を使って、自分をその店のメンバーにする */
 export async function redeemInvite(token: string): Promise<Redeemed> {
   const { data, error } = await sb().rpc("redeem_invite", { t: token });

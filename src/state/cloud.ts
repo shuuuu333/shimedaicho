@@ -27,6 +27,8 @@ export interface CloudState {
 
   init(): Promise<void>;
   signIn(email: string): Promise<void>;
+  /** LINE でログインする。LINE の画面へ飛ぶので、戻ってくるまで画面は閉じる */
+  signInWithLine(): Promise<void>;
   verifyCode(code: string): Promise<void>;
   signOut(): Promise<void>;
   refreshShops(): Promise<void>;
@@ -39,9 +41,12 @@ export interface CloudState {
   /** QR を作る（オーナー用） */
   makeInvite(role: "staff" | "cast", name: string, castId: string | null): Promise<api.InviteRow | null>;
   /** QR から入る。ログインしていなければ匿名でログインしてから加わる */
-  joinByToken(token: string): Promise<{ ok: boolean; message: string }>;
+  /** QR から入る。anonymous を false にすると、ログイン済みでなければ断る */
+  joinByToken(token: string, anonymous?: boolean): Promise<{ ok: boolean; message: string }>;
   /** 日報を LINE に送る。オーナーで、店を選んでいるときだけ使える */
   sendLine(text: string): Promise<void>;
+  /** LINE から戻ってきたときに、預けておいた招待を使う。無ければ null */
+  redeemPending(): Promise<{ ok: boolean; message: string } | null>;
   isOwner(): boolean;
   /** 選択中の店での自分の役割。店を選んでいなければ owner 扱い（端末内モード） */
   role(): "owner" | "staff" | "cast";
@@ -50,6 +55,8 @@ export interface CloudState {
 const LS_SHOP = "shimedaicho.shopId";
 const LS_VERSION = "shimedaicho.cloudVersion";
 const LS_DIRTY = "shimedaicho.dirty";
+/** LINE へ飛んでいるあいだ、QR の招待を預けておく場所 */
+const LS_JOIN = "shimedaicho.pendingJoin";
 const PUSH_DELAY = 1500;
 
 const lsGet = (k: string) => { try { return localStorage.getItem(k); } catch { return null; } };
@@ -284,10 +291,11 @@ export const useCloud = create<CloudState>()((set, get) => {
       catch (e) { set({ error: msg(e) }); return null; }
       finally { set({ busy: false }); }
     },
-    async joinByToken(token) {
+    async joinByToken(token, anonymous = true) {
       set({ busy: true, error: null });
       try {
         if (!get().session) {
+          if (!anonymous) throw new Error("先にログインしてください");
           await api.signInAnonymously();
           const s2 = await api.getSession();
           set({ session: s2, email: s2?.user.email ?? null });
@@ -301,6 +309,28 @@ export const useCloud = create<CloudState>()((set, get) => {
         set({ error: m });
         return { ok: false, message: m };
       } finally { set({ busy: false }); }
+    },
+    async signInWithLine() {
+      set({ busy: true, error: null });
+      try {
+        // QR から来ている途中なら、その招待を持ち越す（LINE から戻るとURLが変わるため）
+        const token = new URLSearchParams(window.location.search).get("join");
+        if (token) lsSet(LS_JOIN, token);
+        await api.signInWithLine(window.location.origin + window.location.pathname);
+        // ここには戻ってこない（LINE の画面に飛ぶ）
+      } catch (e) {
+        lsSet(LS_JOIN, null);
+        set({ error: msg(e), busy: false });
+        throw e;
+      }
+    },
+    /** LINE から戻ってきたときに、預けておいた招待を使う */
+    async redeemPending() {
+      const token = lsGet(LS_JOIN);
+      if (!token) return null;
+      lsSet(LS_JOIN, null);
+      if (!get().session) return null;
+      return get().joinByToken(token, false);
     },
     async syncNow() {
       if (dirty.days.size || dirty.meta) await push(); else await pull();

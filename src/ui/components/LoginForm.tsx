@@ -67,6 +67,8 @@ export function LoginForm({ onDone }: { onDone?: () => void }) {
 
   return (
     <>
+      <LineButton />
+      <div className="ordiv"><span>または メールで</span></div>
       <div className="steprow"><span className="stepno now">1</span>
         <div className="g"><div className="t">メールアドレスを入れる</div><div className="s">パスワードはありません</div></div></div>
       <label className="field" style={{ marginTop: 10 }}>
@@ -82,3 +84,25 @@ export function LoginForm({ onDone }: { onDone?: () => void }) {
     </>
   );
 }
+
+/** LINE でログインする。メールが要らないので、キャストにはこちらが早い */
+export function LineButton() {
+  const c = useCloud();
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <>
+      <button type="button" className="btn line wide" style={{ minHeight: 52 }} disabled={c.busy}
+        onClick={() => { setErr(null); void c.signInWithLine().catch((e: Error) => setErr(e.message)); }}>
+        <LineMark />LINE でログイン
+      </button>
+      <div className="hint" style={{ marginTop: 6 }}>メールアドレスは要りません。LINE の画面に移ります。</div>
+      {err && <div style={{ marginTop: 10 }}><Notice bad>{err}</Notice></div>}
+    </>
+  );
+}
+
+const LineMark = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M12 2C6.5 2 2 5.7 2 10.2c0 4 3.6 7.4 8.4 8.1.3.07.8.22.9.5.1.26.07.66.03.92l-.15.9c-.04.26-.2 1.04.92.57 1.13-.48 6.05-3.57 8.26-6.1C21.8 13.4 22 11.9 22 10.2 22 5.7 17.5 2 12 2z" />
+  </svg>
+);

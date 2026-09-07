@@ -5,6 +5,7 @@ import { SaveStatus } from "./ui/components/SaveStatus";
 import { Toast } from "./ui/components/Toast";
 import { Welcome } from "./ui/components/Welcome";
 import { PinPad } from "./ui/components/PinPad";
+import { JoinSheet } from "./ui/components/JoinSheet";
 import { hasPin, isUnlocked } from "./data/pin";
 import { ChevLeft, IcoCast, IcoDay, IcoMonth, IcoReg, IcoSet, IcoShift } from "./ui/icons";
 import { Register } from "./ui/screens/Register";
@@ -50,7 +51,10 @@ export default function App() {
     if (TABS.some((t) => t.id === want)) setUI({ tab: want as Tab, setFocus: null, sheet: null });
   }, [setUI]);
 
-  // QR を読んで開いたとき（?join=…）は、その招待でお店に入る
+  // QR を読んで開いたとき（?join=…）。入り方を選んでもらう。
+  // そのまま入る（匿名）と速いが、端末のデータを消すと入り直しになる。
+  // LINE で入っておくと、機種を変えても同じ人として戻れる
+  const [joinToken, setJoinToken] = useState<string | null>(null);
   useEffect(() => {
     const token = new URLSearchParams(window.location.search).get("join");
     if (!token) return;
@@ -58,8 +62,15 @@ export default function App() {
     url.searchParams.delete("join");
     window.history.replaceState(null, "", url.toString());
     try { localStorage.setItem("shimedaicho.welcomed", "1"); } catch { /* ignore */ }
-    void joinByToken(token).then((r) => showToast(r.message));
+    // すでにログインしているなら、聞かずにそのまま入る
+    if (useCloud.getState().session) { void joinByToken(token).then((r) => showToast(r.message)); return; }
+    setJoinToken(token);
   }, [joinByToken, showToast]);
+
+  // LINE から戻ってきたとき、預けておいた招待を使う
+  useEffect(() => {
+    void useCloud.getState().redeemPending().then((r) => { if (r) showToast(r.message); });
+  }, [showToast]);
   const tabs = role === "cast" ? TABS.filter((t) => t.id === "shift")
     : role === "staff" ? TABS.filter((t) => t.id === "reg" || t.id === "day" || t.id === "shift")
     : TABS;
@@ -116,6 +127,7 @@ export default function App() {
           </div>
         </nav>
       )}
+      <JoinSheet token={joinToken} onClose={() => setJoinToken(null)} />
       <Welcome />
       <Toast />
     </div>
