@@ -163,6 +163,8 @@ function toDay(v: unknown): DayRecord {
   }
   const posAt = str(v.posAt);
   if (posAt) d.posAt = posAt;
+  const sentAt = str(v.lineSentAt);
+  if (sentAt) d.lineSentAt = sentAt;
   if (Array.isArray(v.manual)) {
     const m = [...new Set(v.manual.filter((x): x is string => typeof x === "string"))];
     if (m.length) d.manual = m;
@@ -284,6 +286,7 @@ export function migrate(input: unknown): Ledger {
     openTime: str(sh.openTime, ds.openTime),
     closeTime: str(sh.closeTime, ds.closeTime),
   };
+  if (sh.lineAuto !== undefined) shop.lineAuto = !!sh.lineAuto;
 
   const casts = Array.isArray(o.casts) ? o.casts.map(toCast).filter((x): x is Cast => !!x) : [];
 

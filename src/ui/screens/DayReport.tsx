@@ -1,5 +1,5 @@
 /** 日報 = 5 ステップの締めウィザード：売上 → 出勤 → 派遣 → 経費 → 現金・締め */
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useApp } from "../../state/store";
 import type { DayRecord, DispatchRow, Ledger, Shift } from "../../domain/types";
 import { emptyDay } from "../../domain/migrate";
@@ -370,6 +370,33 @@ function ExpenseStep({ d, dk, edit, t, updateWithUndo }: { d: DayRecord; dk: str
 
 /* ---------- 5. 現金・締め ---------- */
 function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: string; d: DayRecord; edit: Edit; t: T; updateWithUndo: (m: string, mut: (L: Ledger) => void) => void }) {
+  const sendLine = useCloud((s) => s.sendLine);
+  const canSend = useCloud((s) => !!s.shopId && s.isOwner());
+  const showToast = useApp((s) => s.showToast);
+
+  /** 実査現金を入れたら、その日ぶんを一度だけ自動で送る。
+   *  入力のたびに走らないよう、少し待ってから最後の値で送る */
+  const autoSend = () => {
+    if (!L.shop.lineAuto || !canSend || d.lineSentAt) return;
+    if (autoTimer.current) clearTimeout(autoTimer.current);
+    autoTimer.current = setTimeout(() => {
+      const now = useApp.getState().ledger;
+      const day = now.days[dk];
+      if (!day || day.lineSentAt || day.cashCounted == null) return;
+      // 先に印を付ける。送信中にもう一度呼ばれても二度送りにならない
+      useApp.getState().editDay(dk, (dd) => { dd.lineSentAt = new Date().toISOString(); });
+      void sendLine(dayReportText(now, dk))
+        .then(() => showToast("締めを LINE に送りました"))
+        .catch((e: Error) => {
+          // 送れなかったら印を外して、手で送り直せるようにする
+          useApp.getState().editDay(dk, (dd) => { delete dd.lineSentAt; });
+          showToast(e.message || "LINE に送れませんでした");
+        });
+    }, 2500);
+  };
+  const autoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (autoTimer.current) clearTimeout(autoTimer.current); }, []);
+
   const flow = dayCashFlow(L, dk);
   const expected = flow.net;
   const diff = d.cashCounted == null ? null : d.cashCounted - expected;
@@ -437,7 +464,7 @@ function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: strin
         <div className="lrow total"><div className="g"><div className="t">この日の残り</div><div className="s">売上から、払った分を引いた額</div></div><div className="a num">{yen(expected)}</div></div>
 
         <label className="field" style={{ marginTop: 14 }}><span className="lbl">実際に数えた現金</span>
-          <NumberField big value={d.cashCounted} placeholder="金庫＋レジの合計" onChange={(v) => edit((dd) => { dd.cashCounted = v; })} /></label>
+          <NumberField big value={d.cashCounted} placeholder="金庫＋レジの合計" onChange={(v) => { edit((dd) => { dd.cashCounted = v; }); if (v != null) autoSend(); }} /></label>
         {diff == null
           ? <div className="hint">数えた額を入れると、計算と合っているか出ます。</div>
           : diff === 0
@@ -458,27 +485,33 @@ function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: strin
         {L.days[dk] && <div className="btnrow" style={{ marginTop: 12 }}><button type="button" className="btn sm danger" onClick={() => updateWithUndo(`${dayLabel(dk)} の記録を消しました`, (LL) => { delete LL.days[dk]; })}>この日の記録をまるごと消す</button></div>}
       </div>
 
-      <SendLineCard L={L} dk={dk} />
+      <SendLineCard L={L} dk={dk} d={d} />
     </>
   );
 }
 
-/** 締めた内容を LINE に送る。押したときだけ送るので、二重に飛ぶ心配がない */
-function SendLineCard({ L, dk }: { L: Ledger; dk: string }) {
+/** 締めた内容を LINE に送る。実査現金を入れたら自動で 1 回、あとは手で送り直せる */
+function SendLineCard({ L, dk, d }: { L: Ledger; dk: string; d: DayRecord }) {
   const sendLine = useCloud((s) => s.sendLine);
   const isOwner = useCloud((s) => s.isOwner);
   const shopId = useCloud((s) => s.shopId);
   const showToast = useApp((s) => s.showToast);
+  const update = useApp((s) => s.update);
+  const editDay = useApp((s) => s.editDay);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   // クラウド同期を使っていて、自分がオーナーのときだけ出す
   if (!shopId || !isOwner()) return null;
 
+  const auto = L.shop.lineAuto !== false;   // 既定は自動で送る
+  const sent = d.lineSentAt;
+
   const send = async () => {
     setBusy(true); setErr(null);
     try {
       await sendLine(dayReportText(L, dk));
+      editDay(dk, (dd) => { dd.lineSentAt = new Date().toISOString(); });
       showToast("LINE に送りました");
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -490,10 +523,28 @@ function SendLineCard({ L, dk }: { L: Ledger; dk: string }) {
   return (
     <div className="card">
       <h2>LINE に送る</h2>
-      <p className="sub">この日の売上・人件費・現金の差をまとめて送ります。押したときだけ送ります。</p>
-      <pre className="linepreview">{dayReportText(L, dk)}</pre>
+      <p className="sub">この日の売上・人件費・現金の差をまとめて送ります。</p>
+
+      <label className="lrow" style={{ cursor: "pointer" }}>
+        <div className="g">
+          <div className="t">締めたら自動で送る</div>
+          <div className="s">実査現金を入れた時点で、1 回だけ送ります</div>
+        </div>
+        <input type="checkbox" checked={auto}
+          onChange={(e) => update((D) => { D.shop.lineAuto = e.target.checked; })} />
+      </label>
+
+      {sent && (
+        <div className="hint" style={{ marginTop: 8 }}>
+          <span className="posbadge auto">送信済み</span>
+          {new Date(sent).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} に送りました。
+          直したあとは、下から送り直せます。
+        </div>
+      )}
+
+      <pre className="linepreview" style={{ marginTop: 10 }}>{dayReportText(L, dk)}</pre>
       <button type="button" className="btn wide" disabled={busy} onClick={() => void send()}>
-        {busy ? "送っています…" : "この内容を LINE に送る"}
+        {busy ? "送っています…" : sent ? "もう一度 送る" : "この内容を LINE に送る"}
       </button>
       {err && <Notice bad title="送れませんでした">{err}</Notice>}
     </div>

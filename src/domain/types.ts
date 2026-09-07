@@ -49,6 +49,8 @@ export interface Shop {
   dispatchGuarantee: number;
   openTime: string;
   closeTime: string;
+  /** 締め（実査現金の入力）が終わったら、自動で LINE に送るか */
+  lineAuto?: boolean;
 }
 
 /** 在籍キャストの 1 日ぶんの出勤 */
@@ -110,6 +112,8 @@ export interface DayRecord {
   manual?: string[];
   /** レジが最後にこの日報へ反映した日時。これがあれば「レジから自動」と出せる */
   posAt?: string;
+  /** この日の締めを LINE に送った日時。二度送りを防ぐ目印 */
+  lineSentAt?: string;
 }
 
 export interface Ledger {
