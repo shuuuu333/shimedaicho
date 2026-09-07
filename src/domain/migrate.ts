@@ -1,6 +1,7 @@
-/** 旧アーティファクト(v1/v2, 文字列の数値) と 現行(v3) の JSON を Ledger に正規化する。
- *  旧 migrate() の振る舞い（v1 既定バック項目の置換・ドリンク名の改名・rateD 補完）も引き継ぐ。 */
-import type { BackItem, Cast, DayRecord, DispatchRow, Expense, Ledger, PayMethod, Settlement, Shift, Shop, WageChange } from "./types";
+/** 旧アーティファクト(v1/v2, 文字列の数値) と v3 の JSON を 現行(v4) の Ledger に正規化する。
+ *  旧 migrate() の振る舞い（v1 既定バック項目の置換・ドリンク名の改名・rateD 補完）も引き継ぐ。
+ *  v3 の台帳にはレジのマスタが無いので、既定のメニュー・席・会計ルールを補う（backItems と同じ扱い）。 */
+import type { BackItem, Cast, DayRecord, DispatchRow, Expense, Ledger, MenuItem, MenuKind, PayMethod, PosRule, Seat, Settlement, Shift, Shop, WageChange } from "./types";
 import { todayISO, uid } from "./format";
 
 export function defaultBacks(): BackItem[] {
@@ -9,9 +10,55 @@ export function defaultBacks(): BackItem[] {
     { id: "d2", name: "ドリンク M", type: "count", rate: 700, rateD: 700 },
     { id: "d3", name: "ドリンク L", type: "count", rate: 1000, rateD: 1000 },
     { id: "b2", name: "指名バック", type: "count", rate: 1000, rateD: 1000 },
+    { id: "b5", name: "場内バック", type: "count", rate: 500, rateD: 500 },
     { id: "b3", name: "同伴バック", type: "count", rate: 2000, rateD: 2000 },
+    { id: "b6", name: "ショットバック", type: "count", rate: 1000, rateD: 1000 },
     { id: "b4", name: "ボトルバック", type: "amount", rate: 20, rateD: 20 },
   ];
+}
+
+/** レジの会計ルールの既定値。ガールズバー想定（設定でいつでも変えられる） */
+export function defaultPosRule(): PosRule {
+  return {
+    setMinutes: 60, setPrice: 3000, setPriceOptions: [2000, 2500, 3000],
+    extendMinutes: 30, extendPrice: 1500,
+    // テーブルチャージは既定 0%。勝手に上乗せしないで、設定で入れてもらう
+    tableChargeRate: 0, tableChargeOnSet: false,
+    taxRate: 10, taxIncluded: true,
+    alertBeforeMin: 10, autoExtend: false, roundTo: 1,
+  };
+}
+
+/** 既定の席。カウンター中心のガールズバー想定 */
+export function defaultSeats(): Seat[] {
+  const out: Seat[] = [];
+  for (let i = 1; i <= 6; i++) out.push({ id: "s" + i, name: "カウンター" + i, sort: i });
+  out.push({ id: "t1", name: "テーブル A", sort: 7 });
+  out.push({ id: "t2", name: "テーブル B", sort: 8 });
+  return out;
+}
+
+/** 既定の商品。backItemId は defaultBacks() の id に合わせてある。
+ *  ここを空にすると初回が真っ白になるので、必ず何か入れておく */
+export function defaultMenu(): MenuItem[] {
+  const m = (id: string, name: string, price: number, category: string, kind: MenuKind, backItemId?: string): MenuItem =>
+    ({ id, name, price, category, kind, backItemId, active: true, sort: 0 });
+  // セットと延長はここに入れない（PosRule が持つ）
+  const list = [
+    m("m-cd1", "キャストドリンク S", 1000, "キャスト", "castLinked", "d1"),
+    m("m-cd2", "キャストドリンク M", 1500, "キャスト", "castLinked", "d2"),
+    m("m-cd3", "キャストドリンク L", 2000, "キャスト", "castLinked", "d3"),
+    m("m-sho", "ショット", 2000, "キャスト", "castLinked", "b6"),
+    m("m-nom", "本指名", 2000, "キャスト", "castLinked", "b2"),
+    m("m-jou", "場内指名", 1000, "キャスト", "castLinked", "b5"),
+    m("m-dou", "同伴", 3000, "キャスト", "castLinked", "b3"),
+    m("m-beer", "ビール", 800, "ドリンク", "normal"),
+    m("m-high", "ハイボール", 700, "ドリンク", "normal"),
+    m("m-cock", "カクテル", 700, "ドリンク", "normal"),
+    m("m-soft", "ソフトドリンク", 600, "ドリンク", "normal"),
+    m("m-food", "乾き物", 500, "フード", "normal"),
+  ];
+  return list.map((x, i) => ({ ...x, sort: i }));
 }
 
 export function defaultShop(): Shop {
@@ -39,7 +86,8 @@ function toPlans(v: unknown, castIds: Set<string>): Record<string, string[]> | u
 }
 
 export function defaultLedger(): Ledger {
-  return { v: 3, shop: defaultShop(), backItems: defaultBacks(), casts: [], days: {} };
+  return { v: 4, shop: defaultShop(), backItems: defaultBacks(), casts: [], days: {},
+           menu: defaultMenu(), seats: defaultSeats(), posRule: defaultPosRule() };
 }
 
 export function emptyDay(): DayRecord {
@@ -113,6 +161,10 @@ function toDay(v: unknown): DayRecord {
       if (sh) d.shifts[cid] = sh;
     }
   }
+  if (Array.isArray(v.manual)) {
+    const m = [...new Set(v.manual.filter((x): x is string => typeof x === "string"))];
+    if (m.length) d.manual = m;
+  }
   return d;
 }
 const MONTH_RE = /^\d{4}-\d{2}$/;
@@ -144,6 +196,51 @@ function toBackItem(v: unknown): BackItem | null {
   return {
     id: str(v.id) || uid(), name: str(v.name), type: v.type === "amount" ? "amount" : "count",
     rate, rateD: v.rateD == null ? rate : (toNum(v.rateD) ?? 0),
+  };
+}
+
+const MENU_KINDS = new Set<MenuKind>(["normal", "castLinked"]);
+function toMenuItem(v: unknown): MenuItem | null {
+  if (!isObj(v)) return null;
+  // 初期の版はセット・延長を商品としても持っていた。今は PosRule が持つので、
+  // 残っていると会計で二重に取ってしまう。読み込みの時点で落とす。
+  // kind は先に normal へ正規化されて保存されている場合があるので、当時の固定 id でも見る
+  // （id は uid() の 7 文字なので、ここに書いた名前と衝突しない）
+  if (v.kind === "set" || v.kind === "extend") return null;
+  if (v.id === "m-set" || v.id === "m-ext") return null;
+  const kind = MENU_KINDS.has(v.kind as MenuKind) ? (v.kind as MenuKind) : "normal";
+  const item: MenuItem = {
+    id: str(v.id) || uid(), name: str(v.name), price: toNumOr(v.price, 0),
+    category: str(v.category, "その他"), kind,
+    active: v.active !== false, sort: toNumOr(v.sort, 0),
+  };
+  const b = str(v.backItemId);
+  if (b) item.backItemId = b;
+  return item;
+}
+function toSeat(v: unknown): Seat | null {
+  if (!isObj(v)) return null;
+  return { id: str(v.id) || uid(), name: str(v.name), sort: toNumOr(v.sort, 0) };
+}
+function toPosRule(v: unknown): PosRule {
+  const d = defaultPosRule();
+  if (!isObj(v)) return d;
+  return {
+    setMinutes: toNumOr(v.setMinutes, d.setMinutes),
+    setPrice: toNumOr(v.setPrice, d.setPrice),
+    setPriceOptions: Array.isArray(v.setPriceOptions)
+      ? [...new Set(v.setPriceOptions.map((x) => toNum(x) ?? 0).filter((x) => x > 0))].sort((a, b) => a - b)
+      : d.setPriceOptions,
+    extendMinutes: toNumOr(v.extendMinutes, d.extendMinutes),
+    extendPrice: toNumOr(v.extendPrice, d.extendPrice),
+    // 初期の版は「サービス料」という名前だった。同じ％なのでそのまま引き継ぐ
+    tableChargeRate: toNumOr(v.tableChargeRate ?? v.serviceRate, d.tableChargeRate),
+    tableChargeOnSet: v.tableChargeOnSet === undefined ? d.tableChargeOnSet : !!v.tableChargeOnSet,
+    taxRate: toNumOr(v.taxRate, d.taxRate),
+    taxIncluded: v.taxIncluded === undefined ? d.taxIncluded : !!v.taxIncluded,
+    alertBeforeMin: toNumOr(v.alertBeforeMin, d.alertBeforeMin),
+    autoExtend: v.autoExtend === undefined ? d.autoExtend : !!v.autoExtend,
+    roundTo: Math.max(1, toNumOr(v.roundTo, d.roundTo)),
   };
 }
 
@@ -187,7 +284,16 @@ export function migrate(input: unknown): Ledger {
   };
 
   const casts = Array.isArray(o.casts) ? o.casts.map(toCast).filter((x): x is Cast => !!x) : [];
-  const out: Ledger = { v: 3, shop, backItems: items, casts, days };
+
+  // レジのマスタ。無ければ既定を入れる（backItems と同じ扱い。初回を真っ白にしない）
+  const menu = Array.isArray(o.menu) && o.menu.length
+    ? o.menu.map(toMenuItem).filter((x): x is MenuItem => !!x)
+    : defaultMenu();
+  const seats = Array.isArray(o.seats) && o.seats.length
+    ? o.seats.map(toSeat).filter((x): x is Seat => !!x)
+    : defaultSeats();
+
+  const out: Ledger = { v: 4, shop, backItems: items, casts, days, menu, seats, posRule: toPosRule(o.posRule) };
   const plans = toPlans(o.plans, new Set(casts.map((c) => c.id)));
   if (plans) out.plans = plans;
   return out;

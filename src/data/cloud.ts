@@ -104,7 +104,11 @@ export async function removeMember(shopId: string, email: string): Promise<void>
 /* ---------- QR での招待 ---------- */
 
 /** 期限つき・1回だけの招待を作る。token を QR に入れる */
-export async function createInvite(shopId: string, role: "staff" | "cast", name: string, castId: string | null, minutes = 30): Promise<InviteRow> {
+/** 招待の有効時間（分）。QR そのものが鍵になるので短くしてある。
+ *  レジを入れてからは「入られる = 売上と現金を書き換えられる」なので、表示と実物がずれないよう定数は 1 か所に置く */
+export const INVITE_MINUTES = 10;
+
+export async function createInvite(shopId: string, role: "staff" | "cast", name: string, castId: string | null, minutes = INVITE_MINUTES): Promise<InviteRow> {
   const expires = new Date(Date.now() + minutes * 60 * 1000).toISOString();
   const { data, error } = await sb().from("shop_invites")
     .insert({ shop_id: shopId, role, name: name.trim(), cast_id: castId, expires_at: expires })

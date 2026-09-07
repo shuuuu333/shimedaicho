@@ -4,9 +4,8 @@ import { useCloud } from "../../state/cloud";
 import { useApp } from "../../state/store";
 import { BottomSheet } from "./BottomSheet";
 import { Notice } from "./Notice";
-import type { InviteRow } from "../../data/cloud";
+import { INVITE_MINUTES, type InviteRow } from "../../data/cloud";
 
-const MINUTES = 30;
 
 /** QR を出して、その場で読んでもらう招待。メールもパスワードもいらない */
 export function InviteSheet({ onClose }: { onClose: () => void }) {
@@ -83,7 +82,7 @@ export function InviteSheet({ onClose }: { onClose: () => void }) {
           <button type="button" className="btn primary wide" style={{ minHeight: 52 }}
             disabled={c.busy || (role === "cast" && !castId)} onClick={make}>QRを出す</button>
           {c.error && <div style={{ marginTop: 10 }}><Notice bad>{c.error}</Notice></div>}
-          <div className="hint" style={{ marginTop: 12 }}>QR は {MINUTES} 分で切れ、1 人が 1 回だけ使えます。</div>
+          <div className="hint" style={{ marginTop: 12 }}>QR は {INVITE_MINUTES} 分で切れ、1 人が 1 回だけ使えます。</div>
         </>
       ) : (
         <>

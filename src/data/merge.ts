@@ -1,5 +1,6 @@
 /** クラウドと端末のマージ（日単位）。
- *  remote を土台に、この端末で変えた日（dirtyDays）と設定・キャスト・バック（dirtyMeta）だけを local から重ねる。 */
+ *  remote を土台に、この端末で変えた日（dirtyDays）と、日報以外のもの（dirtyMeta）だけを local から重ねる。
+ *  dirtyMeta が指すのは 設定・キャスト・バック項目・シフト予定・レジのマスタ（メニュー・席・会計ルール）。 */
 import type { Ledger } from "../domain/types";
 
 export interface Dirty { days: Set<string>; meta: boolean }
@@ -9,7 +10,9 @@ export function emptyDirty(): Dirty { return { days: new Set(), meta: false }; }
 /** immer の構造共有を利用して、変わった日と設定を検出する */
 export function diffDirty(prev: Ledger, next: Ledger, into: Dirty): Dirty {
   if (prev === next) return into;
-  if (prev.shop !== next.shop || prev.casts !== next.casts || prev.backItems !== next.backItems) into.meta = true;
+  if (prev.shop !== next.shop || prev.casts !== next.casts || prev.backItems !== next.backItems
+      || prev.plans !== next.plans
+      || prev.menu !== next.menu || prev.seats !== next.seats || prev.posRule !== next.posRule) into.meta = true;
   if (prev.days !== next.days) {
     for (const k of Object.keys(next.days)) if (prev.days[k] !== next.days[k]) into.days.add(k);
     for (const k of Object.keys(prev.days)) if (!(k in next.days)) into.days.add(k);
@@ -18,12 +21,19 @@ export function diffDirty(prev: Ledger, next: Ledger, into: Dirty): Dirty {
 }
 
 export function mergeLedger(remote: Ledger, local: Ledger, dirty: Dirty): Ledger {
+  // meta 側は「この端末で触ったなら local、触っていなければ remote」を丸ごと採る。
+  // plans とレジのマスタをここに載せていないと、同期のたびに消える（v3 までの plans がそうだった）
+  const meta = dirty.meta ? local : remote;
   const out: Ledger = {
-    v: 3,
-    shop: dirty.meta ? local.shop : remote.shop,
-    casts: dirty.meta ? local.casts : remote.casts,
-    backItems: dirty.meta ? local.backItems : remote.backItems,
+    v: 4,
+    shop: meta.shop,
+    casts: meta.casts,
+    backItems: meta.backItems,
     days: { ...remote.days },
+    plans: meta.plans,
+    menu: meta.menu,
+    seats: meta.seats,
+    posRule: meta.posRule,
   };
   for (const k of dirty.days) {
     if (k in local.days) out.days[k] = local.days[k];

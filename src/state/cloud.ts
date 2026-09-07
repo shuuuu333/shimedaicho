@@ -76,6 +76,10 @@ export const useCloud = create<CloudState>()((set, get) => {
   async function push(): Promise<void> {
     const { shopId, session } = get();
     if (!shopId || !session || pushing) return;
+    // キャストは台帳を書けない（schema.sql の ledgers_update で弾かれる）。
+    // 送っても 42501 が返るだけなので、送らずに受け取るだけにする。
+    // dirty は消さない（役割の判定を取り違えたときに入力を捨てないため）
+    if (get().role() === "cast") { await pull(); return; }
     if (!navigator.onLine) { set({ status: "offline" }); return; }
     pushing = true;
     set({ status: "syncing", error: null });

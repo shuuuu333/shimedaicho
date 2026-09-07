@@ -211,3 +211,117 @@
 .qrmeta{display:flex; align-items:baseline; gap:10px; margin-bottom:12px}
 .qrmeta .t{font-size:14.5px; font-weight:600}
 .qrmeta .s{margin-left:auto; font-size:13px; color:var(--ink-2); font-weight:600}
+
+/* ---------- レジ ---------- */
+
+/* 席名（カウンター2 など）と、右の大きい のこり時間 が両方入る幅を確保する。
+   スマホでは 1 列、iPad など広い画面では自動で 2 列以上になる */
+.seatgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:9px}
+.seat{display:flex; align-items:stretch; gap:8px; text-align:left;
+  min-height:78px; padding:10px 12px; border-radius:var(--r-tile); cursor:pointer;
+  border:1.5px solid var(--line); background:var(--surface-2); color:inherit; font:inherit}
+.seat .seatL{display:flex; flex-direction:column; gap:2px; min-width:0; flex:1}
+/* 席名は 1 行に収める。折り返すとカードの背が伸びて一覧が読みにくくなる */
+.seat b{font-size:14.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.seat span{font-size:11.5px; color:var(--ink-3)}
+.seat em{font-style:normal; margin-top:auto; font-size:14px; font-weight:600; white-space:nowrap;
+  font-family:"IBM Plex Mono",ui-monospace,monospace}
+
+/* 入店中の席は、右側に のこり時間 と 何時まで を大きく出す */
+.seat .seatR{display:flex; flex-direction:column; align-items:flex-end; justify-content:center;
+  flex:none; padding-left:12px; border-left:1px solid var(--line)}
+.seat .seatR strong{font-size:26px; line-height:1; font-weight:700; letter-spacing:-.03em;
+  font-family:"IBM Plex Mono",ui-monospace,monospace}
+.seat .seatR span{font-size:11px; margin-top:2px}
+.seat .seatR .till{font-size:11.5px; font-weight:600; white-space:nowrap;
+  font-family:"IBM Plex Mono",ui-monospace,monospace}
+
+.seat.empty{border-style:dashed; background:transparent; border-color:var(--line); min-height:56px}
+.seat.empty .seatL{flex-direction:row; align-items:baseline; gap:10px}
+.seat.empty b{color:var(--ink-3); font-weight:500}
+.seat.empty span{color:var(--ink-3)}
+
+/* 入店中の色分け。ひと目で分かるよう、枠と地の両方を変える
+   ふつう(ok) → そろそろ声かけ(soon) → 超過(over) */
+.seat.busy{background:var(--surface)}
+.seat.ok{border-color:var(--accent)}
+.seat.ok .seatR strong{color:var(--accent)}
+.seat.ok .seatR{border-left-color:var(--accent)}
+
+.seat.soon{border-color:var(--warn); background:var(--warn-bg)}
+.seat.soon b, .seat.soon em, .seat.soon .seatR strong, .seat.soon .seatR .till{color:var(--warn)}
+.seat.soon span{color:var(--warn)}
+.seat.soon .seatR{border-left-color:var(--warn)}
+
+.seat.over{border-color:var(--crit); background:var(--crit-bg)}
+.seat.over b, .seat.over em, .seat.over .seatR strong, .seat.over .seatR .till{color:var(--crit)}
+.seat.over span{color:var(--crit)}
+.seat.over .seatR{border-left-color:var(--crit)}
+
+.seat:active{transform:scale(.985)}
+
+/* セット料金の候補 */
+.pricerow{display:flex; flex-wrap:wrap; gap:8px; margin:8px 0}
+.pricerow .btn{min-height:46px; padding:0 16px}
+.pricerow .btn[aria-pressed="true"]{border-color:var(--accent); color:var(--accent); font-weight:600}
+.pricechip{display:inline-flex; align-items:center; gap:4px}
+.pricechip .numwrap{width:110px}
+
+.guestgrid{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin-top:10px}
+.guestgrid .btn{min-height:52px; font-size:15px}
+
+/* 伝票 */
+.checkview{padding-bottom:130px}
+.timecard.soon{border-color:var(--warn)}
+.timecard.over{border-color:var(--crit)}
+
+.menuseg{overflow-x:auto; margin-bottom:10px; -webkit-overflow-scrolling:touch}
+.menuseg button{white-space:nowrap}
+.menugrid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px}
+.menubtn{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  min-height:62px; padding:8px 6px; border-radius:var(--r-tile); cursor:pointer;
+  border:1px solid var(--line-strong); background:var(--surface-2); color:inherit; font:inherit}
+.menubtn b{font-size:12.5px; font-weight:600; line-height:1.25; text-align:center;
+  overflow-wrap:anywhere; max-width:100%}   /* flex の子は max-content 幅になるので、折り返すには幅を止める */
+.menubtn span{font-size:11px; color:var(--ink-3); font-family:"IBM Plex Mono",ui-monospace,monospace}
+.menubtn.cast{border-color:var(--accent); }
+.menubtn:active{transform:scale(.97)}
+
+.chipgrid{display:flex; flex-wrap:wrap; gap:8px}
+.chipgrid .chip{min-height:46px}
+
+/* 会計バー。下タブのすぐ上に固定する（日報の wizfoot と同じ考え方） */
+.paybar{position:fixed; left:0; right:0; bottom:calc(66px + env(safe-area-inset-bottom)); z-index:5;
+  display:flex; align-items:center; gap:12px; padding:10px var(--gutter);
+  background:var(--surface); border-top:1px solid var(--line-strong)}
+.paybar>span{flex:1; font-size:13px; color:var(--ink-2)}
+.paybar b{font-size:19px; font-weight:600; color:var(--ink);
+  font-family:"IBM Plex Mono",ui-monospace,monospace; margin-left:6px}
+.paybar .btn{min-width:120px}
+.paybarspacer{height:8px}
+
+.cashrow{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin:10px 0}
+.cashrow .btn{padding:0 6px; font-size:12.5px}
+.cashrow .btn[aria-pressed="true"]{border-color:var(--accent); color:var(--accent)}
+.paygrid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin-top:14px}
+.paygrid .btn{min-height:54px; font-size:15px}
+.card.flat{box-shadow:none; background:var(--surface-2); padding:12px; margin-bottom:12px}
+.lrow.total.warn .a{color:var(--crit)}
+
+/* ボタンにした行（伝票の明細・席なしの伝票・商品のカテゴリ）。
+   ボタンの既定の見た目を消して、ふつうの .lrow と同じに見せる */
+button.lrow{width:100%; text-align:left; font:inherit; color:inherit; cursor:pointer;
+  background:transparent; border:0; border-bottom:1px solid var(--line); border-radius:0}
+button.lrow:last-child{border-bottom:0}
+button.lrow:active{background:var(--surface-2)}
+
+/* のこり時間。接客中にちらっと見て分かる大きさにする */
+.timebig{display:flex; align-items:flex-end; gap:16px; margin-bottom:12px}
+.timebig>div{min-width:0}
+.timebig .k{font-size:11.5px; color:var(--ink-2); font-weight:500}
+.timebig b{display:block; font-size:34px; line-height:1.05; font-weight:600; letter-spacing:-.01em;
+  font-family:"IBM Plex Mono",ui-monospace,monospace}
+.timebig .timeend{margin-left:auto; text-align:right}
+.timebig .timeend b{font-size:22px; color:var(--ink-2)}
+.timecard.soon .timebig b{color:var(--warn)}
+.timecard.over .timebig b{color:var(--crit)}

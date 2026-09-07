@@ -171,3 +171,42 @@ create or replace function public.purge_invites() returns void
 language sql security definer set search_path = public as $$
   delete from public.shop_invites where expires_at < now() - interval '1 day';
 $$;
+
+-- ============================================================
+-- レジ(POS)を入れる前の権限の締め直し
+-- ここまで、台帳の読み書きは is_member() だけで判定していた。
+-- つまり役割は App.tsx の画面の出し分け（クライアント側）でしか効いておらず、
+-- QR で入ったキャストのトークンがあれば台帳 JSON を丸ごと読めるうえ、上書きもできた。
+-- レジを足すと「入られる = 売上と現金を書き換えられる」になるので、サーバー側で止める。
+-- 何度実行しても安全。
+-- ============================================================
+
+-- その店での自分の役割。owner / staff / cast、どれでもなければ null
+create or replace function public.my_role(sid uuid) returns text
+language sql stable security definer set search_path = public as $$
+  select case
+    when exists (select 1 from public.shops s where s.id = sid and s.owner = auth.uid()) then 'owner'
+    else (select m.role from public.shop_members m
+           where m.shop_id = sid
+             and (m.user_id = auth.uid() or lower(m.email) = public.my_email())
+           limit 1)
+  end;
+$$;
+
+-- 台帳を書けるのはオーナーとスタッフだけ。キャストは読み取り専用にする
+drop policy if exists ledgers_insert on public.ledgers;
+create policy ledgers_insert on public.ledgers for insert
+  with check (public.my_role(shop_id) in ('owner','staff'));
+
+drop policy if exists ledgers_update on public.ledgers;
+create policy ledgers_update on public.ledgers for update
+  using (public.my_role(shop_id) in ('owner','staff'))
+  with check (public.my_role(shop_id) in ('owner','staff'));
+
+-- select は据え置き（キャストが自分のシフトを見るのに台帳が要るため）。
+-- キャストに台帳全体を見せない分離は、伝票をクラウドに載せるときに合わせて作る。
+
+-- メンバーの一覧はオーナーだけ。本人は自分の行だけ見える（他人のメールを配らない）
+drop policy if exists members_select on public.shop_members;
+create policy members_select on public.shop_members for select
+  using (public.is_owner(shop_id) or user_id = auth.uid() or lower(email) = public.my_email());
