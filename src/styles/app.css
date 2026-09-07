@@ -334,3 +334,7 @@ button.lrow:active{background:var(--surface-2)}
 .posbadge.manual{background:var(--surface-2); color:var(--ink-2); border-color:var(--line-strong);
   cursor:pointer; font:inherit; font-size:10.5px; font-weight:600; min-height:26px}
 button.posbadge.manual:active{background:var(--surface)}
+
+/* 打刻のチップに出退勤の時刻を出す */
+.cchip .chiptime{display:block; font-size:10.5px; font-weight:500; opacity:.75; margin-top:1px;
+  font-family:"IBM Plex Mono",ui-monospace,monospace}

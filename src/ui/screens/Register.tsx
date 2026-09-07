@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../../state/store";
+import type { DayRecord, Shift } from "../../domain/types";
 import { usePos } from "../../state/pos";
 import { checkTotals, clock, endsAt, remainingMin, seatState, setPriceChoices } from "../../domain/pos";
 import { summarize } from "../../domain/close";
@@ -7,6 +8,7 @@ import { yen } from "../../domain/format";
 import { defaultPosRule } from "../../domain/migrate";
 import { BottomSheet } from "../components/BottomSheet";
 import { NumberField } from "../components/NumberField";
+import { TimeField } from "../components/TimeField";
 import { CheckView } from "./CheckView";
 
 /** 分を「1:05」の形に。マイナスは超過 */
@@ -59,6 +61,8 @@ export function Register() {
         <div className="tile"><div className="k">取消 / 値引き</div><div className="v">{sum.voided} / {yen(sum.discount)}</div>
           <div className="n">{date}</div></div>
       </div>
+
+      <Attendance date={date} />
 
       <div className="card">
         <div className="cardhead"><h2>席</h2><span className="muted">タップで入店</span></div>
@@ -151,5 +155,101 @@ export function Register() {
         </div>
       </BottomSheet>
     </>
+  );
+}
+
+/** 今の時刻 HH:MM */
+const nowHM = (): string => {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
+const newShift = (): Shift => ({ on: false, in: "", out: "", breakMin: null, backs: {}, deduct: null, paid: null });
+
+/** 打刻。ドリンクを売っていない子も、ここでタップすれば出勤になる。
+ *  レジからの反映は in / out が空のときだけ店の初期値を入れるので、打った時刻は消えない */
+function Attendance({ date }: { date: string }) {
+  const casts = useApp((s) => s.ledger.casts);
+  const day = useApp((s) => s.ledger.days[date]) as DayRecord | undefined;
+  const editDay = useApp((s) => s.editDay);
+  const showToast = useApp((s) => s.showToast);
+  const [sheet, setSheet] = useState<string | null>(null);
+
+  const active = casts.filter((c) => c.active !== false);
+  const shifts = day?.shifts ?? {};
+  const onCount = active.filter((c) => shifts[c.id]?.on).length;
+
+  const punchIn = (id: string, name: string) => {
+    const at = nowHM();
+    editDay(date, (d) => {
+      const sh = (d.shifts[id] ??= newShift());
+      sh.on = true;
+      sh.in = at;
+      sh.out = "";
+    });
+    showToast(`${name} 出勤 ${at}`);
+  };
+
+  if (!active.length) {
+    return (
+      <div className="card">
+        <div className="cardhead"><h2>出勤</h2></div>
+        <div className="empty">キャストが登録されていません<br /><span className="hint">「キャスト」タブから登録できます</span></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="card">
+      <div className="cardhead"><h2>出勤</h2><span className="muted">{onCount} 名</span></div>
+      <div className="chipgrid" style={{ marginBottom: 0 }}>
+        {active.map((c) => {
+          const sh = shifts[c.id];
+          const on = !!sh?.on;
+          return (
+            <button key={c.id} type="button" className={`cchip ${on ? "on" : ""}`} aria-pressed={on}
+              onClick={() => (on ? setSheet(c.id) : punchIn(c.id, c.name || "この子"))}>
+              {c.name || "（名前なし）"}
+              {on && sh?.in && <span className="chiptime">{sh.in}{sh.out ? `-${sh.out}` : "-"}</span>}
+            </button>
+          );
+        })}
+      </div>
+      <div className="hint">タップで出勤。もう一度タップすると退勤や時刻直しができます。</div>
+      <PunchSheet date={date} castId={sheet} onClose={() => setSheet(null)} />
+    </div>
+  );
+}
+
+function PunchSheet({ date, castId, onClose }: { date: string; castId: string | null; onClose: () => void }) {
+  const casts = useApp((s) => s.ledger.casts);
+  const day = useApp((s) => s.ledger.days[date]) as DayRecord | undefined;
+  const editDay = useApp((s) => s.editDay);
+  const showToast = useApp((s) => s.showToast);
+  if (!castId) return null;
+  const c = casts.find((x) => x.id === castId);
+  const sh = day?.shifts[castId];
+  if (!c || !sh) return null;
+  const set = (mut: (s: Shift) => void) => editDay(date, (d) => { mut(d.shifts[castId]); });
+
+  return (
+    <BottomSheet open title={c.name || "（名前なし）"} onClose={onClose}>
+      <div className="row2">
+        <label className="field" style={{ margin: 0 }}><span className="lbl">出勤</span>
+          <TimeField value={sh.in} ariaLabel="出勤時刻" onChange={(v) => set((x) => { x.in = v; })} /></label>
+        <label className="field" style={{ margin: 0 }}><span className="lbl">退勤</span>
+          <TimeField value={sh.out} ariaLabel="退勤時刻" onChange={(v) => set((x) => { x.out = v; })} /></label>
+      </div>
+      <button type="button" className="btn primary wide" style={{ marginTop: 12 }}
+        onClick={() => { const at = nowHM(); set((x) => { x.out = at; }); showToast(`${c.name || "この子"} 退勤 ${at}`); onClose(); }}>
+        今 退勤にする（{nowHM()}）
+      </button>
+      <button type="button" className="btn wide" style={{ marginTop: 8 }}
+        onClick={() => { set((x) => { x.out = ""; }); onClose(); }}>退勤を取り消す</button>
+      <button type="button" className="btn danger wide" style={{ marginTop: 8 }}
+        onClick={() => { set((x) => { x.on = false; }); showToast(`${c.name || "この子"} の出勤を外しました`); onClose(); }}>
+        出勤そのものを外す
+      </button>
+      <div className="hint">時間も本数も日報に入ります。細かい直しは日報の「出勤」でできます。</div>
+    </BottomSheet>
   );
 }
