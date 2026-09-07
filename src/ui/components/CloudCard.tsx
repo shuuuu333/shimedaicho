@@ -4,7 +4,7 @@ import { Notice } from "./Notice";
 import { Trash } from "../icons";
 import { useApp } from "../../state/store";
 import { LoginForm } from "./LoginForm";
-import { InviteSheet } from "./InviteSheet";
+import { InviteSheet, type InviteMode } from "./InviteSheet";
 
 const fmtAt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—");
 
@@ -18,7 +18,7 @@ export function CloudCard() {
   const update = useApp((s) => s.update);
   const shop = c.shops.find((s) => s.id === c.shopId) ?? null;
   const owner = c.isOwner();
-  const [inviting, setInviting] = useState(false);
+  const [inviting, setInviting] = useState<InviteMode | null>(null);
   /** QR で入った人はメールを持たないので、名前で見せる */
   const label = (mb: { email: string; name?: string | null }) =>
     mb.email.startsWith("qr:") ? (mb.name || "QRで参加した人") : mb.email;
@@ -75,9 +75,13 @@ export function CloudCard() {
 
           {shop && owner && (
             <div className="sec">
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <span className="lbl" style={{ margin: 0, flex: 1 }}>メンバー（この店を使える人）</span>
-                <button type="button" className="btn sm primary" onClick={() => setInviting(true)}>QRで招待</button>
+              <div className="lbl" style={{ marginBottom: 8 }}>メンバー（この店を使える人）</div>
+              <div className="btnrow" style={{ marginBottom: 12 }}>
+                <button type="button" className="btn sm primary" onClick={() => setInviting("link")}>リンクを送って招待</button>
+                <button type="button" className="btn sm" onClick={() => setInviting("qr")}>QRを見せて招待</button>
+              </div>
+              <div className="hint" style={{ margin: "-6px 0 12px" }}>
+                離れている人には<b>リンク</b>、目の前にいる人には<b>QR</b>。どちらも 1 回きりで、60 分で切れます。
               </div>
               {c.members.map((mb) => {
                 const linked = L.casts.find((x) => (x.email ?? "").toLowerCase() === mb.email.toLowerCase());
@@ -121,7 +125,7 @@ export function CloudCard() {
           {shop && !owner && <div className="hint" style={{ marginTop: 10 }}>あなたはこの店の<b>スタッフ</b>です。日報の入力ができます。給料・売上の集計と設定はオーナーのみが見られます。</div>}
         </>
       )}
-      {inviting && <InviteSheet onClose={() => setInviting(false)} />}
+      {inviting && <InviteSheet mode={inviting} onClose={() => setInviting(null)} />}
     </div>
   );
 }

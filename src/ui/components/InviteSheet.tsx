@@ -9,7 +9,9 @@ import { INVITE_MINUTES, type InviteRow } from "../../data/cloud";
 
 /** 招待。リンクを送るか、その場で QR を見せるかを選べる。
  *  相手はメールもパスワードもいらない（LINE でログインするか、そのまま入る） */
-export function InviteSheet({ onClose }: { onClose: () => void }) {
+export type InviteMode = "link" | "qr";
+
+export function InviteSheet({ mode, onClose }: { mode: InviteMode; onClose: () => void }) {
   const c = useCloud();
   const L = useApp((s) => s.ledger);
   const showToast = useApp((s) => s.showToast);
@@ -66,11 +68,13 @@ export function InviteSheet({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <BottomSheet open title="お店に招待する" onClose={onClose}>
+    <BottomSheet open title={mode === "link" ? "リンクを送って招待する" : "QRを見せて招待する"} onClose={onClose}>
       {!invite ? (
         <>
           <p className="hint" style={{ margin: "0 0 14px" }}>
-            招待のリンクを LINE などで送るか、その場で QR を見せてください。
+            {mode === "link"
+              ? "招待のリンクを LINE などで送ります。離れている相手にも渡せます。"
+              : "その場で QR を見せ、相手のスマホのカメラで読み取ってもらいます。"}
             相手はメールもパスワードもいりません。
           </p>
 
@@ -113,23 +117,26 @@ export function InviteSheet({ onClose }: { onClose: () => void }) {
 
           {expired ? (
             <Notice bad title="期限が切れました">下の「作り直す」でもう一度出してください。</Notice>
-          ) : (
+          ) : mode === "link" ? (
             <>
               <button type="button" className="btn primary wide" style={{ minHeight: 52 }} onClick={() => void share()}>
-                招待のリンクを送る
+                LINE などで送る
               </button>
               <div className="hint" style={{ marginTop: 6 }}>
-                LINE やメールで相手に送れます。相手はリンクを開いて「LINE でログイン」を選ぶだけです。
+                共有の一覧から LINE を選ぶと、そのまま相手に送れます。
+                相手はリンクを開いて「LINE でログイン」を選ぶだけです。
               </div>
               <button type="button" className="btn wide" style={{ marginTop: 8 }} onClick={() => void copy()}>リンクをコピー</button>
-
-              <details className="help" style={{ marginTop: 12 }}>
-                <summary>その場で QR を見せる</summary>
-                <div className="qrbox">
-                  {png ? <img src={png} alt="招待のQRコード" /> : <div className="empty">作っています…</div>}
-                </div>
-                <div className="hint">相手のスマホのカメラで読み取ってもらいます。画面を他の人に見られないよう気をつけてください。</div>
-              </details>
+            </>
+          ) : (
+            <>
+              <div className="qrbox">
+                {png ? <img src={png} alt="招待のQRコード" /> : <div className="empty">作っています…</div>}
+              </div>
+              <div className="hint" style={{ textAlign: "center" }}>
+                相手のスマホの<b>カメラで読み取って</b>もらってください。<br />
+                画面を他の人に見られないよう気をつけてください。
+              </div>
             </>
           )}
 
