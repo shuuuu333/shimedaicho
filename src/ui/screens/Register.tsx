@@ -31,6 +31,7 @@ export function Register() {
   const setActive = usePos((s) => s.setActive);
   const openSeat = usePos((s) => s.openSeat);
   const reopen = usePos((s) => s.reopen);
+  const removeCheck = usePos((s) => s.removeCheck);
 
   const [now, setNow] = useState(() => Date.now());
   const [entry, setEntry] = useState<{ seatId: string | null; name: string } | null>(null);
@@ -141,7 +142,15 @@ export function Register() {
         })}
       </div>
 
-      <CheckDetail id={detail} onClose={() => setDetail(null)} onReopen={(id) => { setDetail(null); void reopen(id); }} />
+      <CheckDetail id={detail} onClose={() => setDetail(null)}
+        onReopen={(id) => { setDetail(null); void reopen(id); }}
+        onRemove={(id) => {
+          const c = checks.find((x) => x.id === id);
+          const seat = seats.find((s) => s.id === c?.seatId)?.name ?? "席なし";
+          if (!window.confirm(`${seat}・${c?.guests ?? 0}名 の伝票を消します。\n履歴ごと無くなり、元に戻せません。よろしいですか？`)) return;
+          setDetail(null);
+          void removeCheck(id);
+        }} />
 
       <BottomSheet open={!!entry} title={`${entry?.name ?? ""} に入店`} onClose={() => setEntry(null)}>
         <div className="lbl">セット料金（1名あたり）</div>
@@ -267,7 +276,7 @@ function PunchSheet({ date, castId, onClose }: { date: string; castId: string | 
 
 /** 会計済みの伝票をひらいて、明細と「誰が・いつ・何をしたか」を見る。
  *  取り消した行も理由つきで残っている（レジを人に任せるときの備え） */
-function CheckDetail({ id, onClose, onReopen }: { id: string | null; onClose: () => void; onReopen: (id: string) => void }) {
+function CheckDetail({ id, onClose, onReopen, onRemove }: { id: string | null; onClose: () => void; onReopen: (id: string) => void; onRemove: (id: string) => void }) {
   const L = useApp((s) => s.ledger);
   const rule = L.posRule ?? defaultPosRule();
   const check = usePos((s) => s.checks.find((c) => c.id === id)) as Check | undefined;
@@ -331,6 +340,13 @@ function CheckDetail({ id, onClose, onReopen }: { id: string | null; onClose: ()
       <button type="button" className="btn wide" style={{ marginTop: 12 }} onClick={() => onReopen(check.id)}>
         会計を取り消してやり直す
       </button>
+      <button type="button" className="btn danger wide" style={{ marginTop: 8 }} onClick={() => onRemove(check.id)}>
+        この伝票を消す
+      </button>
+      <div className="hint">
+        消すと履歴ごと無くなり、日報の売上と本数からも引かれます。<b>元に戻せません。</b>
+        打ち間違いを直すだけなら「会計を取り消してやり直す」の方を使ってください。
+      </div>
     </BottomSheet>
   );
 }

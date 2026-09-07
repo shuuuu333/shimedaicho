@@ -49,6 +49,10 @@ export interface PosStore {
   pay(id: string, method: "cash" | "card", total: number, received?: number): Promise<void>;
   reopen(id: string): Promise<void>;
   removeCheck(id: string): Promise<void>;
+  /** その営業日の伝票をまとめて消す。消した伝票を返すので、取り消しで戻せる */
+  removeByDate(date: string): Promise<Check[]>;
+  /** 消した伝票を戻す（取り消し用） */
+  restore(list: Check[]): Promise<void>;
 }
 
 export function createPosStore(repo: CheckRepository) {
@@ -211,6 +215,19 @@ export function createPosStore(repo: CheckRepository) {
           c.log.push({ at: nowISO(), by: whoAmI(), act: "会計を戻す" });
         });
         set({ activeId: id });
+      },
+
+      async removeByDate(date) {
+        const all = await repo.byDate(date);
+        for (const c of all) await repo.remove(c.id);
+        set({ checks: get().checks.filter((c) => c.date !== date), activeId: null });
+        return all;
+      },
+
+      async restore(list) {
+        for (const c of list) await repo.put(c);
+        await get().reload();
+        reflect();
       },
 
       async removeCheck(id) {

@@ -397,6 +397,25 @@ function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: strin
   const autoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (autoTimer.current) clearTimeout(autoTimer.current); }, []);
 
+  // その日のレジの伝票の枚数（消すときに一緒に消える件数を見せる）
+  const checkCount = usePos((s) => s.checks.filter((c) => c.date === dk).length);
+  const removeByDate = usePos((s) => s.removeByDate);
+  const restoreChecks = usePos((s) => s.restore);
+
+  /** 日報とレジの伝票を、必ず一緒に消す。
+   *  片方だけ消すと、次にレジを触った時に日報が復活してしまう */
+  const deleteDay = async () => {
+    const gone = await removeByDate(dk);
+    updateWithUndo(`${dayLabel(dk)} の記録を消しました`, (LL) => { delete LL.days[dk]; });
+    if (gone.length) {
+      // 「元に戻す」を押したときは伝票も戻す。押されずに消えたらそのまま
+      const undo = useApp.getState().toast?.undo;
+      useApp.setState({
+        toast: { ...useApp.getState().toast!, undo: () => { undo?.(); void restoreChecks(gone); } },
+      });
+    }
+  };
+
   const flow = dayCashFlow(L, dk);
   const expected = flow.net;
   const diff = d.cashCounted == null ? null : d.cashCounted - expected;
@@ -482,7 +501,18 @@ function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: strin
         <div className="lrow"><div className="g"><div className="t">経費</div></div><div className="a num">−{yen(t.exp)}</div></div>
         <div className="lrow"><div className="g"><div className="t">カード手数料</div><div className="s">{L.shop.cardFeeRate}%</div></div><div className="a num">−{yen(t.fee)}</div></div>
         <div className="lrow total"><div className="g"><div className="t">残り</div></div><div className={`a num ${t.profit < 0 ? "neg" : ""}`}>{yen(t.profit)}</div></div>
-        {L.days[dk] && <div className="btnrow" style={{ marginTop: 12 }}><button type="button" className="btn sm danger" onClick={() => updateWithUndo(`${dayLabel(dk)} の記録を消しました`, (LL) => { delete LL.days[dk]; })}>この日の記録をまるごと消す</button></div>}
+        {L.days[dk] && (
+          <div style={{ marginTop: 12 }}>
+            <div className="btnrow">
+              <button type="button" className="btn sm danger" onClick={() => void deleteDay()}>この日の記録をまるごと消す</button>
+            </div>
+            {checkCount > 0 && (
+              <div className="hint" style={{ marginTop: 6 }}>
+                この日のレジの伝票 <b>{checkCount}枚</b> も一緒に消えます（元に戻すで両方戻ります）。
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <SendLineCard L={L} dk={dk} d={d} />
