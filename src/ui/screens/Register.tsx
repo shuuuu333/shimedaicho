@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../../state/store";
-import type { DayRecord, Shift } from "../../domain/types";
+import type { Check, DayRecord, Shift } from "../../domain/types";
 import { usePos } from "../../state/pos";
-import { checkTotals, clock, endsAt, remainingMin, seatState, setPriceChoices } from "../../domain/pos";
+import { checkTotals, clock, endsAt, lineAmount, remainingMin, seatState, setPriceChoices, setUnitPrice } from "../../domain/pos";
 import { summarize } from "../../domain/close";
 import { yen } from "../../domain/format";
 import { defaultPosRule } from "../../domain/migrate";
@@ -33,6 +33,7 @@ export function Register() {
 
   const [now, setNow] = useState(() => Date.now());
   const [entry, setEntry] = useState<{ seatId: string | null; name: string } | null>(null);
+  const [detail, setDetail] = useState<string | null>(null);
   const [price, setPrice] = useState(rule.setPrice);
   const openEntry = (seatId: string | null, name: string) => { setPrice(rule.setPrice); setEntry({ seatId, name }); };
 
@@ -119,18 +120,25 @@ export function Register() {
         ) : closed.map((c) => {
           const seat = seats.find((s) => s.id === c.seatId);
           const p = c.payments[0];
+          const voided = c.lines.filter((l) => l.voided).length;
           return (
-            <div key={c.id} className="lrow">
+            <button key={c.id} type="button" className="lrow" onClick={() => setDetail(c.id)}>
               <div className="g">
                 <div className="t">{seat?.name ?? "席なし"} ・ {c.guests}名</div>
-                <div className="s">{p?.method === "card" ? "カード" : "現金"}{c.received ? ` ／ お預かり ${yen(c.received)}` : ""}</div>
+                <div className="s">
+                  {c.closedAt ? clock(new Date(c.closedAt)) + " ・ " : ""}
+                  {p?.method === "card" ? "カード" : "現金"}
+                  {voided > 0 ? ` ・ 取消 ${voided}件` : ""}
+                  {c.discount ? ` ・ 値引き ${yen(c.discount.amount)}` : ""}
+                </div>
               </div>
               <div className="a">{yen(p?.amount ?? 0)}</div>
-              <button type="button" className="btn sm" onClick={() => void reopen(c.id)}>戻す</button>
-            </div>
+            </button>
           );
         })}
       </div>
+
+      <CheckDetail id={detail} onClose={() => setDetail(null)} onReopen={(id) => { setDetail(null); void reopen(id); }} />
 
       <BottomSheet open={!!entry} title={`${entry?.name ?? ""} に入店`} onClose={() => setEntry(null)}>
         <div className="lbl">セット料金（1名あたり）</div>
@@ -250,6 +258,76 @@ function PunchSheet({ date, castId, onClose }: { date: string; castId: string | 
         出勤そのものを外す
       </button>
       <div className="hint">時間も本数も日報に入ります。細かい直しは日報の「出勤」でできます。</div>
+    </BottomSheet>
+  );
+}
+
+/** 会計済みの伝票をひらいて、明細と「誰が・いつ・何をしたか」を見る。
+ *  取り消した行も理由つきで残っている（レジを人に任せるときの備え） */
+function CheckDetail({ id, onClose, onReopen }: { id: string | null; onClose: () => void; onReopen: (id: string) => void }) {
+  const L = useApp((s) => s.ledger);
+  const rule = L.posRule ?? defaultPosRule();
+  const check = usePos((s) => s.checks.find((c) => c.id === id)) as Check | undefined;
+  if (!id || !check) return null;
+
+  const seat = (L.seats ?? []).find((s) => s.id === check.seatId);
+  const t = checkTotals(check, rule);
+  const castName = (cid?: string) => L.casts.find((c) => c.id === cid)?.name ?? "";
+  const hhmm = (iso: string) => (Number.isFinite(Date.parse(iso)) ? clock(new Date(iso)) : "");
+
+  return (
+    <BottomSheet open title={`${seat?.name ?? "席なし"} ・ ${check.guests}名`} onClose={onClose}>
+      <div className="hint" style={{ marginBottom: 10 }}>
+        入店 {hhmm(check.enteredAt)}{check.closedAt ? ` ／ 会計 ${hhmm(check.closedAt)}` : ""}
+      </div>
+
+      <div className="card flat">
+        <div className="lrow">
+          <div className="g"><div className="t">セット{check.extends.length > 0 ? "・延長" : ""}</div>
+            <div className="s">1名 {yen(setUnitPrice(check))} × {check.guests}名</div></div>
+          <div className="a">{yen(t.setAmount)}</div>
+        </div>
+        {check.lines.map((l) => (
+          <div key={l.id} className={`lrow ${l.voided ? "voided" : ""}`}>
+            <div className="g">
+              <div className="t">{l.name}{l.qty > 1 ? ` ×${l.qty}` : ""}</div>
+              <div className="s">
+                {l.castId ? castName(l.castId) : ""}
+                {l.voided ? `${l.castId ? " ・ " : ""}取消（${l.voided.reason}）` : ""}
+              </div>
+            </div>
+            <div className="a">{yen(lineAmount(l))}</div>
+          </div>
+        ))}
+        {t.tableCharge > 0 && (
+          <div className="lrow"><div className="g"><div className="t">テーブルチャージ</div></div><div className="a">{yen(t.tableCharge)}</div></div>
+        )}
+        {t.discount > 0 && (
+          <div className="lrow"><div className="g"><div className="t">値引き</div><div className="s">{check.discount?.name}</div></div><div className="a neg">−{yen(t.discount)}</div></div>
+        )}
+        <div className="lrow total">
+          <div className="g"><div className="t">合計</div>
+            <div className="s">{check.payments[0]?.method === "card" ? "カード" : "現金"}{check.received ? ` ／ お預かり ${yen(check.received)}` : ""}</div></div>
+          <div className="a">{yen(t.total)}</div>
+        </div>
+      </div>
+
+      <div className="cardhead" style={{ marginTop: 14 }}><h2>この伝票にしたこと</h2></div>
+      <ol className="checklog">
+        {check.log.map((g, i) => (
+          <li key={i}>
+            <span className="at">{hhmm(g.at)}</span>
+            <span className="act">{g.act}</span>
+            {g.detail && <span className="detail">{g.detail}</span>}
+            <span className="by">{g.by}</span>
+          </li>
+        ))}
+      </ol>
+      <div className="hint">取り消した行も消さずに残しています。あとから何があったか追えます。</div>
+
+      <button type="button" className="btn wide" style={{ marginTop: 12 }} onClick={() => onReopen(check.id)}>
+        会計を取り消してやり直す
+      </button>
     </BottomSheet>
   );
 }

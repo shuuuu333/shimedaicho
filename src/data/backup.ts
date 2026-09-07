@@ -1,5 +1,5 @@
 /** バックアップ（JSON）と月次 CSV の書き出し・読み込み */
-import type { Ledger } from "../domain/types";
+import type { Check, Ledger } from "../domain/types";
 import { castMonth, dispatchMonth, monthTotals } from "../domain/calc";
 import { looksLikeLedger, migrate } from "../domain/migrate";
 import { todayISO } from "../domain/format";
@@ -35,18 +35,38 @@ export function monthCSV(L: Ledger, m: string): string {
   return "﻿" + out.join("\n");
 }
 
-export function backupJSON(L: Ledger): string {
-  return JSON.stringify(L, null, 1);
+/** バックアップの中身。台帳（Ledger）に、レジの伝票を添えた形。
+ *  伝票は台帳の外（Dexie の checks）にあるので、ここで一緒に包む。
+ *  旧いバックアップには checks が無いが、読み込み側で空として扱う */
+export interface Backup extends Ledger {
+  checks?: Check[];
+}
+
+export function backupJSON(L: Ledger, checks: Check[] = []): string {
+  const out: Backup = { ...L };
+  if (checks.length) out.checks = checks;
+  return JSON.stringify(out, null, 1);
 }
 export const backupFilename = (): string => `締め台帳_バックアップ_${todayISO()}.json`;
 export const csvFilename = (m: string): string => `締め台帳_${m}.csv`;
 
-/** テキストから Ledger を復元。旧形式・新形式どちらでも可。壊れていれば例外 */
-export function parseBackup(text: string): Ledger {
+/** テキストから台帳と伝票を復元。旧形式・新形式どちらでも可。壊れていれば例外。
+ *  伝票が入っていなければ空で返す（旧いバックアップ） */
+export function parseBackup(text: string): { ledger: Ledger; checks: Check[] } {
   let j: unknown;
   try { j = JSON.parse(text.replace(/^﻿/, "")); } catch { throw new Error("JSON として読めませんでした"); }
   if (!looksLikeLedger(j)) throw new Error("締め台帳のバックアップではないようです");
-  return migrate(j);
+  const raw = (j as { checks?: unknown }).checks;
+  const checks = Array.isArray(raw) ? raw.filter(isCheck) : [];
+  return { ledger: migrate(j), checks };
+}
+
+/** 伝票の形をしているか（壊れた行を取り込まないための軽い検査） */
+function isCheck(v: unknown): v is Check {
+  if (!v || typeof v !== "object") return false;
+  const c = v as Partial<Check>;
+  return typeof c.id === "string" && typeof c.date === "string"
+    && Array.isArray(c.lines) && (c.status === "open" || c.status === "closed");
 }
 
 /** 共有シートがあれば共有、なければダウンロード */

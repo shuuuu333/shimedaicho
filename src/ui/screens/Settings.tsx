@@ -6,15 +6,19 @@ import { DateField } from "../components/DateField";
 import { Moon, Phone, Sun, Trash } from "../icons";
 import { CloudCard } from "../components/CloudCard";
 import { LineCard } from "../components/LineCard";
+import { PinCard } from "../components/PinCard";
 import { PosSettings } from "./Menu";
 import { InstallCard } from "../components/InstallCard";
 import { useCloud } from "../../state/cloud";
 import { uid } from "../../domain/format";
 import { backupFilename, backupJSON, csvFilename, monthCSV, offerFile, parseBackup } from "../../data/backup";
 import { LocalRepository } from "../../data/localRepository";
+import { LocalCheckRepository } from "../../data/checkRepo";
+import { usePos } from "../../state/pos";
 import type { SnapshotInfo } from "../../data/repository";
 
 const repoForSnapshots = new LocalRepository();
+const checkRepo = new LocalCheckRepository();
 
 const fmtAt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—");
 const daysAgo = (iso: string | null) => (iso ? Math.floor((Date.now() - new Date(iso).getTime()) / 86400000) : null);
@@ -79,8 +83,13 @@ export function Settings() {
 
   const shop = <K extends keyof typeof S>(k: K, v: (typeof S)[K]) => update((LL) => { LL.shop[k] = v; });
   const exportJson = async () => {
-    try { await offerFile(backupFilename(), backupJSON(L), "application/json"); await markBackedUp(); showToast("バックアップを書き出しました"); }
-    catch (e) { if ((e as Error).name !== "AbortError") showToast("書き出せませんでした"); }
+    try {
+      // レジの伝票は台帳の外にあるので、書き出すときに一緒に包む
+      const checks = await checkRepo.all();
+      await offerFile(backupFilename(), backupJSON(L, checks), "application/json");
+      await markBackedUp();
+      showToast(checks.length ? `バックアップを書き出しました（伝票 ${checks.length}件）` : "バックアップを書き出しました");
+    } catch (e) { if ((e as Error).name !== "AbortError") showToast("書き出せませんでした"); }
   };
   const exportCsv = async () => {
     try { await offerFile(csvFilename(ui.month), monthCSV(L, ui.month), "text/csv"); showToast("CSVを書き出しました"); }
@@ -90,11 +99,14 @@ export function Settings() {
     if (!f) return;
     try {
       const text = await f.text();
-      const next = parseBackup(text);
+      const { ledger: next, checks } = parseBackup(text);
       const n = Object.keys(next.days).length;
-      if (!window.confirm(`「${f.name}」を読み込みます。\n日報 ${n}日分・キャスト ${next.casts.length}名。\n今のデータは置き換わります（直前の状態は履歴に残ります）。よろしいですか？`)) return;
+      const cn = checks.length ? `・レジの伝票 ${checks.length}件` : "";
+      if (!window.confirm(`「${f.name}」を読み込みます。\n日報 ${n}日分・キャスト ${next.casts.length}名${cn}。\n今のデータは置き換わります（直前の状態は履歴に残ります）。よろしいですか？`)) return;
       await replaceLedger(next, "import");
-      showToast(`読み込みました（日報 ${n}日分）`);
+      // 伝票も置き換える。入っていないバックアップ（旧版）なら今の伝票をそのまま残す
+      if (checks.length) { await checkRepo.replaceAll(checks); await usePos.getState().reload(); }
+      showToast(`読み込みました（日報 ${n}日分${cn}）`);
     } catch (e) {
       showToast((e as Error).message || "読み込めませんでした");
     } finally {
@@ -204,6 +216,8 @@ export function Settings() {
       <CloudCard />
 
       <LineCard />
+
+      <PinCard />
 
       <div className="card" id="set-data">
         <h2>データ</h2>

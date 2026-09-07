@@ -343,3 +343,29 @@ button.posbadge.manual:active{background:var(--surface)}
 .linepreview{white-space:pre-wrap; word-break:break-word; margin:0 0 12px;
   background:var(--surface-2); border-radius:var(--r-tile); padding:12px 14px;
   font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11.5px; line-height:1.7; color:var(--ink-2)}
+
+/* 伝票の履歴 */
+.lrow.voided .t{text-decoration:line-through; color:var(--ink-3)}
+.lrow.voided .a{text-decoration:line-through; color:var(--ink-3)}
+.lrow.voided .s{color:var(--crit)}
+.checklog{list-style:none; margin:0; padding:0}
+.checklog li{display:flex; align-items:baseline; gap:8px; padding:7px 0;
+  border-bottom:1px solid var(--line); font-size:12px}
+.checklog li:last-child{border-bottom:0}
+.checklog .at{flex:none; color:var(--ink-3); font-family:"IBM Plex Mono",ui-monospace,monospace; font-size:11px}
+.checklog .act{flex:none; font-weight:600}
+.checklog .detail{flex:1; min-width:0; color:var(--ink-2); overflow-wrap:anywhere}
+.checklog .by{flex:none; margin-left:auto; color:var(--ink-3); font-size:10.5px}
+
+/* 暗証番号 */
+.pinwrap{display:grid; place-items:center; padding:40px 0}
+.pinbox{width:100%; max-width:300px; text-align:center}
+.pinbox>b{font-size:16px; font-weight:600}
+.pindots{display:flex; justify-content:center; gap:12px; margin:20px 0 8px}
+.pindots span{width:13px; height:13px; border-radius:999px; background:var(--surface-2);
+  border:1.5px solid var(--line-strong)}
+.pindots span.on{background:var(--accent); border-color:var(--accent)}
+.pindots.err span{border-color:var(--crit)}
+.pingrid{display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin-top:14px}
+.pingrid .btn{min-height:58px; font-size:19px; font-weight:600}
+.hint.neg{color:var(--crit)}

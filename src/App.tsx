@@ -1,9 +1,11 @@
-import { useEffect, type ComponentType } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import { useApp, type Tab } from "./state/store";
 import { useCloud } from "./state/cloud";
 import { SaveStatus } from "./ui/components/SaveStatus";
 import { Toast } from "./ui/components/Toast";
 import { Welcome } from "./ui/components/Welcome";
+import { PinPad } from "./ui/components/PinPad";
+import { hasPin, isUnlocked } from "./data/pin";
 import { ChevLeft, IcoCast, IcoDay, IcoMonth, IcoReg, IcoSet, IcoShift } from "./ui/icons";
 import { Register } from "./ui/screens/Register";
 import { Month } from "./ui/screens/Month";
@@ -20,6 +22,10 @@ const TABS: { id: Tab; label: string; Icon: ComponentType; Screen: ComponentType
   { id: "shift", label: "シフト", Icon: IcoShift, Screen: Shifts },
   { id: "cast", label: "キャスト", Icon: IcoCast, Screen: Casts },
 ];
+
+/** 暗証番号で隠す画面。給料と利益が見えるところだけ。
+ *  レジと日報は現場が止まるので守らない */
+const LOCKED: Tab[] = ["set", "cast", "month"];
 
 export default function App() {
   const init = useApp((s) => s.init);
@@ -52,6 +58,11 @@ export default function App() {
 
   const onSettings = tab === "set";
   const Screen = onSettings ? Settings : (tabs.find((t) => t.id === tab) ?? tabs[0]).Screen;
+
+  // 解錠の状態は sessionStorage にあるので、再描画のたびに読み直す
+  const [unlockedAt, setUnlockedAt] = useState(0);
+  const locked = hasPin() && LOCKED.includes(tab) && !isUnlocked();
+  void unlockedAt;
   const back = () => { setUI({ tab: tabs[0].id, setFocus: null, sheet: null }); window.scrollTo(0, 0); };
 
   return (
@@ -73,7 +84,15 @@ export default function App() {
           </button>
         )}
       </header>
-      <main>{loaded ? <Screen /> : <div className="empty">読み込み中…</div>}</main>
+      <main>
+        {!loaded ? <div className="empty">読み込み中…</div>
+          : locked
+            ? <PinPad title="暗証番号を入れてください"
+                note="給料と売上が見える画面です。レジと日報は番号なしで使えます。"
+                onOk={() => setUnlockedAt(Date.now())}
+                onCancel={() => setUI({ tab: "reg", setFocus: null, sheet: null })} />
+            : <Screen />}
+      </main>
       {!onSettings && (
         <nav className="tabs" aria-label="画面切替">
           <div className="in" style={{ gridTemplateColumns: `repeat(${tabs.length},1fr)` }}>
