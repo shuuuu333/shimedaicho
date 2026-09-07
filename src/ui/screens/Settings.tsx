@@ -5,6 +5,7 @@ import { TimeField } from "../components/TimeField";
 import { DateField } from "../components/DateField";
 import { Moon, Phone, Sun, Trash } from "../icons";
 import { CloudCard } from "../components/CloudCard";
+import { LineCard } from "../components/LineCard";
 import { PosSettings } from "./Menu";
 import { InstallCard } from "../components/InstallCard";
 import { useCloud } from "../../state/cloud";
@@ -201,6 +202,8 @@ export function Settings() {
       </div>
 
       <CloudCard />
+
+      <LineCard />
 
       <div className="card" id="set-data">
         <h2>データ</h2>

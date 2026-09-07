@@ -40,6 +40,8 @@ export interface CloudState {
   makeInvite(role: "staff" | "cast", name: string, castId: string | null): Promise<api.InviteRow | null>;
   /** QR から入る。ログインしていなければ匿名でログインしてから加わる */
   joinByToken(token: string): Promise<{ ok: boolean; message: string }>;
+  /** 日報を LINE に送る。オーナーで、店を選んでいるときだけ使える */
+  sendLine(text: string): Promise<void>;
   isOwner(): boolean;
   /** 選択中の店での自分の役割。店を選んでいなければ owner 扱い（端末内モード） */
   role(): "owner" | "staff" | "cast";
@@ -302,6 +304,12 @@ export const useCloud = create<CloudState>()((set, get) => {
     },
     async syncNow() {
       if (dirty.days.size || dirty.meta) await push(); else await pull();
+    },
+    async sendLine(text) {
+      const { shopId } = get();
+      if (!shopId) throw new Error("先にクラウド同期でお店を選んでください");
+      if (!get().isOwner()) throw new Error("オーナーだけが送れます");
+      await api.sendLineReport(shopId, text);
     },
     isOwner() {
       const { session, shops, shopId } = get();

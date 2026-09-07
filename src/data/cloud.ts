@@ -119,6 +119,31 @@ export async function createInvite(shopId: string, role: "staff" | "cast", name:
 export async function cancelInvite(token: string): Promise<void> {
   await sb().from("shop_invites").delete().eq("token", token);
 }
+/* ---------- LINE 通知 ---------- */
+
+/** 日報を LINE に送る。トークンは Edge Function 側（Supabase の Secrets）にあり、
+ *  ここからは渡さない。呼べるのはその店のオーナーだけ（関数側でも確かめている） */
+export async function sendLineReport(shopId: string, text: string): Promise<void> {
+  const { data, error } = await sb().functions.invoke("line-notify", { body: { shopId, text } });
+  if (error) {
+    // 関数が返した本文（日本語のメッセージ）が取れるなら、それを見せる
+    let detail = "";
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.text === "function") {
+      try {
+        const body = await ctx.text();
+        const j = JSON.parse(body) as { error?: string; detail?: string };
+        detail = j.error ?? j.detail ?? body.slice(0, 200);
+      } catch { /* ignore */ }
+    }
+    if (/not.*found|404/i.test(detail) || (ctx && ctx.status === 404))
+      throw new Error("LINE の送信機能がまだ用意されていません。Supabase に line-notify を作ってください。");
+    throw new Error(detail || "LINE に送れませんでした。通信と設定を確かめてください。");
+  }
+  const r = data as { ok?: boolean; error?: string } | null;
+  if (r && r.ok === false) throw new Error(r.error ?? "LINE に送れませんでした");
+}
+
 /** 名前を持たない匿名のログイン。QR を読んだ人に使う */
 export async function signInAnonymously(): Promise<void> {
   const { error } = await sb().auth.signInAnonymously();

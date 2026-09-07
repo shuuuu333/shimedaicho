@@ -1,5 +1,5 @@
 /** 日報 = 5 ステップの締めウィザード：売上 → 出勤 → 派遣 → 経費 → 現金・締め */
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useApp } from "../../state/store";
 import type { DayRecord, DispatchRow, Ledger, Shift } from "../../domain/types";
 import { emptyDay } from "../../domain/migrate";
@@ -13,6 +13,8 @@ import { ChevLeft, ChevRight, Copy, Trash } from "../icons";
 import { Notice } from "../components/Notice";
 import { MANUAL_CARD, MANUAL_CASH, MANUAL_GUESTS, isAuto, isManual, manualShift, setManual } from "../../domain/close";
 import { usePos } from "../../state/pos";
+import { useCloud } from "../../state/cloud";
+import { dayReportText } from "../../domain/report";
 
 const STEPS = ["売上", "出勤", "派遣", "経費", "締め"];
 
@@ -455,6 +457,45 @@ function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: strin
         <div className="lrow total"><div className="g"><div className="t">残り</div></div><div className={`a num ${t.profit < 0 ? "neg" : ""}`}>{yen(t.profit)}</div></div>
         {L.days[dk] && <div className="btnrow" style={{ marginTop: 12 }}><button type="button" className="btn sm danger" onClick={() => updateWithUndo(`${dayLabel(dk)} の記録を消しました`, (LL) => { delete LL.days[dk]; })}>この日の記録をまるごと消す</button></div>}
       </div>
+
+      <SendLineCard L={L} dk={dk} />
     </>
+  );
+}
+
+/** 締めた内容を LINE に送る。押したときだけ送るので、二重に飛ぶ心配がない */
+function SendLineCard({ L, dk }: { L: Ledger; dk: string }) {
+  const sendLine = useCloud((s) => s.sendLine);
+  const isOwner = useCloud((s) => s.isOwner);
+  const shopId = useCloud((s) => s.shopId);
+  const showToast = useApp((s) => s.showToast);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // クラウド同期を使っていて、自分がオーナーのときだけ出す
+  if (!shopId || !isOwner()) return null;
+
+  const send = async () => {
+    setBusy(true); setErr(null);
+    try {
+      await sendLine(dayReportText(L, dk));
+      showToast("LINE に送りました");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <h2>LINE に送る</h2>
+      <p className="sub">この日の売上・人件費・現金の差をまとめて送ります。押したときだけ送ります。</p>
+      <pre className="linepreview">{dayReportText(L, dk)}</pre>
+      <button type="button" className="btn wide" disabled={busy} onClick={() => void send()}>
+        {busy ? "送っています…" : "この内容を LINE に送る"}
+      </button>
+      {err && <Notice bad title="送れませんでした">{err}</Notice>}
+    </div>
   );
 }
