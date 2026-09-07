@@ -8,7 +8,8 @@ import type { Check, Ledger, MenuItem, PosRule } from "./types";
 const RULE: PosRule = {
   setMinutes: 60, setPrice: 1500, setPriceOptions: [2000, 2500, 3000], extendMinutes: 30, extendPrice: 1000,
   tableChargeRate: 0, tableChargeOnSet: false,
-  taxRate: 10, taxIncluded: true, alertBeforeMin: 10, autoExtend: false, roundTo: 1,
+  taxRate: 10, taxOnSet: false, taxOnExtend: false, taxOnItems: false,
+  alertBeforeMin: 10, autoExtend: false, roundTo: 1,
 };
 /** 延長を n 回ぶん足した伝票にする */
 const ext = (c: Check, min: number, price: number) => { c.extends.push({ min, price, at: T0 }); return c; };
@@ -72,6 +73,35 @@ describe("伝票の金額", () => {
     expect(P.clock(P.endsAt(c, RULE))).toBe(P.clock(new Date(Date.parse(T0) + 120 * 60000)));
   });
 
+  it("税は「セット・延長・商品」ごとに足すかを決められる", () => {
+    // セットは税込（¥3,000 のまま）、延長からは税別 という店のルール
+    const r = { ...RULE, taxRate: 10, taxOnSet: false, taxOnExtend: true, taxOnItems: true };
+    const c = check(2, 3000);
+    let t = P.checkTotals(c, r);
+    expect(t.baseAmount).toBe(6000);
+    expect(t.tax).toBe(0);                    // まだ延長も商品も無い
+    expect(t.total).toBe(6000);
+
+    ext(c, 30, 1500);
+    t = P.checkTotals(c, r);
+    expect(t.baseAmount).toBe(6000);
+    expect(t.extendAmount).toBe(3000);
+    expect(t.taxBase).toBe(3000);             // 延長だけが税の対象
+    expect(t.tax).toBe(300);
+    expect(t.total).toBe(6000 + 3000 + 300);
+
+    c.lines.push(P.lineFromMenu(menu("beer", 800), T0, undefined, 1));
+    t = P.checkTotals(c, r);
+    expect(t.taxBase).toBe(3000 + 800);
+    expect(t.tax).toBe(380);
+
+    // 全部税込にすれば税は 0
+    expect(P.checkTotals(c, { ...r, taxOnExtend: false, taxOnItems: false }).tax).toBe(0);
+    // 全部税別にすれば全体にかかる
+    const all = P.checkTotals(c, { ...r, taxOnSet: true });
+    expect(all.taxBase).toBe(6000 + 3000 + 800);
+  });
+
   it("テーブルチャージは％。既定では商品にだけかかる", () => {
     const r = { ...RULE, tableChargeRate: 20 };
     const c = check(2);
@@ -109,7 +139,7 @@ describe("伝票の金額", () => {
     expect(t.total).toBe(6900);
 
     // テーブルチャージ 10%（セットにもかける）＋ 外税 10%
-    const r2 = { ...RULE, tableChargeRate: 10, tableChargeOnSet: true, taxIncluded: false };
+    const r2 = { ...RULE, tableChargeRate: 10, tableChargeOnSet: true, taxOnSet: true, taxOnExtend: true, taxOnItems: true };
     t = P.checkTotals(c, r2);
     expect(t.tableCharge).toBe(690);
     expect(t.tax).toBe(Math.floor((6900 + 690) * 0.1));  // 759

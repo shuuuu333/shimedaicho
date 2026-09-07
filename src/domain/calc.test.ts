@@ -227,7 +227,10 @@ describe("旧コードとの同値性", () => {
     expect(L.menu?.some((m) => m.id === "m-set" || m.id === "m-ext")).toBe(false);
     expect(L.seats).toEqual([{ id: "s1", name: "カウンター1", sort: 1 }]);
     expect(L.posRule?.setMinutes).toBe(45);
-    expect(L.posRule?.taxIncluded).toBe(false);
+    // 旧「taxIncluded: false（＝全部税別）」は、3 つとも「税を足す」に引き継がれる
+    expect(L.posRule?.taxOnSet).toBe(true);
+    expect(L.posRule?.taxOnExtend).toBe(true);
+    expect(L.posRule?.taxOnItems).toBe(true);
     expect(L.posRule?.roundTo).toBe(1);                 // 0 は丸め無し(1)に寄せる
     expect(L.days["2026-09-01"].manual).toEqual(["cashSales"]);  // 重複と型違いを落とす
     expect(migrate(JSON.parse(JSON.stringify(L)))).toEqual(L);

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useApp } from "../../state/store";
 import { defaultBacks, defaultMenu, defaultPosRule, defaultSeats } from "../../domain/migrate";
-import { uid } from "../../domain/format";
+import { uid, yen } from "../../domain/format";
 import { NumberField } from "../components/NumberField";
 import { Trash } from "../icons";
 import type { MenuItem } from "../../domain/types";
@@ -77,10 +77,29 @@ export function PosSettings() {
         <div className="hint">
           20 と入れると、¥2,000 のキャストドリンクが ¥2,400 になります。
         </div>
-        <label className="lrow" style={{ cursor: "pointer" }}>
-          <div className="g"><div className="t">単価は税込み</div><div className="s">税込みなら会計で税を上乗せしません</div></div>
-          <input type="checkbox" checked={rule.taxIncluded} onChange={(e) => setRule({ taxIncluded: e.target.checked })} />
-        </label>
+        <div className="lbl" style={{ marginTop: 6 }}>消費税をどこに足すか</div>
+        <div className="hint" style={{ margin: "0 0 6px" }}>
+          入れた金額に税を<b>上乗せする</b>ところだけ入にしてください。
+          「セットは税込で ¥3,000、延長からは税別」なら、セットを切・延長を入にします。
+        </div>
+        {([
+          ["taxOnSet", "最初のセット", `1名 ${yen(rule.setPrice)}`],
+          ["taxOnExtend", "延長", `1名 ${yen(rule.extendPrice)}`],
+          ["taxOnItems", "商品・テーブルチャージ", "ドリンクなど"],
+        ] as const).map(([k, name, sub]) => (
+          <label className="lrow" key={k} style={{ cursor: "pointer" }}>
+            <div className="g">
+              <div className="t">{name}</div>
+              <div className="s">{sub} ・ {rule[k] ? `＋${rule.taxRate}％の税` : "税込み（上乗せしない）"}</div>
+            </div>
+            <input type="checkbox" checked={rule[k]} onChange={(e) => setRule({ [k]: e.target.checked })} />
+          </label>
+        ))}
+        <div className="hint">
+          例：2名でセット {yen(rule.setPrice)}、延長1回 {yen(rule.extendPrice)} のとき —
+          セット {yen(rule.setPrice * 2)}{rule.taxOnSet ? `（＋税 ${yen(Math.floor(rule.setPrice * 2 * rule.taxRate / 100))}）` : "（税込）"}、
+          延長 {yen(rule.extendPrice * 2)}{rule.taxOnExtend ? `（＋税 ${yen(Math.floor(rule.extendPrice * 2 * rule.taxRate / 100))}）` : "（税込）"}
+        </div>
         <div className="row2">
           <label className="field"><span className="lbl">のこり何分で知らせるか</span>
             <NumberField value={rule.alertBeforeMin} onChange={(v) => setRule({ alertBeforeMin: v ?? 10 })} /></label>

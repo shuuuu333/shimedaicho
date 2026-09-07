@@ -122,19 +122,28 @@ export function setUnitPrice(c: Check, _rule?: PosRule): number {
  *  税は「単価が税抜きのときに上乗せする額」。税込み運用なら 0 になる（単価に入っているため）。 */
 export function checkTotals(c: Check, rule: PosRule): CheckTotals {
   const guests = Math.max(0, Math.floor(c.guests));
-  const setAmount = guests * setUnitPrice(c);
+  const baseAmount = guests * Math.floor(c.setPrice);
+  const extendAmount = guests * c.extends.reduce((s, e) => s + Math.floor(e.price), 0);
+  const setAmount = baseAmount + extendAmount;
   const itemAmount = activeLines(c).reduce((s, l) => s + lineAmount(l), 0);
   const subtotal = setAmount + itemAmount;
 
   const tcBase = rule.tableChargeOnSet ? subtotal : itemAmount;
   const tableCharge = Math.floor((tcBase * rule.tableChargeRate) / 100);
-  const tax = rule.taxIncluded ? 0 : Math.floor(((subtotal + tableCharge) * rule.taxRate) / 100);
+
+  // 税は部分ごとに足す。税込みで値付けしているところには足さない。
+  // テーブルチャージは、商品と同じ扱いにする（商品に乗せる％なので）
+  const taxBase = (rule.taxOnSet ? baseAmount : 0)
+    + (rule.taxOnExtend ? extendAmount : 0)
+    + (rule.taxOnItems ? itemAmount + tableCharge : 0);
+  const tax = Math.floor((taxBase * rule.taxRate) / 100);
 
   // 値引きは請求額を超えない。マイナスの会計を作らせない
   const asked = subtotal + tableCharge + tax;
   const discount = Math.min(Math.max(0, Math.floor(c.discount?.amount ?? 0)), asked);
 
-  return { setAmount, itemAmount, subtotal, tableCharge, tax, discount, total: roundDown(asked - discount, rule.roundTo) };
+  return { baseAmount, extendAmount, setAmount, itemAmount, subtotal, tableCharge, tax, taxBase,
+           discount, total: roundDown(asked - discount, rule.roundTo) };
 }
 
 /** 受け取った額の合計 */

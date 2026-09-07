@@ -21,7 +21,8 @@ export function PayView({ check, rule, onClose }: { check: Check; rule: PosRule;
   return (
     <BottomSheet open title="会計" onClose={onClose}>
       <div className="card flat">
-        <div className="lrow"><div className="g"><div className="t">セット・延長</div></div><div className="a">{yen(t.setAmount)}</div></div>
+        <div className="lrow"><div className="g"><div className="t">セット</div><div className="s">{rule.taxOnSet ? "＋税" : "税込"}</div></div><div className="a">{yen(t.baseAmount)}</div></div>
+        {t.extendAmount > 0 && <div className="lrow"><div className="g"><div className="t">延長</div><div className="s">{rule.taxOnExtend ? "＋税" : "税込"}</div></div><div className="a">{yen(t.extendAmount)}</div></div>}
         <div className="lrow"><div className="g"><div className="t">商品</div></div><div className="a">{yen(t.itemAmount)}</div></div>
         {t.tableCharge > 0 && <div className="lrow"><div className="g"><div className="t">テーブルチャージ</div><div className="s">{rule.tableChargeRate}％{rule.tableChargeOnSet ? "" : "（商品のみ）"}</div></div><div className="a">{yen(t.tableCharge)}</div></div>}
         {t.tax > 0 && <div className="lrow"><div className="g"><div className="t">消費税</div></div><div className="a">{yen(t.tax)}</div></div>}

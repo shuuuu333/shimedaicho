@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../../state/store";
 import { usePos } from "../../state/pos";
-import { activeLines, checkTotals, clock, elapsedMin, endsAt, extendOptions, lineAmount, remainingMin, setPriceChoices, setUnitPrice } from "../../domain/pos";
+import { activeLines, checkTotals, clock, elapsedMin, endsAt, extendOptions, lineAmount, remainingMin, setPriceChoices } from "../../domain/pos";
 import { jp, yen } from "../../domain/format";
 import { defaultPosRule } from "../../domain/migrate";
 import { BottomSheet } from "../components/BottomSheet";
@@ -84,20 +84,31 @@ export function CheckView({ id }: { id: string }) {
           <button type="button" className="btn" onClick={() => void setGuests(check.id, check.guests - 1)} disabled={check.guests <= 1}>人数 −</button>
           <button type="button" className="btn" onClick={() => void setGuests(check.id, check.guests + 1)}>人数 ＋</button>
         </div>
-        {check.extends.length > 0 && (
-          <div className="hint">延長 {check.extends.map((e) => `＋${e.min}分`).join(" ")}（計 {yen(check.extends.reduce((a, e) => a + e.price, 0) * check.guests)}）</div>
-        )}
+
       </div>
 
       <div className="card">
         <div className="cardhead"><h2>伝票</h2><span className="muted">{check.guests}名</span></div>
         <button type="button" className="lrow" onClick={() => setPriceSheet(true)}>
           <div className="g">
-            <div className="t">セット{check.extends.length > 0 ? "・延長" : ""}</div>
-            <div className="s">1名 {yen(setUnitPrice(check))} × {check.guests}名 ・ タップで変更</div>
+            <div className="t">セット</div>
+            <div className="s">
+              1名 {yen(check.setPrice)} × {check.guests}名 ・ {rule.taxOnSet ? "＋税" : "税込"} ・ タップで変更
+            </div>
           </div>
-          <div className="a">{yen(t.setAmount)}</div>
+          <div className="a">{yen(t.baseAmount)}</div>
         </button>
+        {t.extendAmount > 0 && (
+          <div className="lrow">
+            <div className="g">
+              <div className="t">延長</div>
+              <div className="s">
+                {check.extends.map((e) => `＋${e.min}分`).join(" ")} ・ {check.guests}名 ・ {rule.taxOnExtend ? "＋税" : "税込"}
+              </div>
+            </div>
+            <div className="a">{yen(t.extendAmount)}</div>
+          </div>
+        )}
         {lines.map((l) => (
           <button key={l.id} type="button" className="lrow" onClick={() => setLineSheet(l)}>
             <div className="g">
@@ -113,7 +124,12 @@ export function CheckView({ id }: { id: string }) {
             <div className="a">{yen(t.tableCharge)}</div>
           </div>
         )}
-        {t.tax > 0 && <div className="lrow"><div className="g"><div className="t">消費税</div></div><div className="a">{yen(t.tax)}</div></div>}
+        {t.tax > 0 && (
+          <div className="lrow">
+            <div className="g"><div className="t">消費税</div><div className="s">{rule.taxRate}％ ・ 対象 {yen(t.taxBase)}</div></div>
+            <div className="a">{yen(t.tax)}</div>
+          </div>
+        )}
         {t.discount > 0 && <div className="lrow"><div className="g"><div className="t">値引き</div><div className="s">{check.discount?.name}</div></div><div className="a neg">−{yen(t.discount)}</div></div>}
         <div className="lrow total"><div className="g"><div className="t">合計</div></div><div className="a">{yen(t.total)}</div></div>
         {lines.length === 0 && <div className="hint">下のボタンから注文を入れてください。</div>}

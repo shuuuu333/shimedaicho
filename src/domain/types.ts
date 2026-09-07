@@ -179,8 +179,11 @@ export interface PosRule {
   tableChargeOnSet: boolean;
   /** 消費税 % */
   taxRate: number;
-  /** 単価が税込みか */
-  taxIncluded: boolean;
+  /** 税をどこに足すか。false = その単価は税込み（足さない）。
+   *  「セットは税込、延長からは税別」といった店のルールをそのまま表せる */
+  taxOnSet: boolean;
+  taxOnExtend: boolean;
+  taxOnItems: boolean;
   /** 残り何分でアラートを出すか */
   alertBeforeMin: number;
   /** 時間が来たら確認なしで延長を足すか */
@@ -261,7 +264,11 @@ export interface Check {
 
 /** 伝票の金額の内訳 */
 export interface CheckTotals {
-  /** セット＋延長 */
+  /** 最初のセット（延長は含まない） */
+  baseAmount: number;
+  /** 延長のぶん */
+  extendAmount: number;
+  /** セット＋延長。画面の互換のために残す */
   setAmount: number;
   /** 商品の合計 */
   itemAmount: number;
@@ -269,6 +276,8 @@ export interface CheckTotals {
   /** テーブルチャージ */
   tableCharge: number;
   tax: number;
+  /** 税がかかった金額（何に税が乗ったかを画面で説明するため） */
+  taxBase: number;
   discount: number;
   /** 丸めたあとの請求額 */
   total: number;

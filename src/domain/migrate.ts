@@ -24,7 +24,8 @@ export function defaultPosRule(): PosRule {
     extendMinutes: 30, extendPrice: 1500,
     // テーブルチャージは既定 0%。勝手に上乗せしないで、設定で入れてもらう
     tableChargeRate: 0, tableChargeOnSet: false,
-    taxRate: 10, taxIncluded: true,
+    // 既定は「セットは税込、延長と商品は税別」。ガールズバーでよくある形
+    taxRate: 10, taxOnSet: false, taxOnExtend: true, taxOnItems: true,
     alertBeforeMin: 10, autoExtend: false, roundTo: 1,
   };
 }
@@ -241,7 +242,13 @@ function toPosRule(v: unknown): PosRule {
     tableChargeRate: toNumOr(v.tableChargeRate ?? v.serviceRate, d.tableChargeRate),
     tableChargeOnSet: v.tableChargeOnSet === undefined ? d.tableChargeOnSet : !!v.tableChargeOnSet,
     taxRate: toNumOr(v.taxRate, d.taxRate),
-    taxIncluded: v.taxIncluded === undefined ? d.taxIncluded : !!v.taxIncluded,
+    // 初期の版は「全部税込 / 全部税別」の 1 つのスイッチだった。そのまま引き継ぐ
+    taxOnSet: v.taxOnSet === undefined
+      ? (v.taxIncluded === undefined ? d.taxOnSet : !v.taxIncluded) : !!v.taxOnSet,
+    taxOnExtend: v.taxOnExtend === undefined
+      ? (v.taxIncluded === undefined ? d.taxOnExtend : !v.taxIncluded) : !!v.taxOnExtend,
+    taxOnItems: v.taxOnItems === undefined
+      ? (v.taxIncluded === undefined ? d.taxOnItems : !v.taxIncluded) : !!v.taxOnItems,
     alertBeforeMin: toNumOr(v.alertBeforeMin, d.alertBeforeMin),
     autoExtend: v.autoExtend === undefined ? d.autoExtend : !!v.autoExtend,
     roundTo: Math.max(1, toNumOr(v.roundTo, d.roundTo)),
