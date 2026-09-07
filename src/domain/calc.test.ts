@@ -193,6 +193,11 @@ describe("旧コードとの同値性", () => {
     expect(L.menu?.length).toBeGreaterThan(0);
     expect(L.seats?.length).toBeGreaterThan(0);
     expect(L.posRule?.setMinutes).toBe(60);
+    // 既定メニューを入れるとき、存在しないバック項目は参照しない。
+    // （バック項目そのものは足さない。相手が作った一覧を書き換えないため）
+    const backIds = new Set(L.backItems.map((b) => b.id));
+    for (const m of L.menu ?? []) if (m.backItemId) expect(backIds.has(m.backItemId)).toBe(true);
+    expect(L.backItems).toEqual(v3.backItems);
     // 日報・キャスト・バックは v3 のまま（無損失であること）
     expect(L.days).toEqual(v3.days);
     expect(L.casts).toEqual(v3.casts);

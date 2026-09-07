@@ -108,6 +108,8 @@ export interface DayRecord {
   /** 手で直した欄。レジからの自動反映がここを上書きしない。
    *  "cashSales" | "cardSales" | "guests" | "shift:<castId>" の形 */
   manual?: string[];
+  /** レジが最後にこの日報へ反映した日時。これがあれば「レジから自動」と出せる */
+  posAt?: string;
 }
 
 export interface Ledger {

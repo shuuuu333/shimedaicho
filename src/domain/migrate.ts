@@ -161,6 +161,8 @@ function toDay(v: unknown): DayRecord {
       if (sh) d.shifts[cid] = sh;
     }
   }
+  const posAt = str(v.posAt);
+  if (posAt) d.posAt = posAt;
   if (Array.isArray(v.manual)) {
     const m = [...new Set(v.manual.filter((x): x is string => typeof x === "string"))];
     if (m.length) d.manual = m;
@@ -286,9 +288,19 @@ export function migrate(input: unknown): Ledger {
   const casts = Array.isArray(o.casts) ? o.casts.map(toCast).filter((x): x is Cast => !!x) : [];
 
   // レジのマスタ。無ければ既定を入れる（backItems と同じ扱い。初回を真っ白にしない）
-  const menu = Array.isArray(o.menu) && o.menu.length
-    ? o.menu.map(toMenuItem).filter((x): x is MenuItem => !!x)
+  const hasMenu = Array.isArray(o.menu) && o.menu.length;
+  const menu = hasMenu
+    ? (o.menu as unknown[]).map(toMenuItem).filter((x): x is MenuItem => !!x)
     : defaultMenu();
+  if (!hasMenu) {
+    // 既定メニューは既定のバック項目（d1..b6）を指している。自前のバック項目しか持っていない
+    // 台帳では、その id は存在しない。ここで勝手にバック項目を足すと、相手が作った
+    // バックの一覧を書き換えてしまう（日報の入力欄もその場で増える）ので、足さない。
+    // 代わりに、無い参照を外す。商品はキャスト紐付けのまま残るので、
+    // 売れば「誰の分か」は聞かれ、出勤には反映される。バックは設定でつなぐ
+    const have = new Set(items.map((b) => b.id));
+    for (const m of menu) if (m.backItemId && !have.has(m.backItemId)) delete m.backItemId;
+  }
   const seats = Array.isArray(o.seats) && o.seats.length
     ? o.seats.map(toSeat).filter((x): x is Seat => !!x)
     : defaultSeats();

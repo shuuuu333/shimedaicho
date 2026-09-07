@@ -226,6 +226,17 @@ describe("レジを日報に反映する", () => {
     expect(d.shifts.c1.in).toBe(L.shop.openTime);
   });
 
+  it("バック項目が見つからなくても、売った子は出勤として数える", () => {
+    const L = shopLedger();
+    L.backItems = [];   // バック項目を全部消した台帳
+    const d = CL.applyChecksToDay(emptyDay(), [
+      closed(L, 1, [["cdM", 1500, "d2", "c1", 1]], 5000),
+    ], L);
+    expect(d.shifts.c1.on).toBe(true);          // 出勤にはなる
+    expect(d.shifts.c1.backs).toEqual({});      // 本数は付かない
+    expect(d.cashSales).toBe(5000);
+  });
+
   it("会計前（open）の伝票は売上に入らない", () => {
     const L = shopLedger();
     const open = P.newCheck("2026-09-06", "s2", 2, RULE.setPrice, T0, "test");
@@ -280,6 +291,32 @@ describe("レジを日報に反映する", () => {
     c.lines[0].voided = { at: T0, by: "me", reason: "打ち間違い" };
     CL.applyChecksToDay(d, [c], L);
     expect(d.shifts.c1.backs.d2).toBeUndefined();
+  });
+
+  it("レジが反映した日には印が付き、欄ごとに自動か手入力かが分かる", () => {
+    const L = shopLedger();
+    const checks = [closed(L, 2, [["cdM", 1500, "d2", "c1", 2]], 10000)];
+    const d = emptyDay();
+
+    // レジが触るまでは、どの欄も「自動」でも「手入力」でもない
+    expect(CL.isAuto(d, CL.MANUAL_CASH)).toBe(false);
+    expect(CL.isManual(d, CL.MANUAL_CASH)).toBe(false);
+
+    CL.applyChecksToDay(d, checks, L, "2026-09-06T20:00:00.000Z");
+    expect(d.posAt).toBe("2026-09-06T20:00:00.000Z");
+    expect(CL.isAuto(d, CL.MANUAL_CASH)).toBe(true);
+    expect(CL.isAuto(d, CL.manualShift("c1"))).toBe(true);
+
+    // 手で直すと、その欄だけ手入力になる
+    CL.setManual(d, CL.MANUAL_CASH, true);
+    expect(CL.isAuto(d, CL.MANUAL_CASH)).toBe(false);
+    expect(CL.isManual(d, CL.MANUAL_CASH)).toBe(true);
+    expect(CL.isAuto(d, CL.MANUAL_CARD)).toBe(true);   // ほかの欄は自動のまま
+
+    // レジに戻す
+    CL.setManual(d, CL.MANUAL_CASH, false);
+    expect(CL.isAuto(d, CL.MANUAL_CASH)).toBe(true);
+    expect(d.manual).toBeUndefined();
   });
 
   it("反映したあと、既存の給与計算がそのまま走る", () => {

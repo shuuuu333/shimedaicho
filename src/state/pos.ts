@@ -31,6 +31,9 @@ export interface PosStore {
 
   init(): Promise<void>;
   reload(): Promise<void>;
+  /** 指定した営業日の伝票を、もう一度日報へ反映する。
+   *  日報で「レジに戻す」を押したときに使う（その日の伝票を読み直す） */
+  reapply(date: string): Promise<void>;
   setActive(id: string | null): void;
 
   /** 入店。セット料金はその場で選んだ値を伝票に写す */
@@ -99,6 +102,18 @@ export function createPosStore(repo: CheckRepository) {
           set({ date, checks: [...byId.values()], error: null });
         } catch (e) {
           set({ date, error: e instanceof Error ? e.message : String(e) });
+        }
+      },
+
+      async reapply(date) {
+        try {
+          const rule = useApp.getState().ledger.posRule ?? defaultPosRule();
+          const list = (await repo.byDate(date)).map((c) => normalizeCheck(c, rule));
+          useApp.getState().editDay(date, (d, L: Ledger) => { applyChecksToDay(d, list, L); });
+          // 今の営業日なら、画面が持っている伝票も更新しておく
+          if (date === get().date) set({ checks: list });
+        } catch (e) {
+          set({ error: e instanceof Error ? e.message : String(e) });
         }
       },
 

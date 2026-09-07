@@ -11,10 +11,28 @@ import { Stepper } from "../components/Stepper";
 import { BottomSheet } from "../components/BottomSheet";
 import { ChevLeft, ChevRight, Copy, Trash } from "../icons";
 import { Notice } from "../components/Notice";
+import { MANUAL_CARD, MANUAL_CASH, MANUAL_GUESTS, isAuto, isManual, manualShift, setManual } from "../../domain/close";
+import { usePos } from "../../state/pos";
 
 const STEPS = ["売上", "出勤", "派遣", "経費", "締め"];
 
 const newShift = (): Shift => ({ on: false, in: "", out: "", breakMin: null, backs: {}, deduct: null, paid: null });
+
+/** レジが入れた欄か、手で直した欄かを見せる。
+ *  レジ由来のまま触ると自動で「手入力」に切り替わるので、押すのは戻すときだけ */
+function AutoBadge({ d, dk, field }: { d: DayRecord; dk: string; field: string }) {
+  const editDay = useApp((s) => s.editDay);
+  const showToast = useApp((s) => s.showToast);
+  const reapply = usePos((s) => s.reapply);
+  if (isAuto(d, field)) return <span className="posbadge auto">レジから自動</span>;
+  if (!isManual(d, field)) return null;
+  return (
+    <button type="button" className="posbadge manual" onClick={() => {
+      editDay(dk, (dd) => { setManual(dd, field, false); });
+      void reapply(dk).then(() => showToast("レジの数字に戻しました"));
+    }}>手入力 ・ レジに戻す</button>
+  );
+}
 
 export function DayReport() {
   const L = useApp((s) => s.ledger);
@@ -60,7 +78,7 @@ export function DayReport() {
         <div><div className="k">差引</div><div className={`v ${t.profit < 0 ? "neg" : ""}`} style={t.profit >= 0 ? { color: "var(--good)" } : undefined}>{jp(t.profit)}</div></div>
       </div>
 
-      {step === 0 && <SalesStep d={d} edit={edit} t={t} />}
+      {step === 0 && <SalesStep dk={dk} d={d} edit={edit} t={t} />}
       {step === 1 && <AttendStep L={L} dk={dk} d={d} edit={edit} t={t} openSheet={(id) => setUI({ sheet: { kind: "cast", id } })} showToast={showToast} />}
       {step === 2 && <DispatchStep L={L} d={d} edit={edit} t={t} openSheet={(id) => setUI({ sheet: { kind: "disp", id } })} updateWithUndo={updateWithUndo} dk={dk} />}
       {step === 3 && <ExpenseStep d={d} edit={edit} t={t} updateWithUndo={updateWithUndo} dk={dk} />}
@@ -88,13 +106,21 @@ function StepHead({ title, note }: { title: string; note?: ReactNode }) {
 }
 
 /* ---------- 1. 売上 ---------- */
-function SalesStep({ d, edit, t }: { d: DayRecord; edit: Edit; t: T }) {
+function SalesStep({ dk, d, edit, t }: { dk: string; d: DayRecord; edit: Edit; t: T }) {
+  // レジが入れた欄を手で直したら、その欄はレジの管理から外す（次の会計で上書きされない）
+  const set = (field: string, mut: (dd: DayRecord) => void) => edit((dd) => { mut(dd); setManual(dd, field, true); });
   return (
     <div className="card">
       <StepHead title="売上" note="閉店後の合計を入れます" />
-      <label className="field"><span className="lbl">現金売上</span><NumberField big value={d.cashSales} onChange={(v) => edit((dd) => { dd.cashSales = v; })} /></label>
-      <label className="field"><span className="lbl">カード売上</span><NumberField big value={d.cardSales} onChange={(v) => edit((dd) => { dd.cardSales = v; })} /></label>
-      <label className="field"><span className="lbl">組数・客数（客単価の計算用・任意）</span><NumberField value={d.guests} onChange={(v) => edit((dd) => { dd.guests = v; })} /></label>
+      <label className="field">
+        <span className="lbl">現金売上 <AutoBadge d={d} dk={dk} field={MANUAL_CASH} /></span>
+        <NumberField big value={d.cashSales} onChange={(v) => set(MANUAL_CASH, (dd) => { dd.cashSales = v; })} /></label>
+      <label className="field">
+        <span className="lbl">カード売上 <AutoBadge d={d} dk={dk} field={MANUAL_CARD} /></span>
+        <NumberField big value={d.cardSales} onChange={(v) => set(MANUAL_CARD, (dd) => { dd.cardSales = v; })} /></label>
+      <label className="field">
+        <span className="lbl">組数・客数（客単価の計算用・任意） <AutoBadge d={d} dk={dk} field={MANUAL_GUESTS} /></span>
+        <NumberField value={d.guests} onChange={(v) => set(MANUAL_GUESTS, (dd) => { dd.guests = v; })} /></label>
       <div className="hint">売上合計 <b className="num">{yen(t.sales)}</b>{t.card ? ` ／ カード手数料 ${yen(t.fee)}` : ""}</div>
     </div>
   );
@@ -150,7 +176,11 @@ function AttendStep({ L, dk, d, edit, t, openSheet, showToast }: { L: Ledger; dk
           <button key={c.id} type="button" className={`wrow ${hasBacks ? "" : "alert"}`} onClick={() => openSheet(c.id)}>
             <span className="avatar">{(c.name || "?").slice(0, 1)}</span>
             <span className="g">
-              <span className="t">{c.name || "（名前なし）"}</span>
+              <span className="t">
+                {c.name || "（名前なし）"}
+                {isAuto(d, manualShift(c.id)) && <span className="posbadge auto">レジ</span>}
+                {isManual(d, manualShift(c.id)) && <span className="posbadge manual">手入力</span>}
+              </span>
               {hasBacks
                 ? <span className="s">{sh.in || "?"}-{sh.out || "?"} · {p.hours.toFixed(1)}時間{p.paid ? ` · 日払い ${jp(p.paid)}` : ""}</span>
                 : <span className="s warn">本数がまだ入っていません</span>}
@@ -198,29 +228,43 @@ function CastSheet({ L, dk, d, castId, edit, onClose }: { L: Ledger; dk: string;
   if (!c || !sh) return null;
   const p = payOf(L, castId, sh, dk);
   const set = (mut: (s: Shift) => void) => edit((dd) => { mut(dd.shifts[castId]); });
+  // 時刻と本数はレジが面倒を見ている。手で触ったら、その子はレジの管理から外す
+  // （控除・日払い・休憩はもともと手入力なので、触っても外さない）
+  const setPos = (mut: (s: Shift) => void) => edit((dd) => { mut(dd.shifts[castId]); setManual(dd, manualShift(castId), true); });
   return (
     <BottomSheet open title={`${c.name || "（名前なし）"} ・ ${dayLabel(dk)}`} onClose={onClose}
       footer={<><span className="sum">支給額 <b>{yen(p.gross)}</b><br />未払い残 {yen(p.unpaid)}</span>
         <button type="button" className="btn sm danger" onClick={() => { set((s) => { s.on = false; }); onClose(); }}>出勤を外す</button></>}>
       <div className="row2">
-        <label className="field" style={{ margin: 0 }}><span className="lbl">出勤</span><TimeField value={sh.in} ariaLabel="出勤時刻" onChange={(v) => set((s) => { s.in = v; })} /></label>
-        <label className="field" style={{ margin: 0 }}><span className="lbl">退勤</span><TimeField value={sh.out} ariaLabel="退勤時刻" onChange={(v) => set((s) => { s.out = v; })} /></label>
+        <label className="field" style={{ margin: 0 }}><span className="lbl">出勤</span><TimeField value={sh.in} ariaLabel="出勤時刻" onChange={(v) => setPos((s) => { s.in = v; })} /></label>
+        <label className="field" style={{ margin: 0 }}><span className="lbl">退勤</span><TimeField value={sh.out} ariaLabel="退勤時刻" onChange={(v) => setPos((s) => { s.out = v; })} /></label>
       </div>
       <div className="quick" style={{ marginTop: 8 }}>
-        <button type="button" className="btn" onClick={() => set((s) => { s.in = addMinutes(s.in || L.shop.openTime, 30); })}>遅刻 +30分</button>
-        <button type="button" className="btn" onClick={() => set((s) => { s.in = addMinutes(s.in || L.shop.openTime, 60); })}>+60分</button>
-        <button type="button" className="btn" onClick={() => set((s) => { s.out = addMinutes(s.out || L.shop.closeTime, -30); })}>早退 −30分</button>
-        <button type="button" className="btn" onClick={() => set((s) => { s.out = addMinutes(s.out || L.shop.closeTime, -60); })}>−60分</button>
-        <button type="button" className="btn" onClick={() => set((s) => { s.in = L.shop.openTime; s.out = L.shop.closeTime; })}>定時に戻す</button>
+        <button type="button" className="btn" onClick={() => setPos((s) => { s.in = addMinutes(s.in || L.shop.openTime, 30); })}>遅刻 +30分</button>
+        <button type="button" className="btn" onClick={() => setPos((s) => { s.in = addMinutes(s.in || L.shop.openTime, 60); })}>+60分</button>
+        <button type="button" className="btn" onClick={() => setPos((s) => { s.out = addMinutes(s.out || L.shop.closeTime, -30); })}>早退 −30分</button>
+        <button type="button" className="btn" onClick={() => setPos((s) => { s.out = addMinutes(s.out || L.shop.closeTime, -60); })}>−60分</button>
+        <button type="button" className="btn" onClick={() => setPos((s) => { s.in = L.shop.openTime; s.out = L.shop.closeTime; })}>定時に戻す</button>
       </div>
       <div className="hint" style={{ margin: "0 0 10px" }}>時給 {yen(castWageAt(c, L.shop, dk))} × {p.hours.toFixed(2)}h ＝ <b>{yen(p.wage)}</b>（{L.shop.roundMinutes}分単位で切り捨て）</div>
-      <BackRows L={L} backs={sh.backs} isDispatch={false} onChange={(id, v) => set((s) => { s.backs[id] = v; })} />
+      <BackRows L={L} backs={sh.backs} isDispatch={false} onChange={(id, v) => setPos((s) => { s.backs[id] = v; })} />
       <div className="row3" style={{ marginTop: 11 }}>
         <label className="field" style={{ margin: 0 }}><span className="lbl">休憩 分</span><NumberField value={sh.breakMin} onChange={(v) => set((s) => { s.breakMin = v; })} /></label>
         <label className="field" style={{ margin: 0 }}><span className="lbl">控除</span><NumberField value={sh.deduct} onChange={(v) => set((s) => { s.deduct = v; })} /></label>
         <label className="field" style={{ margin: 0 }}><span className="lbl">日払い</span><NumberField value={sh.paid} onChange={(v) => set((s) => { s.paid = v; })} /></label>
       </div>
       <div className="hint">日払いは「その場で渡した額」。残りは未払いとして溜まり、キャスト画面から精算できます。</div>
+      {isManual(d, manualShift(castId)) && (
+        <div style={{ marginTop: 12 }}>
+          <AutoBadge d={d} dk={dk} field={manualShift(castId)} />
+          <div className="hint">時刻と本数を手で直したので、この子はレジの反映から外れています。</div>
+        </div>
+      )}
+      {isAuto(d, manualShift(castId)) && (
+        <div className="hint" style={{ marginTop: 12 }}>
+          <span className="posbadge auto">レジから自動</span> 時刻と本数はレジが入れています。手で直すと、この子だけ反映が止まります。
+        </div>
+      )}
     </BottomSheet>
   );
 }

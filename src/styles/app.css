@@ -325,3 +325,12 @@ button.lrow:active{background:var(--surface-2)}
 .timebig .timeend b{font-size:22px; color:var(--ink-2)}
 .timecard.soon .timebig b{color:var(--warn)}
 .timecard.over .timebig b{color:var(--crit)}
+
+/* 日報の「レジから自動」／「手入力」の印 */
+.posbadge{display:inline-flex; align-items:center; gap:4px; margin-left:6px; vertical-align:middle;
+  font-size:10.5px; font-weight:600; line-height:1; padding:4px 7px; border-radius:999px;
+  border:1px solid transparent; white-space:nowrap}
+.posbadge.auto{background:var(--accent-soft); color:var(--accent); border-color:var(--accent)}
+.posbadge.manual{background:var(--surface-2); color:var(--ink-2); border-color:var(--line-strong);
+  cursor:pointer; font:inherit; font-size:10.5px; font-weight:600; min-height:26px}
+button.posbadge.manual:active{background:var(--surface)}

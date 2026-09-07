@@ -55,12 +55,15 @@ export function summarize(checks: Check[], L: Ledger): ChecksSummary {
     s.voided += c.lines.filter((l) => l.voided).length;
 
     for (const l of activeLines(c)) {
-      if (!l.castId || !l.backItemId) continue;
+      if (!l.castId) continue;
+      // その子に紐づく商品を売った時点で「出た」ことは確か。
+      // バック項目が見つからなくても（設定から消された等）、出勤としては数える
+      const row = (s.byCast[l.castId] ??= {});
+      if (!l.backItemId) continue;
       const item = byId.get(l.backItemId);
       if (!item) continue;
       // count 型は「本数」、amount 型は「対象売上」を積む（calc.ts が単価と % を掛ける）
       const add = item.type === "count" ? l.qty : lineAmount(l);
-      const row = (s.byCast[l.castId] ??= {});
       row[l.backItemId] = (row[l.backItemId] ?? 0) + add;
     }
   }
@@ -69,8 +72,9 @@ export function summarize(checks: Check[], L: Ledger): ChecksSummary {
 
 /** 集計を日報に書き込む。d は immer の draft を想定していて、その場で書き換える。
  *  返り値は d 自身（テストで扱いやすいように）。 */
-export function applyChecksToDay(d: DayRecord, checks: Check[], L: Ledger): DayRecord {
+export function applyChecksToDay(d: DayRecord, checks: Check[], L: Ledger, at = new Date().toISOString()): DayRecord {
   const s = summarize(checks, L);
+  d.posAt = at;
   const manual = new Set(d.manual ?? []);
   const managed = managedBackIds(L, checks);
 
@@ -100,6 +104,16 @@ export function applyChecksToDay(d: DayRecord, checks: Check[], L: Ledger): DayR
     }
   }
   return d;
+}
+
+/** その欄がレジの管理下にあるか（＝手入力に切り替えていないか） */
+export function isAuto(d: DayRecord, key: string): boolean {
+  return !!d.posAt && !(d.manual ?? []).includes(key);
+}
+
+/** その欄を手入力に切り替えてあるか */
+export function isManual(d: DayRecord, key: string): boolean {
+  return !!d.posAt && (d.manual ?? []).includes(key);
 }
 
 /** 欄を手入力に切り替える／レジに戻す */

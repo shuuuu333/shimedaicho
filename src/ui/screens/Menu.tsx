@@ -22,6 +22,8 @@ export function PosSettings() {
     update((D) => { const m = (D.menu ?? []).find((x) => x.id === id); if (m) Object.assign(m, patch); });
 
   const cats = [...new Set(menu.map((m) => m.category))];
+  // キャストに紐づけて売るのに、バック項目が選ばれていない商品（移行で参照が外れた場合など）
+  const noBack = menu.filter((m) => m.kind === "castLinked" && !m.backItemId);
 
   return (
     <>
@@ -91,6 +93,16 @@ export function PosSettings() {
       <div className="card" id="set-menu">
         <h2>商品</h2>
         <p className="sub">「バック」を選んだ商品は、レジで売るときに誰の分かを聞かれ、その本数が日報のバックに入ります。</p>
+        {noBack.length > 0 && (
+          <div className="notice">
+            <span className="ic" aria-hidden="true">!</span>
+            <span className="g">
+              <span className="t">バックが繋がっていない商品があります</span>
+              {noBack.map((m) => m.name || "（名前なし）").join("・")}
+              <br />売れば「誰の分か」は聞かれ、出勤にも入りますが、<b>本数は日報に付きません</b>。下の「バック」から選んでください。
+            </span>
+          </div>
+        )}
         {cats.map((cat) => {
           const items = menu.filter((m) => m.category === cat);
           const on = openCat === cat;
