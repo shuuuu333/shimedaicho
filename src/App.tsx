@@ -38,7 +38,13 @@ export default function App() {
   const role = useCloud((s) => s.role());
   const joinByToken = useCloud((s) => s.joinByToken);
   const showToast = useApp((s) => s.showToast);
-  useEffect(() => { void init().then(() => cloudInit()); }, [init, cloudInit]);
+  useEffect(() => {
+    // 招待の引き換えは、ログインの復元（cloudInit）が終わってから
+    void init()
+      .then(() => cloudInit())
+      .then(() => useCloud.getState().redeemPending())
+      .then((r) => { if (r) showToast(r.message); });
+  }, [init, cloudInit, showToast]);
 
   // ホーム画面のショートカット（?tab=reg など）から開いたとき、その画面を出す。
   // マニフェストに shortcuts を書いても、ここで読まないと効かない
@@ -67,10 +73,6 @@ export default function App() {
     setJoinToken(token);
   }, [joinByToken, showToast]);
 
-  // LINE から戻ってきたとき、預けておいた招待を使う
-  useEffect(() => {
-    void useCloud.getState().redeemPending().then((r) => { if (r) showToast(r.message); });
-  }, [showToast]);
   const tabs = role === "cast" ? TABS.filter((t) => t.id === "shift")
     : role === "staff" ? TABS.filter((t) => t.id === "reg" || t.id === "day" || t.id === "shift")
     : TABS;

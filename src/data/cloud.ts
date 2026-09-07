@@ -104,9 +104,11 @@ export async function removeMember(shopId: string, email: string): Promise<void>
 /* ---------- QR での招待 ---------- */
 
 /** 期限つき・1回だけの招待を作る。token を QR に入れる */
-/** 招待の有効時間（分）。QR そのものが鍵になるので短くしてある。
- *  レジを入れてからは「入られる = 売上と現金を書き換えられる」なので、表示と実物がずれないよう定数は 1 か所に置く */
-export const INVITE_MINUTES = 10;
+/** 招待の有効時間（分）。
+ *  画面に QR を出すだけなら短いほど安全だが、リンクを送って読んでもらうには短すぎる。
+ *  守りの本体は「1 回使うと無効」の方で、期限は受け取る人の都合に合わせる。
+ *  漏れても、使われればオーナーのメンバー一覧に出るので気づける。 */
+export const INVITE_MINUTES = 60;
 
 export async function createInvite(shopId: string, role: "staff" | "cast", name: string, castId: string | null, minutes = INVITE_MINUTES): Promise<InviteRow> {
   const expires = new Date(Date.now() + minutes * 60 * 1000).toISOString();

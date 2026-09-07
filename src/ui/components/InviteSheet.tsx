@@ -7,7 +7,8 @@ import { Notice } from "./Notice";
 import { INVITE_MINUTES, type InviteRow } from "../../data/cloud";
 
 
-/** QR を出して、その場で読んでもらう招待。メールもパスワードもいらない */
+/** 招待。リンクを送るか、その場で QR を見せるかを選べる。
+ *  相手はメールもパスワードもいらない（LINE でログインするか、そのまま入る） */
 export function InviteSheet({ onClose }: { onClose: () => void }) {
   const c = useCloud();
   const L = useApp((s) => s.ledger);
@@ -50,12 +51,27 @@ export function InviteSheet({ onClose }: { onClose: () => void }) {
   };
   const expired = invite != null && left <= 0;
 
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(url); showToast("リンクをコピーしました"); }
+    catch { showToast("コピーできませんでした"); }
+  };
+  /** 端末の共有シートを開く。LINE を選べばそのまま送れる。無い端末ではコピーに落とす */
+  const share = async () => {
+    const text = `${L.shop.name || "お店"}の${invite?.role === "cast" ? "キャスト" : "スタッフ"}として招待します。\nこのリンクを開いてください（${INVITE_MINUTES}分で切れます）\n${url}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: "お店への招待", text }); return; }
+      catch (e) { if ((e as Error).name === "AbortError") return; }
+    }
+    await copy();
+  };
+
   return (
-    <BottomSheet open title="QRで招待する" onClose={onClose}>
+    <BottomSheet open title="お店に招待する" onClose={onClose}>
       {!invite ? (
         <>
           <p className="hint" style={{ margin: "0 0 14px" }}>
-            相手のスマホでこの QR を読み取ると、それだけでお店に入れます。メールもパスワードもいりません。
+            招待のリンクを LINE などで送るか、その場で QR を見せてください。
+            相手はメールもパスワードもいりません。
           </p>
 
           <label className="field"><span className="lbl">役割</span>
@@ -80,27 +96,49 @@ export function InviteSheet({ onClose }: { onClose: () => void }) {
           )}
 
           <button type="button" className="btn primary wide" style={{ minHeight: 52 }}
-            disabled={c.busy || (role === "cast" && !castId)} onClick={make}>QRを出す</button>
+            disabled={c.busy || (role === "cast" && !castId)} onClick={make}>招待を作る</button>
           {c.error && <div style={{ marginTop: 10 }}><Notice bad>{c.error}</Notice></div>}
-          <div className="hint" style={{ marginTop: 12 }}>QR は {INVITE_MINUTES} 分で切れ、1 人が 1 回だけ使えます。</div>
+          <div className="hint" style={{ marginTop: 12 }}>
+            招待は {INVITE_MINUTES} 分で切れ、<b>1 人が 1 回だけ</b>使えます。誰かが使うと、その場で無効になります。
+          </div>
         </>
       ) : (
         <>
-          <div className="qrbox">
-            {png ? <img src={png} alt="招待のQRコード" /> : <div className="empty">作っています…</div>}
-          </div>
-          <div className="qrmeta">
+          <div className="qrmeta" style={{ marginTop: 0 }}>
             <div className="t">{invite.role === "cast" ? "キャスト" : "スタッフ"}{invite.name ? ` ・ ${invite.name}` : ""}</div>
             <div className={`s num ${expired ? "neg" : ""}`}>
               {expired ? "期限切れです" : `のこり ${Math.floor(left / 60)}分${String(left % 60).padStart(2, "0")}秒`}
             </div>
           </div>
-          <Notice title="相手のスマホのカメラで読み取ってください">
-            読み取ると、そのままお店に入れます。1 回使うと、この QR は使えなくなります。
-            画面を人に見られないよう気をつけてください。
+
+          {expired ? (
+            <Notice bad title="期限が切れました">下の「作り直す」でもう一度出してください。</Notice>
+          ) : (
+            <>
+              <button type="button" className="btn primary wide" style={{ minHeight: 52 }} onClick={() => void share()}>
+                招待のリンクを送る
+              </button>
+              <div className="hint" style={{ marginTop: 6 }}>
+                LINE やメールで相手に送れます。相手はリンクを開いて「LINE でログイン」を選ぶだけです。
+              </div>
+              <button type="button" className="btn wide" style={{ marginTop: 8 }} onClick={() => void copy()}>リンクをコピー</button>
+
+              <details className="help" style={{ marginTop: 12 }}>
+                <summary>その場で QR を見せる</summary>
+                <div className="qrbox">
+                  {png ? <img src={png} alt="招待のQRコード" /> : <div className="empty">作っています…</div>}
+                </div>
+                <div className="hint">相手のスマホのカメラで読み取ってもらいます。画面を他の人に見られないよう気をつけてください。</div>
+              </details>
+            </>
+          )}
+
+          <Notice title="1 回使うと無効になります">
+            誰かが使うと、その時点でこの招待は使えなくなります。入った人は
+            設定の「メンバー」に出るので、見覚えがなければそこから外してください。
           </Notice>
+
           <div className="btnrow" style={{ marginTop: 4 }}>
-            <button type="button" className="btn sm" onClick={() => { void navigator.clipboard.writeText(url).then(() => showToast("リンクをコピーしました")).catch(() => showToast("コピーできませんでした")); }}>リンクをコピー</button>
             <button type="button" className="btn sm ghost" onClick={() => { void c.makeInvite(invite.role, invite.name, invite.cast_id).then((r) => r && setInvite(r)); }}>作り直す</button>
           </div>
         </>

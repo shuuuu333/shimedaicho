@@ -324,12 +324,14 @@ export const useCloud = create<CloudState>()((set, get) => {
         throw e;
       }
     },
-    /** LINE から戻ってきたときに、預けておいた招待を使う */
+    /** LINE から戻ってきたときに、預けておいた招待を使う。
+     *  ログインの復元が終わってから呼ぶこと。セッションがまだなら**消さずに**次の機会に回す
+     *  （先に消すと、招待リンクから来た人が黙って弾かれる） */
     async redeemPending() {
       const token = lsGet(LS_JOIN);
       if (!token) return null;
-      lsSet(LS_JOIN, null);
       if (!get().session) return null;
+      lsSet(LS_JOIN, null);
       return get().joinByToken(token, false);
     },
     async syncNow() {
