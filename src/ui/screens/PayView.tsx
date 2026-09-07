@@ -25,7 +25,7 @@ export function PayView({ check, rule, onClose }: { check: Check; rule: PosRule;
         {t.extendAmount > 0 && <div className="lrow"><div className="g"><div className="t">延長</div><div className="s">{rule.taxOnExtend ? "＋税" : "税込"}</div></div><div className="a">{yen(t.extendAmount)}</div></div>}
         <div className="lrow"><div className="g"><div className="t">商品</div></div><div className="a">{yen(t.itemAmount)}</div></div>
         {t.tableCharge > 0 && <div className="lrow"><div className="g"><div className="t">テーブルチャージ</div><div className="s">{rule.tableChargeRate}％{rule.tableChargeOnSet ? "" : "（商品のみ）"}</div></div><div className="a">{yen(t.tableCharge)}</div></div>}
-        {t.tax > 0 && <div className="lrow"><div className="g"><div className="t">消費税</div></div><div className="a">{yen(t.tax)}</div></div>}
+        {t.tax > 0 && <div className="lrow"><div className="g"><div className="t">消費税</div><div className="s">{rule.taxRate}％ ・ 対象 {yen(t.taxBase)}</div></div><div className="a">{yen(t.tax)}</div></div>}
         {t.discount > 0 && <div className="lrow"><div className="g"><div className="t">値引き</div></div><div className="a neg">−{yen(t.discount)}</div></div>}
         <div className="lrow total"><div className="g"><div className="t">ご請求</div></div><div className="a">{yen(t.total)}</div></div>
       </div>
