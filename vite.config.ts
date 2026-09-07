@@ -16,9 +16,9 @@ export default defineConfig({
       includeAssets: ["icon.svg", "apple-touch-icon.png"],
       manifest: {
         id: process.env.VITE_BASE || "/",
-        name: "締め台帳",
+        name: "締め台帳 レジ",
         short_name: "締め台帳",
-        description: "キャバクラの締め。売上・給料・現金を毎日3分で記録します。",
+        description: "ガールズバーのレジと締め。会計を打つと、その日の売上・給料がそのまま日報になります。",
         lang: "ja",
         dir: "ltr",
         start_url: process.env.VITE_BASE || "/",
@@ -36,11 +36,34 @@ export default defineConfig({
           { src: "icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
         shortcuts: [
+          { name: "レジを開く", short_name: "レジ", url: (process.env.VITE_BASE || "/") + "?tab=reg" },
           { name: "今日の日報", short_name: "日報", url: (process.env.VITE_BASE || "/") + "?tab=day" },
           { name: "キャストの給料", short_name: "キャスト", url: (process.env.VITE_BASE || "/") + "?tab=cast" },
         ],
       },
-      workbox: { globPatterns: ["**/*.{js,css,html,svg,png,woff2}"] }
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        // フォントは Google の CDN にある。店内の電波が悪いと字が出ないので、
+        // 一度読めたぶんを端末に持っておく。
+        // （フォント本体を同梱しない理由: IBM Plex Sans JP は日本語ぶんだけで
+        //   数MBあり、precache に入れると初回と更新が重くなる）
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\//,
+            handler: "StaleWhileRevalidate",
+            options: { cacheName: "google-fonts-css" },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\//,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts-files",
+              expiration: { maxEntries: 40, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      }
     })
   ],
   test: { environment: "jsdom", globals: false }

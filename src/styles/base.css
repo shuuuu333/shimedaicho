@@ -1,11 +1,18 @@
 /* 基本スタイル。スマホ幅（390px）を基準に組む。押す所は高さ44px以上。 */
 *{box-sizing:border-box}
-html,body{background:var(--bg)}
+html,body{
+  background:var(--bg);
+  /* 接客中に画面を引っ張って「再読み込み」してしまうと、入力中の伝票が飛ぶ。
+     行き止まりでの引っ張りを、ページの外へ伝えない */
+  overscroll-behavior:none;
+}
 body{
   margin:0; color:var(--ink);
   font-family:"IBM Plex Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
   font-size:15px; line-height:1.5;
   -webkit-text-size-adjust:100%; -webkit-font-smoothing:antialiased;
+  /* 素早く2回押したときに拡大させない（レジは同じ所を続けて押す） */
+  touch-action:manipulation;
 }
 .num{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; letter-spacing:-.01em}
 button{font:inherit; color:inherit}

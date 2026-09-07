@@ -10,6 +10,7 @@ import { BottomSheet } from "../components/BottomSheet";
 import { NumberField } from "../components/NumberField";
 import { TimeField } from "../components/TimeField";
 import { CheckView } from "./CheckView";
+import { useWakeLock } from "../useWakeLock";
 
 /** 分を「1:05」の形に。マイナスは超過 */
 export function hhmm(min: number): string {
@@ -33,6 +34,8 @@ export function Register() {
 
   const [now, setNow] = useState(() => Date.now());
   const [entry, setEntry] = useState<{ seatId: string | null; name: string } | null>(null);
+  // レジを開いているあいだは画面を消させない（伝票画面も Register の中で描いている）
+  useWakeLock(true);
   const [detail, setDetail] = useState<string | null>(null);
   const [price, setPrice] = useState(rule.setPrice);
   const openEntry = (seatId: string | null, name: string) => { setPrice(rule.setPrice); setEntry({ seatId, name }); };

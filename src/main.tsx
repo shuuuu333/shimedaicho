@@ -28,6 +28,18 @@ export const updateSW = registerSW({
   },
 });
 
+/** 端末の容量が足りなくなったとき、勝手に消される対象から外してもらう。
+ *  伝票と台帳は端末内のデータベースにしかないので、消えると戻せない。
+ *  ホーム画面に追加されていれば、たいていの端末は黙って許可する。
+ *  断られても動きは変わらない（だからバックアップの督促も残してある）。 */
+void (async () => {
+  try {
+    if (!navigator.storage?.persist) return;
+    if (await navigator.storage.persisted()) return;
+    await navigator.storage.persist();
+  } catch { /* 使えない端末では何もしない */ }
+})();
+
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <App />

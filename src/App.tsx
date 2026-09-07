@@ -39,6 +39,17 @@ export default function App() {
   const showToast = useApp((s) => s.showToast);
   useEffect(() => { void init().then(() => cloudInit()); }, [init, cloudInit]);
 
+  // ホーム画面のショートカット（?tab=reg など）から開いたとき、その画面を出す。
+  // マニフェストに shortcuts を書いても、ここで読まないと効かない
+  useEffect(() => {
+    const want = new URLSearchParams(window.location.search).get("tab");
+    if (!want) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("tab");
+    window.history.replaceState(null, "", url.toString());
+    if (TABS.some((t) => t.id === want)) setUI({ tab: want as Tab, setFocus: null, sheet: null });
+  }, [setUI]);
+
   // QR を読んで開いたとき（?join=…）は、その招待でお店に入る
   useEffect(() => {
     const token = new URLSearchParams(window.location.search).get("join");

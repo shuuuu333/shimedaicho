@@ -17,6 +17,10 @@ import { LocalCheckRepository } from "../../data/checkRepo";
 import { usePos } from "../../state/pos";
 import type { SnapshotInfo } from "../../data/repository";
 
+/** 何日バックアップしていなければ注意を出すか。
+ *  レジの伝票も端末内にしかないので、月 1 回では取り返しがつかない */
+const BACKUP_DAYS = 7;
+
 const repoForSnapshots = new LocalRepository();
 const checkRepo = new LocalCheckRepository();
 
@@ -223,8 +227,8 @@ export function Settings() {
         <h2>データ</h2>
         <p className="sub">入力はこの端末の中（ブラウザのデータベース）にも必ず自動保存されます。クラウド同期を使わない場合は、端末を替えるときにバックアップを書き出して読み込んでください。</p>
         <div className="lrow"><div className="g"><div className="t">最後に保存</div><div className="s">入力のたびに自動で保存</div></div><div className="a num" style={{ fontWeight: 500 }}>{fmtAt(lastSavedAt)}</div></div>
-        <div className="lrow"><div className="g"><div className="t">最後のバックアップ</div><div className="s">{ago == null ? "まだ書き出していません" : ago === 0 ? "今日" : `${ago}日前`}{ago != null && ago >= 30 ? " ・ そろそろ書き出しましょう" : ""}</div></div>
-          <div className="a num" style={{ fontWeight: 500, color: ago != null && ago >= 30 ? "var(--crit)" : undefined }}>{fmtAt(lastBackupAt)}</div></div>
+        <div className="lrow"><div className="g"><div className="t">最後のバックアップ</div><div className="s">{ago == null ? "まだ書き出していません" : ago === 0 ? "今日" : `${ago}日前`}{ago != null && ago >= BACKUP_DAYS ? " ・ そろそろ書き出しましょう" : ""}</div></div>
+          <div className="a num" style={{ fontWeight: 500, color: ago != null && ago >= BACKUP_DAYS ? "var(--crit)" : undefined }}>{fmtAt(lastBackupAt)}</div></div>
         <div className="btnrow" style={{ marginTop: 12 }}>
           <button type="button" className="btn sm primary" onClick={exportJson}>全データのバックアップ</button>
           <button type="button" className="btn sm" onClick={exportCsv}>{Number(ui.month.slice(5, 7))}月のCSV</button>
