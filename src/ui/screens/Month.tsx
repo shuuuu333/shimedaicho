@@ -9,6 +9,7 @@ import { MonthBar } from "../components/MonthBar";
 import { Notice } from "../components/Notice";
 import { ChevLeft, ChevRight, Plus } from "../icons";
 import { csvFilename, monthCSV, offerFile } from "../../data/backup";
+import { forecastMonth, type Forecast } from "../../domain/forecast";
 
 type PieKind = "bar" | "use" | "cast" | "dow";
 
@@ -238,6 +239,8 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
 
   const today = todayISO(), isCur = m === today.slice(0, 7);
   const dProfit = a.profit - prev.profit;
+  // 「このままいくと今月はいくらで終わるのか」。曜日別に伸ばす（金土が効くため）
+  const fc = useMemo(() => forecastMonth(L, m, today), [L, m, today]);
   const missing = isCur ? missingDays(L, today, shiftDay) : [];
   const owedCount = useMemo(() => owedList(L, m).length, [L, m]);
   const todayDone = !!L.days[today];
@@ -324,6 +327,8 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
         </div>
       </div>
 
+      {fc.ready && <ForecastCard fc={fc} />}
+
       <div className="tiles">
         <button type="button" className="tile link" onClick={() => { setUI({ tab: "cast" }); window.scrollTo(0, 0); }}>
           <div className="k">未払いの給料<ChevRight size={13} className="chevt" /></div><div className="v">{yen(a.unpaid)}</div>
@@ -401,5 +406,47 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
         <button type="button" className="setrow" onClick={() => goSet("fixed")}><span className="g"><span className="t">月の固定費</span><span className="s">固定人件費 {yen(L.shop.fixedLabor)} ／ 家賃ほか {yen(L.shop.fixedCost)}</span></span><ChevRight className="chevi" /></button>
       </div>
     </>
+  );
+}
+
+/** 今月の着地予測。日報は今日のことしか教えないので、月末に赤字と気づくのを防ぐ */
+function ForecastCard({ fc }: { fc: Forecast }) {
+  const v = fc.vsPrev;
+  const sign = (n: number) => (n >= 0 ? "+" : "−");
+  /** 売上・客単価は増えたら良い。人件費率は増えたら悪い */
+  const tone = (n: number, upIsGood: boolean, eps = 0.5) =>
+    Math.abs(n) < eps ? undefined : (n > 0) === upIsGood ? "var(--good)" : "var(--warn)";
+
+  return (
+    <div className="card">
+      <div className="cardhead">
+        <h2>このペースだと</h2>
+        <span className="muted">残り {fc.remainingDays}日 ／ 入力済み {fc.recordedDays}日</span>
+      </div>
+      <div className={`fbig num ${fc.profit < 0 ? "neg" : ""}`}>{fc.profit >= 0 ? "+" : ""}{yen(fc.profit)}</div>
+      <div className="hint" style={{ margin: "2px 0 0" }}>
+        月末の営業利益の見込み。売上 {yenShort(fc.sales)} ・ 人件費率 {fc.laborRate.toFixed(1)}% ・ 客単価 {yenShort(fc.avgSpend)}
+      </div>
+
+      {v && (
+        <>
+          <div className="heroSplit cols3">
+            <div><div className="k">先月比 売上</div>
+              <div className="v" style={{ color: tone(v.sales, true, 1) }}>{sign(v.sales)}{yenShort(Math.abs(v.sales))}</div></div>
+            <div><div className="k">人件費率</div>
+              <div className="v" style={{ color: tone(v.laborRate, false) }}>{sign(v.laborRate)}{Math.abs(v.laborRate).toFixed(1)}%</div></div>
+            <div><div className="k">客単価</div>
+              <div className="v" style={{ color: tone(v.avgSpend, true, 1) }}>{sign(v.avgSpend)}{yenShort(Math.abs(v.avgSpend))}</div></div>
+          </div>
+          {fc.weekdays.length > 0 && (
+            <div className="hint" style={{ marginBottom: 0 }}>
+              先月より落ちているのは{" "}
+              {fc.weekdays.map((w) => <b key={w.dow} style={{ marginRight: 8 }}>{WD[w.dow]}曜 {yen(w.diff)}</b>)}
+              <span className="muted">（1 日あたりの差引）</span>
+            </div>
+          )}
+        </>
+      )}
+    </div>
   );
 }

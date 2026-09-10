@@ -69,6 +69,10 @@ main{padding:0 var(--gutter)}
 .hero .big{font-size:clamp(30px,9.6vw,38px); line-height:1.05; font-weight:600; letter-spacing:-.03em;
   margin:2px 0 14px; font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
 .hero .big.neg{color:var(--crit)}
+/* 着地予測の数字。hero より一段控えめにして、実績の数字と競わせない */
+.fbig{font-size:clamp(24px,7.4vw,30px); line-height:1.1; font-weight:600; letter-spacing:-.03em;
+  margin-top:6px; font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+.fbig.neg{color:var(--crit)}
 .heroSplit{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:14px; padding-top:12px; border-top:1px solid var(--line)}
 .heroSplit.cols3{grid-template-columns:repeat(3,minmax(0,1fr))}
 .heroSplit .k{font-size:11px; color:var(--ink-3)}
