@@ -253,6 +253,13 @@ nav.tabs svg{width:22px;height:22px}
 .notice.bad{background:var(--crit-bg)}
 .notice.bad .ic{color:var(--crit)}
 .notice.bad .t{color:var(--crit)}
+/* 現金が合わないときの原因の候補。上に出るものが一番あやしい */
+.hintlist{list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:6px}
+.hintlist li{position:relative; padding-left:14px}
+.hintlist li::before{content:""; position:absolute; left:2px; top:.62em; width:5px; height:5px;
+  border-radius:999px; background:currentColor; opacity:.45}
+.hintlist li.strong{color:var(--ink); font-weight:600}
+.hintlist li.strong::before{opacity:1; background:var(--warn)}
 .divider{height:1px;background:var(--line);margin:16px -16px}
 .toast{position:fixed; left:50%; transform:translateX(-50%); bottom:96px; z-index:60; width:max-content; max-width:calc(100vw - 32px);
   background:var(--ink); color:var(--surface); padding:11px 14px 11px 16px; border-radius:14px; font-size:13px;

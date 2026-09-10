@@ -1,0 +1,109 @@
+import { describe, it, expect } from "vitest";
+import { migrate } from "./migrate";
+import { avgSpend, diagnoseCash } from "./diagnose";
+import type { Ledger } from "./types";
+
+const shop = {
+  name: "", cardFeeRate: 0, openingCash: 0, openingDate: "2026-09-01", defaultWage: 2000,
+  roundMinutes: 15, fixedLabor: 0, fixedCost: 0, dispatchGuarantee: 10000, openTime: "20:00", closeTime: "01:00",
+};
+const shift = (over: Record<string, unknown> = {}) =>
+  ({ on: true, in: "20:00", out: "00:00", breakMin: null, backs: {}, deduct: null, paid: null, ...over });
+const day = (over: Record<string, unknown> = {}) =>
+  ({ cashSales: 0, cardSales: 0, guests: null, expenses: [], bankDeposit: null, cardReceived: null,
+     cashCounted: null, payout: null, shifts: {}, dispatch: [], settle: [], ...over });
+
+/** あい（時給2000）が 20:00-00:00 で 4時間 → 支給 ¥8,000。現金売上 ¥30,000 の日 */
+function base(over: Record<string, unknown> = {}): Ledger {
+  return migrate({
+    v: 4, shop,
+    backItems: [{ id: "d1", name: "ドリンク", type: "count", rate: 500, rateD: 500 }],
+    casts: [{ id: "a", name: "あい", wage: 2000, active: true }, { id: "b", name: "みく", wage: 2000, active: true }],
+    days: {
+      // 客単価を出すための「他の日」。¥30,000 / 3人 = ¥10,000
+      "2026-09-02": day({ cashSales: 30000, guests: 3 }),
+      "2026-09-01": day({ cashSales: 30000, guests: 3, shifts: { a: shift() }, ...over }),
+    },
+  });
+}
+const D = (over: Record<string, unknown> = {}) => diagnoseCash(base(over), "2026-09-01");
+const ids = (over: Record<string, unknown> = {}) => D(over)!.hints.map((h) => h.id);
+
+describe("現金が合わないときの原因の候補", () => {
+  it("実査現金を入れていなければ、何も言わない", () => {
+    expect(D()).toBe(null);
+    expect(diagnoseCash(base(), "2026-09-09")).toBe(null);   // 記録の無い日
+  });
+
+  it("ぴったり合っていれば候補は出ない", () => {
+    const r = D({ cashCounted: 30000 })!;
+    expect(r.diff).toBe(0);
+    expect(r.hints).toEqual([]);
+  });
+
+  it("足りない額が 1 人の支給額と一致したら、その人の日払いを第一候補にする", () => {
+    const r = D({ cashCounted: 22000 })!;   // 30,000 − 8,000
+    expect(r.diff).toBe(-8000);
+    expect(r.hints[0]).toMatchObject({ id: "paidOne", strong: true });
+    expect(r.hints[0].text).toContain("あい");
+    expect(r.hints[0].text).toContain("¥8,000");
+  });
+
+  it("¥1,000 までのずれは「一致」として扱う", () => {
+    expect(ids({ cashCounted: 22500 })[0]).toBe("paidOne");   // 差 7,500（8,000 と ¥500 違い）
+    expect(ids({ cashCounted: 24000 })[0]).not.toBe("paidOne"); // 差 6,000 は遠い
+  });
+
+  it("2人ぶんまとめて渡した額と一致したら、まとめての入れ忘れを疑う", () => {
+    // あい ¥8,000 ＋ みく ¥6,000（21:00-00:00 で 3時間）＝ ¥14,000
+    const r = D({ cashCounted: 16000, shifts: { a: shift(), b: shift({ in: "21:00" }) } })!;
+    expect(r.hints[0]).toMatchObject({ id: "paidAll", strong: true });
+    expect(r.hints[0].text).toContain("¥14,000");
+  });
+
+  it("金額が一致しないときは、日払いと経費の入れ忘れを順に疑う", () => {
+    expect(ids({ cashCounted: 27000 })).toEqual(["paidNone", "expNone", "change"]);
+  });
+
+  it("日払いが入っていれば「1 件も入っていません」は言わない", () => {
+    const r = D({ cashCounted: 19000, shifts: { a: shift({ paid: 8000 }) } })!;
+    expect(r.hints.map((h) => h.id)).not.toContain("paidNone");
+  });
+
+  it("カード売上がある日は、打ち間違いも候補に出す", () => {
+    expect(ids({ cashCounted: 27000, cardSales: 10000, expenses: [{ id: "e", name: "氷", amount: 500, method: "cash" }] }))
+      .toEqual(["paidNone", "cardAsCash", "change"]);
+  });
+
+  it("多いときは、客単価の倍数から伝票の打ち忘れを疑う", () => {
+    const r = D({ cashCounted: 50000 })!;   // ＋20,000 ＝ 客単価 ¥10,000 の 2人ぶん
+    expect(r.diff).toBe(20000);
+    expect(r.hints[0]).toMatchObject({ id: "guestsMissing", strong: true });
+    expect(r.hints[0].text).toContain("2人ぶん");
+    expect(r.hints[0].text).toContain("¥10,000");
+  });
+
+  it("多くて客単価と合わないときは、お釣りの渡し忘れを疑う", () => {
+    expect(ids({ cashCounted: 33300 })).toEqual(["changeKept"]);
+  });
+
+  it("客数 0 のまま売上があるときは、そこを指摘する", () => {
+    expect(ids({ cashCounted: 55000, guests: null })).toContain("noGuests");
+  });
+
+  it("候補は多くても 3 件", () => {
+    for (const c of [22000, 27000, 50000, 33300]) expect(D({ cashCounted: c })!.hints.length).toBeLessThanOrEqual(3);
+  });
+
+  it("客単価は、その日ぶんを外して同じ月の他の日から出す", () => {
+    const L = base();
+    expect(avgSpend(L, "2026-09-01")).toBe(10000);   // 09-02 の 30,000/3
+    // 他の日が無ければ、その日ぶんで見る
+    const only = migrate({ v: 4, shop, backItems: [], casts: [], days: { "2026-09-01": day({ cashSales: 24000, guests: 3 }) } });
+    expect(avgSpend(only, "2026-09-01")).toBe(8000);
+    // その日に記録が無くても、同じ月の他の日から出す
+    expect(avgSpend(only, "2026-09-05")).toBe(8000);
+    // 客数の入っている日がどこにも無ければ 0（倍数の当てはめをやめる合図）
+    expect(avgSpend(only, "2026-10-01")).toBe(0);
+  });
+});

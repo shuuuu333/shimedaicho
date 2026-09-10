@@ -16,6 +16,7 @@ import { usePos } from "../../state/pos";
 import { useCloud } from "../../state/cloud";
 import { dayReportText } from "../../domain/report";
 import { lateLabel, lateMinutes, planTimes } from "../../domain/plans";
+import { diagnoseCash } from "../../domain/diagnose";
 
 const STEPS = ["売上", "出勤", "派遣", "経費", "締め"];
 
@@ -425,6 +426,8 @@ function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: strin
   const flow = dayCashFlow(L, dk);
   const expected = flow.net;
   const diff = d.cashCounted == null ? null : d.cashCounted - expected;
+  // 合わないときは、差の向きと台帳の中身から原因の候補を出す
+  const hints = diagnoseCash(L, dk)?.hints ?? [];
   const monthOpts = (mm: string) => { const list = [0, -1, -2].map((k) => shiftMonth(dk.slice(0, 7), k)); if (mm && !list.includes(mm)) list.push(mm); return list; };
   const names = dispatchNames(L);
   const autoAmount = (i: number) => edit((dd, LL) => {
@@ -496,7 +499,11 @@ function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: strin
             ? <Notice title="ぴったり合っています">この日の残りと、数えた現金が同じでした。</Notice>
             : <Notice bad={Math.abs(diff) >= 5000} title={`${diff > 0 ? "多い" : "足りない"} ${yen(Math.abs(diff))}`}>
                 数えた {yen(d.cashCounted ?? 0)} と、この日の残り {yen(expected)} の差です。
-                {diff < 0 ? "払った額の入れ忘れがないか確かめてください。" : "売上の入れ忘れがないか確かめてください。"}
+                {hints.length > 0 && (
+                  <ul className="hintlist">
+                    {hints.map((h) => <li key={h.id} className={h.strong ? "strong" : ""}>{h.text}</li>)}
+                  </ul>
+                )}
               </Notice>}
       </div>
 
