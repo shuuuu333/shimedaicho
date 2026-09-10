@@ -241,6 +241,8 @@ function toMenuItem(v: unknown): MenuItem | null {
   };
   const b = str(v.backItemId);
   if (b) item.backItemId = b;
+  // キャストに紐づく商品は「誰の分か」が決まらないので、自動で入れる対象にしない
+  if (v.autoOnEntry === true && kind === "normal") item.autoOnEntry = true;
   return item;
 }
 function toSeat(v: unknown): Seat | null {

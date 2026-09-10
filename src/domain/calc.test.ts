@@ -367,6 +367,23 @@ describe("ランキングとシフト", () => {
     expect(migrate(JSON.parse(JSON.stringify(L))).plans).toEqual(L.plans);
   });
 
+  it("「入店したら人数ぶん」の印は移行で残る。キャストに紐づく商品には付かない", () => {
+    const L2 = migrate({
+      ...S,
+      menu: [
+        { id: "m1", name: "お通し", price: 500, category: "フード", kind: "normal", active: true, sort: 0, autoOnEntry: true },
+        // キャストに紐づく商品は「誰の分か」が決まらないので、印は落とす
+        { id: "m2", name: "キャストドリンク", price: 1000, category: "キャスト", kind: "castLinked", backItemId: "d1", active: true, sort: 1, autoOnEntry: true },
+        { id: "m3", name: "ビール", price: 800, category: "ドリンク", kind: "normal", active: true, sort: 2 },
+      ],
+    });
+    expect(L2.menu!.find((m) => m.id === "m1")!.autoOnEntry).toBe(true);
+    expect(L2.menu!.find((m) => m.id === "m2")!.autoOnEntry).toBe(undefined);
+    expect("autoOnEntry" in L2.menu!.find((m) => m.id === "m3")!).toBe(false);
+    // 往復しても変わらない
+    expect(migrate(JSON.parse(JSON.stringify(L2))).menu).toEqual(L2.menu);
+  });
+
   it("紙の枚数（slipCount）は移行で残り、無い日には付かない", () => {
     const withSlips = migrate({ ...S, days: { ...S.days, "2026-09-01": { ...S.days["2026-09-01"], slipCount: 8 } } });
     expect(withSlips.days["2026-09-01"].slipCount).toBe(8);

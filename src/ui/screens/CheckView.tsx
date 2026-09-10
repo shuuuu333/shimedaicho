@@ -202,12 +202,21 @@ export function CheckView({ id }: { id: string }) {
 }
 
 /** 行をタップしたとき。数量の増減と取消（理由が要る） */
+/** よくある取消の理由。忙しいときに文字を打たせない。
+ *  自由入力も残してあるが、任意にした（理由を必須にしたまま手打ちさせると現場が止まる） */
+const VOID_REASONS = ["打ち間違い", "お客様都合", "出していない", "別の子に付け直す"];
+
 function LineSheet({ line, checkId, onClose }: { line: CheckLine | null; checkId: string; onClose: () => void }) {
   const setQty = usePos((s) => s.setQty);
   const voidLine = usePos((s) => s.voidLine);
   const [reason, setReason] = useState("");
-  useEffect(() => { setReason(""); }, [line?.id]);
+  const [note, setNote] = useState("");
+  useEffect(() => { setReason(""); setNote(""); }, [line?.id]);
   if (!line) return null;
+  /** ボタンで選んだ理由に、書いてあれば補足を足す */
+  const full = (r: string) => (note.trim() ? `${r}（${note.trim()}）` : r);
+  const kill = (r: string) => { void voidLine(checkId, line.id, full(r)); onClose(); };
+
   return (
     <BottomSheet open title={line.name} onClose={onClose}>
       <div className="lrow">
@@ -218,14 +227,26 @@ function LineSheet({ line, checkId, onClose }: { line: CheckLine | null; checkId
           <button type="button" className="btn" onClick={() => void setQty(checkId, line.id, line.qty + 1)}>＋</button>
         </span>
       </div>
-      <label className="field"><span className="lbl">取り消す理由（残ります）</span>
-        <input className="inp" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="打ち間違い / お客様都合" />
+
+      <div className="cardhead" style={{ marginTop: 12 }}><h2>この行を取り消す</h2></div>
+      <p className="sub">理由をタップすると、その場で取り消します。</p>
+      <div className="chipgrid">
+        {VOID_REASONS.map((r) => (
+          <button key={r} type="button" className="btn chip" onClick={() => kill(r)}>{r}</button>
+        ))}
+      </div>
+      <label className="field"><span className="lbl">補足（任意）</span>
+        <input className="inp" value={note} onChange={(e) => setNote(e.target.value)} placeholder="書かなくてもかまいません" />
       </label>
-      <button type="button" className="btn danger wide" disabled={!reason.trim()}
-        onClick={() => { void voidLine(checkId, line.id, reason.trim()); onClose(); }}>
-        この行を取り消す
-      </button>
-      <div className="hint">取消は消さずに履歴として残ります。理由は必ず入れてください。</div>
+      <details>
+        <summary className="hint" style={{ cursor: "pointer" }}>ほかの理由を書く</summary>
+        <label className="field" style={{ marginTop: 8 }}><span className="lbl">理由</span>
+          <input className="inp" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="自分で書く" />
+        </label>
+        <button type="button" className="btn danger wide" disabled={!reason.trim()}
+          onClick={() => kill(reason.trim())}>この理由で取り消す</button>
+      </details>
+      <div className="hint">取消は消さずに履歴として残ります。あとから誰が何を取り消したか追えます。</div>
     </BottomSheet>
   );
 }

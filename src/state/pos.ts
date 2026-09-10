@@ -142,7 +142,15 @@ export function createPosStore(repo: CheckRepository) {
       setActive(id) { set({ activeId: id }); },
 
       async openSeat(seatId, guests, setPrice) {
-        const c = newCheck(get().date, seatId, guests, setPrice, nowISO(), whoAmI());
+        const at = nowISO();
+        const c = newCheck(get().date, seatId, guests, setPrice, at, whoAmI());
+        // お通し・チャージのように「入店したら人数ぶん」の商品を、その場で入れておく。
+        // 毎回手で押していたぶんを消す（消したいときは行をタップして取り消せる）
+        const auto = (useApp.getState().ledger.menu ?? []).filter((m) => m.active && m.autoOnEntry && m.kind === "normal");
+        for (const m of auto) {
+          c.lines.push(lineFromMenu(m, at, undefined, Math.max(1, Math.floor(guests))));
+          c.log.push({ at, by: whoAmI(), act: "自動で追加", detail: `${m.name} × ${guests}名` });
+        }
         set({ checks: [...get().checks, c], activeId: c.id });
         await repo.put(c);
         return c.id;

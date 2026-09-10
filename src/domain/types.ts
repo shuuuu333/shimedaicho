@@ -163,6 +163,9 @@ export interface MenuItem {
   backItemId?: string;
   active: boolean;
   sort: number;
+  /** 入店したときに、人数ぶんを自動で入れる（お通し・チャージ）。
+   *  毎回手で押していたぶんを消す。キャストに紐づく商品は誰の分か決まらないので対象外 */
+  autoOnEntry?: boolean;
 }
 
 /** 席。ガールズバーはカウンター番号、コンカフェはテーブル */

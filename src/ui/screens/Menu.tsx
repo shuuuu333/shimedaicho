@@ -156,6 +156,16 @@ export function PosSettings() {
                         {L.backItems.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                       </select></label>
                   </div>
+                  {m.kind === "normal" && (
+                    <label className="lrow" style={{ cursor: "pointer" }}>
+                      <div className="g">
+                        <div className="t">入店したら人数ぶん入れる</div>
+                        <div className="s">お通し・チャージ{m.price > 0 ? ` ・ 2名なら ${yen(m.price * 2)}` : ""}</div>
+                      </div>
+                      <input type="checkbox" checked={!!m.autoOnEntry}
+                        onChange={(e) => setItem(m.id, { autoOnEntry: e.target.checked || undefined })} />
+                    </label>
+                  )}
                 </div>
               ))}
             </div>
