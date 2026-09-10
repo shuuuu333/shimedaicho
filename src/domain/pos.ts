@@ -142,8 +142,35 @@ export function checkTotals(c: Check, rule: PosRule): CheckTotals {
   const asked = subtotal + tableCharge + tax;
   const discount = Math.min(Math.max(0, Math.floor(c.discount?.amount ?? 0)), asked);
 
+  // カード手数料は、丸めたあとの請求額に足す（お客様に見せる額をきりのいい数から動かさない）
+  const cardFee = Math.max(0, Math.floor(c.cardFee ?? 0));
   return { baseAmount, extendAmount, setAmount, itemAmount, subtotal, tableCharge, tax, taxBase,
-           discount, total: roundDown(asked - discount, rule.roundTo) };
+           discount, cardFee, total: roundDown(asked - discount, rule.roundTo) + cardFee };
+}
+
+/** カード払いのときにお客様からもらう手数料を、伝票に書き込む。
+ *  現金のときと、設定で「店がかぶる」にしているときは欄そのものを消す。
+ *
+ *  率は Shop.cardFeeRate（カード会社に取られる率）を使いまわす。設定を 2 つに
+ *  分けると、どちらを直したのか分からなくなるため。
+ *  店側の控除（dayTotals.fee・カード未回収）はどちらの設定でも今までどおり効く。
+ *  カード会社は誰が負担を決めたかに関わらず取っていくので、そこは事実として変わらない。 */
+export function applyCardFee(c: Check, rule: PosRule, shopFeeRate: number, method: "cash" | "card"): void {
+  delete c.cardFee;
+  if (method !== "card" || !rule.cardFeeOnGuest) return;
+  const rate = Number.isFinite(shopFeeRate) ? shopFeeRate : 0;
+  if (rate <= 0) return;
+  // ここでは cardFee を消してあるので、checkTotals は素の請求額を返す
+  const fee = Math.floor((checkTotals(c, rule).total * rate) / 100);
+  if (fee > 0) c.cardFee = fee;
+}
+
+/** その伝票をカードで会計したときの請求額（画面に「カードなら ¥X」と出すため）。
+ *  伝票は書き換えない */
+export function cardTotalOf(c: Check, rule: PosRule, shopFeeRate: number): number {
+  const copy: Check = { ...c, cardFee: undefined };
+  applyCardFee(copy, rule, shopFeeRate, "card");
+  return checkTotals(copy, rule).total;
 }
 
 /** 受け取った額の合計 */

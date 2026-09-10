@@ -205,6 +205,10 @@ export interface PosRule {
   taxOnSet: boolean;
   taxOnExtend: boolean;
   taxOnItems: boolean;
+  /** カード払いのとき、カード手数料をお客様に上乗せして請求するか。
+   *  率は Shop.cardFeeRate（カード会社に取られる率）をそのまま使う。
+   *  false（既定）なら今までどおり店がかぶる */
+  cardFeeOnGuest?: boolean;
   /** 残り何分でアラートを出すか */
   alertBeforeMin: number;
   /** 時間が来たら確認なしで延長を足すか */
@@ -280,6 +284,9 @@ export interface Check {
   /** 預り金 */
   received?: number;
   status: "open" | "closed";
+  /** カード払いでお客様からもらった手数料。会計のときに確定して写す。
+   *  現金に戻したり会計を取り消したりすると消える */
+  cardFee?: number;
   log: CheckLog[];
   /** 紙伝票に番号を振っている店のための番号。
    *  番号は書き忘れると「抜け番」に見えて嘘の警告を出すので、まず枚数で照合する。
@@ -303,6 +310,8 @@ export interface CheckTotals {
   tax: number;
   /** 税がかかった金額（何に税が乗ったかを画面で説明するため） */
   taxBase: number;
+  /** カード払いでお客様からもらう手数料。現金なら 0 */
+  cardFee: number;
   discount: number;
   /** 丸めたあとの請求額 */
   total: number;

@@ -8,6 +8,7 @@ import { CloudCard } from "../components/CloudCard";
 import { LineCard } from "../components/LineCard";
 import { PinCard } from "../components/PinCard";
 import { PosSettings } from "./Menu";
+import { defaultPosRule } from "../../domain/migrate";
 import { InstallCard } from "../components/InstallCard";
 import { useCloud } from "../../state/cloud";
 import { uid } from "../../domain/format";
@@ -63,6 +64,7 @@ export function Settings() {
   };
   const fileRef = useRef<HTMLInputElement>(null);
   const S = L.shop;
+  const rule = L.posRule ?? defaultPosRule();
   const role = useCloud((s) => s.role());
   const theme = useApp((s) => s.theme);
   const setTheme = useApp((s) => s.setTheme);
@@ -174,7 +176,23 @@ export function Settings() {
         <div className="hint" style={{ margin: "-5px 0 11px" }}>日報で出勤にすると、この時刻が自動で入ります。遅刻・早退はその場のボタンで直せます。</div>
         <label className="field"><span className="lbl">派遣の基本日給（保証額）</span><NumberField value={S.dispatchGuarantee} onChange={(v) => shop("dispatchGuarantee", v ?? 0)} /></label>
         <label className="field"><span className="lbl">カード手数料（％）</span><NumberField decimal value={S.cardFeeRate} onChange={(v) => shop("cardFeeRate", v ?? 0)} /></label>
-        <div className="hint">カード売上からこの率を引いた額が「カード未回収」に積まれ、入金を記録すると消えます。</div>
+        <div className="hint">カード会社に取られる率です。カード売上からこの率を引いた額が「カード未回収」に積まれ、入金を記録すると消えます。</div>
+        <label className="lrow" style={{ cursor: "pointer" }}>
+          <div className="g">
+            <div className="t">この手数料をお客様に請求する</div>
+            <div className="s">
+              {rule.cardFeeOnGuest
+                ? `レジでカードを選ぶと、ご請求に ＋${S.cardFeeRate}％ が乗ります`
+                : "いまは店がかぶっています（ご請求は現金と同じ額）"}
+            </div>
+          </div>
+          <input type="checkbox" checked={!!rule.cardFeeOnGuest}
+            onChange={(e) => update((D) => { (D.posRule ??= defaultPosRule()).cardFeeOnGuest = e.target.checked || undefined; })} />
+        </label>
+        <div className="hint">
+          お客様に請求しても、カード会社に取られるぶんは変わらないので、上の控除はどちらの設定でも効きます。
+          お客様からもらったぶんが売上に乗るので、手取りが現金と同じくらいになります。
+        </div>
       </div>
 
       <div className="card" id="set-backs">

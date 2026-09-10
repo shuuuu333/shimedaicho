@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { usePos } from "../../state/pos";
-import { cashSuggestions, changeDue, checkTotals } from "../../domain/pos";
+import { cardTotalOf, cashSuggestions, changeDue, checkTotals } from "../../domain/pos";
+import { useApp } from "../../state/store";
 import { yen } from "../../domain/format";
 import { BottomSheet } from "../components/BottomSheet";
 import { NumberField } from "../components/NumberField";
@@ -8,6 +9,7 @@ import type { Check, PosRule } from "../../domain/types";
 
 /** 会計。現金は「金額ボタン → 確定」の 2 タップ、カードは 1 タップで終わる */
 export function PayView({ check, rule, onClose }: { check: Check; rule: PosRule; onClose: () => void }) {
+  const shopFeeRate = useApp((s) => s.ledger.shop.cardFeeRate);
   const pay = usePos((s) => s.pay);
   const setDiscount = usePos((s) => s.setDiscount);
   const [received, setReceived] = useState<number | null>(null);
@@ -17,6 +19,9 @@ export function PayView({ check, rule, onClose }: { check: Check; rule: PosRule;
   const t = checkTotals(check, rule);
   const change = received == null ? null : changeDue(received, t.total);
   const short = received != null && received < t.total;
+  // カード払いだけ手数料を上乗せする設定のとき、押す前に金額を見せる
+  const cardTotal = cardTotalOf(check, rule, shopFeeRate);
+  const cardFee = cardTotal - t.total;
 
   return (
     <BottomSheet open title="会計" onClose={onClose}>
@@ -28,6 +33,10 @@ export function PayView({ check, rule, onClose }: { check: Check; rule: PosRule;
         {t.tax > 0 && <div className="lrow"><div className="g"><div className="t">消費税</div><div className="s">{rule.taxRate}％ ・ 対象 {yen(t.taxBase)}</div></div><div className="a">{yen(t.tax)}</div></div>}
         {t.discount > 0 && <div className="lrow"><div className="g"><div className="t">値引き</div></div><div className="a neg">−{yen(t.discount)}</div></div>}
         <div className="lrow total"><div className="g"><div className="t">ご請求</div></div><div className="a">{yen(t.total)}</div></div>
+        {cardFee > 0 && (
+          <div className="lrow"><div className="g"><div className="t">カード手数料</div><div className="s">{shopFeeRate}％ ・ カードで払うときだけ</div></div>
+            <div className="a">＋{yen(cardFee)}</div></div>
+        )}
       </div>
 
       <div className="cashrow">
@@ -68,8 +77,8 @@ export function PayView({ check, rule, onClose }: { check: Check; rule: PosRule;
           onClick={() => { void pay(check.id, "cash", t.total, received ?? t.total); onClose(); }}>
           現金で会計
         </button>
-        <button type="button" className="btn" onClick={() => { void pay(check.id, "card", t.total); onClose(); }}>
-          カードで会計
+        <button type="button" className="btn" onClick={() => { void pay(check.id, "card", cardTotal); onClose(); }}>
+          カードで会計{cardFee > 0 ? <><br /><span className="num" style={{ fontSize: 12 }}>{yen(cardTotal)}</span></> : null}
         </button>
       </div>
     </BottomSheet>

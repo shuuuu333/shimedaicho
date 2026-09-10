@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { produce } from "immer";
 import type { Check, Ledger, MenuItem } from "../domain/types";
-import { businessDate, checkTotals, lineFromMenu, newCheck, normalizeCheck } from "../domain/pos";
+import { applyCardFee, businessDate, checkTotals, lineFromMenu, newCheck, normalizeCheck } from "../domain/pos";
 import { defaultPosRule } from "../domain/migrate";
 import { applyChecksToDay } from "../domain/close";
 import { LocalCheckRepository, type CheckRepository } from "../data/checkRepo";
@@ -50,6 +50,7 @@ export interface PosStore {
   /** 延長。分数と 1 人あたりの料金を、押した時点の値で記録する */
   extend(id: string, min: number, price: number): Promise<void>;
   setDiscount(id: string, name: string, amount: number): Promise<void>;
+  /** 会計する。合計はここで伝票から出し直すので、呼び出し側の total は画面の確認用 */
   pay(id: string, method: "cash" | "card", total: number, received?: number): Promise<void>;
   reopen(id: string): Promise<void>;
   /** 会計済みの伝票に、あとから注文を足す（「戻す → 追加 → 会計」の 3 手を 1 手にする）。
@@ -219,14 +220,21 @@ export function createPosStore(repo: CheckRepository) {
         });
       },
 
-      async pay(id, method, total, received) {
+      async pay(id, method, _total, received) {
+        const L = useApp.getState().ledger;
+        const rule = L.posRule ?? defaultPosRule();
         await write(id, (c) => {
           if (c.status === "closed") return;
-          c.payments = [{ method, amount: total }];
+          // 手数料は伝票に書き込んでから合計を出し直す。呼び出し側の数字を信じずに
+          // ここで確定させることで、画面と保存された額がずれない
+          applyCardFee(c, rule, L.shop.cardFeeRate, method);
+          const amount = checkTotals(c, rule).total;
+          c.payments = [{ method, amount }];
           if (method === "cash" && received != null) c.received = Math.floor(received);
           c.status = "closed";
           c.closedAt = nowISO();
-          c.log.push({ at: nowISO(), by: whoAmI(), act: "会計", detail: `${method === "cash" ? "現金" : "カード"} ¥${total}` });
+          const fee = c.cardFee ? `（うちカード手数料 ¥${c.cardFee}）` : "";
+          c.log.push({ at: nowISO(), by: whoAmI(), act: "会計", detail: `${method === "cash" ? "現金" : "カード"} ¥${amount}${fee}` });
         });
         set({ activeId: null });
       },
@@ -247,10 +255,13 @@ export function createPosStore(repo: CheckRepository) {
           // 前に足して受け取らなかったぶんがあるときに、画面と記録が食い違う
           const before = c.payments[0]?.amount ?? checkTotals(c, rule).total;
           for (const { item, castId } of items) c.lines.push(lineFromMenu(item, nowISO(), castId));
+          const method = c.payments[0]?.method ?? "cash";
+          // 足したぶんにもカード手数料を掛け直す（受け取る場合だけ）
+          if (collect) applyCardFee(c, rule, L.shop.cardFeeRate, method);
           const after = checkTotals(c, rule).total;
           c.log.push({ at: nowISO(), by: whoAmI(), act: "あとから追加", detail: label });
           if (collect) {
-            c.payments = [{ method: c.payments[0]?.method ?? "cash", amount: after }];
+            c.payments = [{ method, amount: after }];
             c.log.push({ at: nowISO(), by: whoAmI(), act: "追加分を受け取った", detail: `¥${before} → ¥${after}` });
           } else {
             // 受け取った額は動かさない。バックの本数だけ増える（実際に出しているので）
@@ -266,6 +277,7 @@ export function createPosStore(repo: CheckRepository) {
           c.payments = [];
           delete c.received;
           delete c.closedAt;
+          delete c.cardFee;   // 支払い方法が決まっていない状態に戻す
           c.log.push({ at: nowISO(), by: whoAmI(), act: "会計を戻す" });
         });
         set({ activeId: id });

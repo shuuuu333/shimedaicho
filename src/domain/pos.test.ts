@@ -210,6 +210,71 @@ function closed(_L: Ledger, guests: number, lines: [string, number, string | und
   return c;
 }
 
+describe("カード手数料をお客様に請求する", () => {
+  const onGuest: PosRule = { ...RULE, cardFeeOnGuest: true };
+
+  it("設定が切のうちは、カードでも現金と同じ額", () => {
+    const c = check(2, 3000);   // 2名 × ¥3,000 ＝ ¥6,000（税は全部 false）
+    expect(P.checkTotals(c, RULE).total).toBe(6000);
+    expect(P.cardTotalOf(c, RULE, 5)).toBe(6000);
+    expect(P.checkTotals(c, RULE).cardFee).toBe(0);
+  });
+
+  it("入にすると、カードのときだけ上乗せされる", () => {
+    const c = check(2, 3000);
+    expect(P.cardTotalOf(c, onGuest, 5)).toBe(6300);      // ＋5%
+    expect(P.checkTotals(c, onGuest).total).toBe(6000);   // 伝票そのものは変わらない
+  });
+
+  it("applyCardFee は伝票に書き込み、現金では消す", () => {
+    const c = check(2, 3000);
+    P.applyCardFee(c, onGuest, 5, "card");
+    expect(c.cardFee).toBe(300);
+    expect(P.checkTotals(c, onGuest).total).toBe(6300);
+
+    P.applyCardFee(c, onGuest, 5, "cash");
+    expect(c.cardFee).toBe(undefined);
+    expect(P.checkTotals(c, onGuest).total).toBe(6000);
+  });
+
+  it("二度かけても額が膨らまない", () => {
+    const c = check(2, 3000);
+    P.applyCardFee(c, onGuest, 5, "card");
+    P.applyCardFee(c, onGuest, 5, "card");
+    expect(c.cardFee).toBe(300);
+    expect(P.checkTotals(c, onGuest).total).toBe(6300);
+  });
+
+  it("率が 0 のときは付けない", () => {
+    const c = check(2, 3000);
+    P.applyCardFee(c, onGuest, 0, "card");
+    expect(c.cardFee).toBe(undefined);
+  });
+
+  it("手数料は丸めたあとの請求額に乗る（お客様に見せる額をきりのいい数から動かさない）", () => {
+    const rounded: PosRule = { ...onGuest, roundTo: 100 };
+    const c = check(1, 3333);
+    // 3,333 → 100円単位で切り捨てて 3,300 → その 5% ＝ 165
+    expect(P.checkTotals(c, rounded).total).toBe(3300);
+    expect(P.cardTotalOf(c, rounded, 5)).toBe(3465);
+  });
+
+  it("値引きしたあとの額に乗る", () => {
+    const c = check(2, 3000);
+    c.discount = { name: "値引き", amount: 1000 };
+    expect(P.checkTotals(c, onGuest).total).toBe(5000);
+    expect(P.cardTotalOf(c, onGuest, 5)).toBe(5250);
+  });
+
+  it("日報にはお客様が払った額（手数料こみ）がカード売上として入る", () => {
+    const L = shopLedger();
+    const c = closed(L, 2, [], 0, 0);
+    c.cardFee = 300;
+    c.payments.push({ method: "card", amount: 3300 });
+    expect(CL.applyChecksToDay(emptyDay(), [c], L).cardSales).toBe(3300);
+  });
+});
+
 describe("営業日の判定", () => {
   const shop = { openTime: "20:00", closeTime: "01:00" };
   const at = (s: string) => new Date(s);
