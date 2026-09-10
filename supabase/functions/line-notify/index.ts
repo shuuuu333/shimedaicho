@@ -4,8 +4,12 @@
 // 公式アカウントとして送信できる鍵。ブラウザに置くと配ってしまうことになるので、
 // Supabase の Secrets に置いて、ここからだけ使う。
 //
-// 呼べるのは「その店のオーナー」だけ。文面はアプリ側（calc.ts を持っている方）が
+// 呼べるのは「その店のオーナーとスタッフ」。文面はアプリ側（calc.ts を持っている方）が
 // 作って渡す。ここは中身を組み立てない。
+//
+// スタッフも通せるようにしてあるのは、営業中の通知のため。
+// 通知の値打ちは「オーナーが店にいないとき」に出るので、カウンターに立っている
+// スタッフの端末から送れないと意味がない。キャストは通さない。
 //
 // 必要な Secrets:
 //   LINE_CHANNEL_TOKEN  … Messaging API のチャネルアクセストークン（長期）
@@ -57,10 +61,13 @@ Deno.serve(async (req) => {
   const { data: user } = await supabase.auth.getUser();
   if (!user?.user) return json({ error: "ログインが確認できません" }, 401);
 
-  const { data: shop, error } = await supabase
-    .from("shops").select("id, owner").eq("id", shopId).maybeSingle();
+  // my_role() は security definer で、その店での役割（owner / staff / cast）を返す。
+  // ここで判定を 1 か所に寄せておくと、招待の仕組みが変わっても付いてくる
+  const { data: role, error } = await supabase.rpc("my_role", { sid: shopId });
   if (error) return json({ error: "店を確認できませんでした" }, 500);
-  if (!shop || shop.owner !== user.user.id) return json({ error: "この店のオーナーだけが送れます" }, 403);
+  if (role !== "owner" && role !== "staff") {
+    return json({ error: "この店のオーナーとスタッフだけが送れます" }, 403);
+  }
 
   // 送信先が決まっていれば その人へ、無ければ 友だち全員へ
   const to = Deno.env.get("LINE_TO");

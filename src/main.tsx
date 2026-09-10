@@ -5,6 +5,7 @@ import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/app.css";
 import { registerSW } from "virtual:pwa-register";
+import { flushNotify } from "./state/notify";
 
 /** 新しい版が出たら自動で入れ替える。
  *  ホーム画面のアプリは古い版を抱えたままになりやすいので、
@@ -39,6 +40,11 @@ void (async () => {
     await navigator.storage.persist();
   } catch { /* 使えない端末では何もしない */ }
 })();
+
+/** ためている営業中の通知を、閉じる前に送り切る。
+ *  1 時間まとめにしていると、閉店して画面を閉じた時点で最後のぶんが残るため */
+window.addEventListener("pagehide", () => { flushNotify(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushNotify(); });
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

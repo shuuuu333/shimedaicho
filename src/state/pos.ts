@@ -9,6 +9,7 @@ import { MANUAL_TAB_COLLECTED, applyChecksToDay, setManual } from "../domain/clo
 import { LocalCheckRepository, type CheckRepository } from "../data/checkRepo";
 import { useApp } from "./store";
 import { useCloud } from "./cloud";
+import { bindPosStore, notifyPos } from "./notify";
 
 /** 記録に残す「誰が」。招待のときに入れた名前を先に見る。
  *  メールだけを見ていると、LINE でログインしたキャストが全員「ログイン中」になり、
@@ -19,6 +20,12 @@ function whoAmI(): string {
   } catch { return "端末"; }
 }
 const nowISO = (): string => new Date().toISOString();
+
+/** 通知に出す席の名前 */
+function seatNameOf(c: Check): string {
+  const L = useApp.getState().ledger;
+  return (L.seats ?? []).find((s) => s.id === c.seatId)?.name ?? "席なし";
+}
 
 export interface PosStore {
   loaded: boolean;
@@ -199,6 +206,7 @@ export function createPosStore(repo: CheckRepository) {
         }
         set({ checks: [...get().checks, c], activeId: c.id });
         await repo.put(c);
+        notifyPos({ kind: "enter", at, seat: seatNameOf(c), guests: c.guests });
         return c.id;
       },
 
@@ -223,12 +231,18 @@ export function createPosStore(repo: CheckRepository) {
       },
 
       async voidLine(id, lineId, reason) {
+        const before = get().checks.find((x) => x.id === id)?.lines.find((x) => x.id === lineId);
         await write(id, (c) => {
           const l = c.lines.find((x) => x.id === lineId);
           if (!l || l.voided) return;
           l.voided = { at: nowISO(), by: whoAmI(), reason };
           c.log.push({ at: nowISO(), by: whoAmI(), act: "取消", detail: `${l.name}×${l.qty}／${reason}` });
         });
+        const c = get().checks.find((x) => x.id === id);
+        // 取消は「現金の抜き取り」の入口なので、オーナーにその場で知らせる
+        if (c && before && !before.voided) {
+          notifyPos({ kind: "void", at: nowISO(), seat: seatNameOf(c), name: `${before.name}×${before.qty}`, reason, by: whoAmI() });
+        }
       },
 
       async setSetPrice(id, price) {
@@ -254,6 +268,8 @@ export function createPosStore(repo: CheckRepository) {
           c.extends.push({ min, price, at: nowISO() });
           c.log.push({ at: nowISO(), by: whoAmI(), act: "延長", detail: `＋${min}分 ¥${price}／人` });
         });
+        const c = get().checks.find((x) => x.id === id);
+        if (c) notifyPos({ kind: "extend", at: nowISO(), seat: seatNameOf(c), min });
       },
 
       async setDiscount(id, name, amount) {
@@ -263,6 +279,9 @@ export function createPosStore(repo: CheckRepository) {
           c.discount = { name, amount: a };
           c.log.push({ at: nowISO(), by: whoAmI(), act: "値引き", detail: `${name} ¥${a}` });
         });
+        const c = get().checks.find((x) => x.id === id);
+        const a = Math.max(0, Math.floor(amount));
+        if (c && a > 0) notifyPos({ kind: "discount", at: nowISO(), seat: seatNameOf(c), amount: a, by: whoAmI() });
       },
 
       async pay(id, method, _total, received, tabName) {
@@ -289,6 +308,13 @@ export function createPosStore(repo: CheckRepository) {
           c.log.push({ at: nowISO(), by: whoAmI(), act: "会計", detail: `${how} ¥${amount}${fee}` });
         });
         set({ activeId: null });
+        const done = get().checks.find((c) => c.id === id);
+        if (done?.status === "closed") {
+          notifyPos({
+            kind: "pay", at: done.closedAt ?? nowISO(), seat: seatNameOf(done), guests: done.guests,
+            amount: done.payments[0]?.amount ?? 0, method: done.payments[0]?.method ?? "cash", tabName: done.tabName,
+          });
+        }
       },
 
       async addLate(id, items, collect) {
@@ -359,3 +385,7 @@ export function createPosStore(repo: CheckRepository) {
 }
 
 export const usePos = createPosStore(new LocalCheckRepository());
+
+// 通知に「いま何組入っているか」を添えるために、伝票を読む口を渡しておく。
+// notify → pos の import を作ると循環するので、こちらから渡す
+bindPosStore(usePos);

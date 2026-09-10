@@ -346,7 +346,9 @@ export const useCloud = create<CloudState>()((set, get) => {
     async sendLine(text) {
       const { shopId } = get();
       if (!shopId) throw new Error("先にクラウド同期でお店を選んでください");
-      if (!get().isOwner()) throw new Error("オーナーだけが送れます");
+      // 営業中の通知はスタッフの端末からも送る（オーナーが店にいないときのための機能なので）。
+      // 最後の判定はサーバー側（line-notify の my_role）で行う
+      if (get().role() === "cast") throw new Error("キャストの端末からは送れません");
       await api.sendLineReport(shopId, text);
     },
     isOwner() {

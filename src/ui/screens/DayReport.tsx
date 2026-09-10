@@ -18,6 +18,7 @@ import { useCloud } from "../../state/cloud";
 import { dayReportText } from "../../domain/report";
 import { lateLabel, lateMinutes, planTimes } from "../../domain/plans";
 import { detectMisses, diagnoseCash } from "../../domain/diagnose";
+import { countSent } from "../../state/notify";
 
 const STEPS = ["売上", "出勤", "派遣", "経費", "締め"];
 
@@ -62,6 +63,7 @@ function useLineReport(dk: string) {
     if (app.ledger.shop.lineAuto === false) return;
     app.editDay(dk, (dd) => { dd.lineSentAt = new Date().toISOString(); });
     const text = dayReportText(useApp.getState().ledger, dk);
+    countSent();
     void sendLine(text)
       .then(() => showToast("締めを LINE に送りました"))
       .catch((e: Error) => {

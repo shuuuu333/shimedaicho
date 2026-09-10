@@ -59,6 +59,8 @@ export interface Shop {
   closeTime: string;
   /** 締め（実査現金の入力）が終わったら、自動で LINE に送るか */
   lineAuto?: boolean;
+  /** 営業中の LINE 通知の決まり */
+  notify?: NotifyRule;
 }
 
 /** シフト予定の 1 件。時刻が空なら店の開店・閉店時刻を使う */
@@ -66,6 +68,22 @@ export interface PlanEntry {
   castId: string;
   in?: string;
   out?: string;
+}
+
+/** 営業中に LINE へ送る通知の決まり。
+ *  LINE の無料枠は月 200 通なので、既定は「1 時間ぶんをまとめて 1 通」にしてある。
+ *  1 件ずつ送ると、1 日 10 組の店で月 600 通を超えて送れなくなる */
+export interface NotifyRule {
+  /** 営業中の通知を使うか */
+  on: boolean;
+  /** 入店を知らせる */
+  enter: boolean;
+  /** 会計を知らせる */
+  pay: boolean;
+  /** 取消・値引きを知らせる（現金の抜き取りの見張り） */
+  alert: boolean;
+  /** 何分ぶんをまとめて 1 通にするか。0 ならためずにすぐ送る */
+  batchMin: number;
 }
 
 /** 在籍キャストの 1 日ぶんの出勤 */
