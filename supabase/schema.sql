@@ -210,3 +210,72 @@ create policy ledgers_update on public.ledgers for update
 drop policy if exists members_select on public.shop_members;
 create policy members_select on public.shop_members for select
   using (public.is_owner(shop_id) or user_id = auth.uid() or lower(email) = public.my_email());
+
+-- ============================================================
+-- P3: 伝票を複数の端末で共有する（check_ops）
+--
+-- 伝票まるごとを上書きで送ると、2 台が同時に同じ卓を触ったときに
+-- 「後から送った方が相手の注文を消す」。だから「ビールを 1 本足した」という
+-- 操作だけを送り、伝票の今の姿はその操作を順に畳んで作る。
+--
+-- この表は追記だけ。行を書き換えることも消すこともしない。
+-- 取消も「取り消した」という操作を足すことで表す（不正防止の土台でもある）。
+--
+-- 何度実行しても安全。
+-- ============================================================
+
+create table if not exists public.check_ops (
+  -- 端末が作る id。電波が切れて送り直しても、同じ id なら二重にならない
+  id text primary key,
+  shop_id uuid not null references public.shops(id) on delete cascade,
+  check_id text not null,
+  -- 営業日。1 日ぶんを引くのに使う
+  date text not null,
+  -- 押した時刻。畳む順はこれで決める（同時刻は id で決める）
+  at timestamptz not null,
+  op text not null,
+  -- 誰が押したか。表示用の名前（shop_members.name）
+  by_name text not null default '',
+  -- 誰のトークンで書かれたか。表示ではなく、あとから追うため
+  by_user uuid references auth.users(id) on delete set null,
+  -- op ごとの中身（金額・行・理由など）。押した時点の値を写してある
+  payload jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists check_ops_shop_date on public.check_ops (shop_id, date);
+create index if not exists check_ops_check on public.check_ops (check_id, at);
+
+alter table public.check_ops enable row level security;
+
+-- 読めるのはオーナーとスタッフ。キャストには伝票を見せない。
+-- （キャストが自分の携帯でレジを打つ運用は can_register を足すときに開ける）
+drop policy if exists check_ops_select on public.check_ops;
+create policy check_ops_select on public.check_ops for select
+  using (public.my_role(shop_id) in ('owner','staff'));
+
+-- 書けるのも今はオーナーとスタッフだけ。
+-- by_user は必ず自分にする（他人が押したことにできないようにする）
+drop policy if exists check_ops_insert on public.check_ops;
+create policy check_ops_insert on public.check_ops for insert
+  with check (
+    public.my_role(shop_id) in ('owner','staff')
+    and (by_user is null or by_user = auth.uid())
+  );
+
+-- 追記だけ。書き換えも削除もさせない（ポリシーを作らなければ誰も通らない）
+drop policy if exists check_ops_update on public.check_ops;
+drop policy if exists check_ops_delete on public.check_ops;
+
+-- Realtime に流す。ほかの端末が押した操作が、その場で届くようにする
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'check_ops'
+    ) then
+      alter publication supabase_realtime add table public.check_ops;
+    end if;
+  end if;
+end $$;
