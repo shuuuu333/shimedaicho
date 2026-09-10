@@ -11,6 +11,8 @@ import { ChevLeft, ChevRight, Plus } from "../icons";
 import { csvFilename, monthCSV, offerFile } from "../../data/backup";
 import { forecastMonth, type Forecast } from "../../domain/forecast";
 import { arrivalsByHour, avgPerGroup, busiestHour } from "../../domain/arrivals";
+import { adviceFor, expenseDeltas, profitBridge, weekdayCost, type Advice, type ProfitBridge } from "../../domain/advice";
+import { BottomSheet } from "../components/BottomSheet";
 import { defaultPosRule } from "../../domain/migrate";
 import { usePos } from "../../state/pos";
 
@@ -336,6 +338,8 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
 
       {fc.ready && <ForecastCard fc={fc} />}
 
+      <AdviceCard L={L} m={m} />
+
       <ArrivalCard L={L} m={m} />
 
       <div className="tiles">
@@ -496,5 +500,149 @@ function ArrivalCard({ L, m }: { L: ReturnType<typeof useApp.getState>["ledger"]
         </div>
       )}
     </div>
+  );
+}
+
+/** 利益をどう上げるか。効き目の大きい打ち手を上から並べ、
+ *  タップすると「先月と比べて何がどれだけ効いたか」の内訳を開く。 */
+function AdviceCard({ L, m }: { L: ReturnType<typeof useApp.getState>["ledger"]; m: string }) {
+  const [open, setOpen] = useState(false);
+  const list = useMemo(() => adviceFor(L, m), [L, m]);
+  const bridge = useMemo(() => profitBridge(L, m), [L, m]);
+  // 利益の打ち手だけをカードに出す。現金の手当ては金額が大きくても打ち手ではないので、
+  // 内訳のシートの方にまとめる
+  const levers = list.filter((x) => x.kind === "profit");
+  const cash = list.filter((x) => x.kind === "cash");
+  const [top, ...rest] = levers;
+
+  if (!list.length && !bridge.ready) return null;
+
+  return (
+    <div className="card">
+      <div className="cardhead">
+        <h2>利益をどう上げるか</h2>
+        {bridge.ready && (
+          <span className={`pill ${bridge.diff >= 0 ? "ok" : "bad"}`}>
+            先月より {bridge.diff >= 0 ? "+" : "−"}<span className="num">{yenShort(Math.abs(bridge.diff))}</span>
+          </span>
+        )}
+      </div>
+      <p className="sub">台帳の数字だけで出しています。効き目の大きい順です。</p>
+
+      {levers.length === 0 ? (
+        <div className="hint" style={{ marginBottom: 0 }}>いまのところ、目立って直せるところはありません。</div>
+      ) : (
+        <>
+          <div className="lrow" style={{ alignItems: "flex-start" }}>
+            <div className="g">
+              <div className="t">{top.title}</div>
+              <div className="s jp" style={{ whiteSpace: "normal" }}>{top.body}</div>
+            </div>
+            <div className="a num" style={{ color: "var(--warn)" }}>{yen(top.impact)}</div>
+          </div>
+          {rest.slice(0, 2).map((x) => (
+            <div key={x.id} className="lrow" style={{ alignItems: "flex-start" }}>
+              <div className="g"><div className="t">{x.title}</div></div>
+              <div className="a num">{yen(x.impact)}</div>
+            </div>
+          ))}
+          {rest.length > 2 && <div className="hint">ほか {rest.length - 2}件</div>}
+        </>
+      )}
+
+      {cash.length > 0 && (
+        <div className="hint" style={{ marginTop: 4 }}>
+          あわせて現金の手当てが要ります：{cash.map((x) => x.title).join(" ／ ")}
+        </div>
+      )}
+
+      {bridge.ready && (
+        <div className="btnrow" style={{ marginTop: 10 }}>
+          <button type="button" className="btn sm" onClick={() => setOpen(true)}>先月との差を分けて見る<ChevRight size={13} /></button>
+        </div>
+      )}
+
+      {open && <AdviceSheet L={L} m={m} list={list} bridge={bridge} onClose={() => setOpen(false)} />}
+    </div>
+  );
+}
+
+/** 先月との差の内訳。合計は必ず利益の差に一致する（合わない分析は読まれないので） */
+function AdviceSheet({ L, m, list, bridge, onClose }: {
+  L: ReturnType<typeof useApp.getState>["ledger"]; m: string;
+  list: Advice[]; bridge: ProfitBridge; onClose: () => void;
+}) {
+  const exps = useMemo(() => expenseDeltas(L, m).filter((x) => x.diff !== 0).slice(0, 6), [L, m]);
+  const wd = useMemo(() => weekdayCost(L, m).filter((x) => x.sales > 0), [L, m]);
+
+  return (
+    <BottomSheet open title={`${Number(m.slice(5, 7))}月 と ${Number(bridge.prevMonth.slice(5, 7))}月 の差`} onClose={onClose}>
+      <div className="lrow"><div className="g"><div className="t">{Number(bridge.prevMonth.slice(5, 7))}月の営業利益</div></div>
+        <div className="a num">{yen(bridge.prevProfit)}</div></div>
+      <div className="lrow"><div className="g"><div className="t">{Number(m.slice(5, 7))}月の営業利益</div></div>
+        <div className="a num">{yen(bridge.nowProfit)}</div></div>
+      <div className="lrow total"><div className="g"><div className="t">差</div></div>
+        <div className={`a num ${bridge.diff < 0 ? "neg" : ""}`}>{bridge.diff >= 0 ? "+" : ""}{yen(bridge.diff)}</div></div>
+
+      <div className="sechead" style={{ marginTop: 12 }}><div className="t">何が効いたか</div><div className="l" /></div>
+      <p className="hint" style={{ margin: "0 0 6px" }}>プラスが利益を押し上げたもの。全部足すと上の「差」になります。</p>
+      {bridge.parts.map((x) => (
+        <div key={x.id} className="lrow">
+          <div className="g"><div className="t">{x.label}</div>{x.note && <div className="s">{x.note}</div>}</div>
+          <div className="a num" style={{ color: x.diff >= 0 ? "var(--good)" : "var(--crit)" }}>
+            {x.diff >= 0 ? "+" : "−"}{yen(Math.abs(x.diff))}
+          </div>
+        </div>
+      ))}
+
+      {exps.length > 0 && (
+        <>
+          <div className="sechead" style={{ marginTop: 14 }}><div className="t">経費の中身</div><div className="l" /></div>
+          {exps.map((e) => (
+            <div key={e.name} className="lrow">
+              <div className="g"><div className="t">{e.name}</div><div className="s">{yen(e.prev)} → {yen(e.now)}</div></div>
+              <div className="a num" style={{ color: e.diff > 0 ? "var(--crit)" : "var(--good)" }}>
+                {e.diff > 0 ? "+" : "−"}{yen(Math.abs(e.diff))}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+
+      {wd.length >= 2 && (
+        <>
+          <div className="sechead" style={{ marginTop: 14 }}><div className="t">曜日ごとの人件費率</div><div className="l" /></div>
+          {[...wd].sort((a, b) => b.rate - a.rate).map((x) => (
+            <div key={x.dow} className="lrow">
+              <div className="g"><div className="t">{WD[x.dow]}曜</div>
+                <div className="s">{x.days}日 ・ 売上 {yenShort(x.sales)} ・ 人件費 {yenShort(x.labor)}</div></div>
+              <div className="a num" style={{ color: x.rate >= 60 ? "var(--crit)" : x.rate >= 50 ? "var(--warn)" : undefined }}>
+                {x.rate.toFixed(0)}%
+              </div>
+            </div>
+          ))}
+          <div className="hint">売上に対して人件費が何％かです。高い曜日から人を削るのが一番効きます。</div>
+        </>
+      )}
+
+      {([["profit", "利益の打ち手", "この額ぶん、利益が増えうるもの"],
+         ["cash", "現金の手当て", "利益は動きませんが、渡す日に現金が要ります"]] as const).map(([kind, title, sub]) => {
+        const rows = list.filter((x) => x.kind === kind);
+        if (!rows.length) return null;
+        return (
+          <div key={kind}>
+            <div className="sechead" style={{ marginTop: 14 }}><div className="t">{title}</div><div className="l" /><div className="n">{rows.length}件</div></div>
+            <p className="hint" style={{ margin: "0 0 6px" }}>{sub}</p>
+            {rows.map((x) => (
+              <div key={x.id} className="lrow" style={{ alignItems: "flex-start" }}>
+                <div className="g"><div className="t">{x.title}</div>
+                  <div className="s jp" style={{ whiteSpace: "normal" }}>{x.body}</div></div>
+                <div className="a num" style={{ color: kind === "profit" ? "var(--warn)" : "var(--ink-3)" }}>{yen(x.impact)}</div>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </BottomSheet>
   );
 }
