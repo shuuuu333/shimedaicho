@@ -198,7 +198,7 @@ function WageSheet({ cast, month, onClose }: { cast: Cast; month: string; onClos
   const addFrom = list.some((w) => w.from === month) ? shiftMonth(month, 1) : month;
 
   return (
-    <BottomSheet open title={`${cast.name || "（名前なし）"} の時給`} onClose={onClose}
+    <BottomSheet open title={`${cast.name || "（名前なし）"} の時給とバック`} onClose={onClose}
       footer={<span className="sum">{monthLabel(month)}の時給<b>{yen(castWageAt(cast, L.shop, month))}</b></span>}>
       <p className="hint" style={{ margin: "0 0 12px" }}>変更した月から、次の変更までその時給になります。過去の月の給料は動きません。</p>
 
@@ -257,6 +257,34 @@ function WageSheet({ cast, month, onClose }: { cast: Cast; month: string; onClos
           </div>
         ))}
       </div>
+
+      <div className="sechead" style={{ marginTop: 14 }}><div className="t">この子だけのバック単価</div><div className="l" /></div>
+      <p className="hint" style={{ margin: "0 0 8px" }}>
+        空欄なら店の単価を使います。0 と入れると「この子はこの項目のバックなし」になります。
+      </p>
+      {L.backItems.map((b) => {
+        const own = cast.backRates?.[b.id];
+        const shopRate = b.type === "amount" ? `${b.rate}%` : yen(b.rate);
+        return (
+          <div key={b.id} className="backrow">
+            <div><div className="bn">{b.name || "（項目名なし）"}</div>
+              <div className="br">店は {shopRate}{b.type === "amount" ? "" : " / 件"}</div></div>
+            <div className="ctl">
+              <NumberField style={{ width: 116 }} decimal value={own ?? null} placeholder={String(b.rate)}
+                aria-label={`${b.name} のこの子の単価`}
+                onChange={(v) => update((LL) => {
+                  const c = LL.casts[idx];
+                  if (v == null) {
+                    if (c.backRates) { delete c.backRates[b.id]; if (!Object.keys(c.backRates).length) delete c.backRates; }
+                  } else {
+                    (c.backRates ??= {})[b.id] = v;
+                  }
+                })} />
+            </div>
+          </div>
+        );
+      })}
+      {!L.backItems.length && <div className="empty">設定でバック項目を作ってください</div>}
     </BottomSheet>
   );
 }

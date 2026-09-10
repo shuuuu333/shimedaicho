@@ -15,6 +15,11 @@ export interface BackItem {
   rate: number;
   /** 派遣の単価 */
   rateD: number;
+  /** 売上％型（amount）のときの下限・上限（円）。
+   *  「ボトルは 20% だけど上限 5,000円」のような頭打ちを表す。
+   *  売っていない（対象売上 0）ときは効かない＝下限で勝手に付かない */
+  min?: number;
+  max?: number;
 }
 
 /** 時給の変更。from の月（YYYY-MM）から、その次の変更までこの時給を使う */
@@ -34,6 +39,9 @@ export interface Cast {
   wages?: WageChange[];
   /** ログイン用のメール。本人がシフトを見るときに使う */
   email?: string;
+  /** バック単価をこの子だけ変える。backItem.id → 単価（count なら円、amount なら％）。
+   *  入っていない項目は店の単価を使う。時給（wage）と同じ考え方 */
+  backRates?: Record<string, number>;
 }
 
 export interface Shop {

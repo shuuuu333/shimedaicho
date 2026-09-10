@@ -213,15 +213,32 @@ function toCast(v: unknown): Cast | null {
   if (wages) c.wages = wages;
   const email = str(v.email).trim().toLowerCase();
   if (email.includes("@")) c.email = email;
+  // この子だけのバック単価。数として読めるものだけ残す
+  if (isObj(v.backRates)) {
+    const r: Record<string, number> = {};
+    for (const k of Object.keys(v.backRates)) {
+      const n = toNum(v.backRates[k]);
+      if (n != null) r[k] = n;
+    }
+    if (Object.keys(r).length) c.backRates = r;
+  }
   return c;
 }
 function toBackItem(v: unknown): BackItem | null {
   if (!isObj(v)) return null;
   const rate = toNumOr(v.rate, 0);
-  return {
-    id: str(v.id) || uid(), name: str(v.name), type: v.type === "amount" ? "amount" : "count",
+  const type = v.type === "amount" ? "amount" : "count";
+  const item: BackItem = {
+    id: str(v.id) || uid(), name: str(v.name), type,
     rate, rateD: v.rateD == null ? rate : (toNum(v.rateD) ?? 0),
   };
+  // 下限・上限は売上％型のときだけ意味がある
+  if (type === "amount") {
+    const lo = toNum(v.min), hi = toNum(v.max);
+    if (lo != null) item.min = lo;
+    if (hi != null) item.max = hi;
+  }
+  return item;
 }
 
 const MENU_KINDS = new Set<MenuKind>(["normal", "castLinked"]);

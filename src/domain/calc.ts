@@ -52,17 +52,34 @@ export function castById(L: Ledger, id: string): Cast | null {
   return L.casts.find((c) => c.id === id) ?? null;
 }
 
-export function backRate(b: BackItem, isDispatch: boolean): number {
+/** その項目の単価。cast を渡すと、その子だけの単価（Cast.backRates）を先に見る。
+ *  派遣には個別単価が無いので rateD を使う */
+export function backRate(b: BackItem, isDispatch: boolean, cast?: Cast | null): number {
+  if (!isDispatch && cast) {
+    const own = cast.backRates?.[b.id];
+    if (own != null && Number.isFinite(own)) return num(own);
+  }
   return isDispatch ? num(b.rateD == null ? b.rate : b.rateD) : num(b.rate);
 }
 
-export function calcBacks(items: BackItem[], src: Record<string, number | null> | undefined, isDispatch: boolean): { backs: BackAmounts; total: number } {
+/** 売上％型の下限・上限を当てる。売っていない（対象売上 0）ときは触らない。
+ *  下限で勝手に付いてしまうと、出勤しただけでバックが出てしまう */
+function clampBack(b: BackItem, qty: number, amt: number): number {
+  if (b.type !== "amount" || qty <= 0) return amt;
+  let v = amt;
+  if (b.min != null && Number.isFinite(b.min)) v = Math.max(v, Math.floor(num(b.min)));
+  if (b.max != null && Number.isFinite(b.max)) v = Math.min(v, Math.floor(num(b.max)));
+  return v;
+}
+
+export function calcBacks(items: BackItem[], src: Record<string, number | null> | undefined, isDispatch: boolean, cast?: Cast | null): { backs: BackAmounts; total: number } {
   const backs: BackAmounts = {};
   let total = 0;
   for (const b of items) {
     const q = num((src ?? {})[b.id]);
-    const r = backRate(b, isDispatch);
-    const amt = b.type === "amount" ? Math.floor((q * r) / 100) : Math.floor(q * r);
+    const r = backRate(b, isDispatch, cast);
+    const raw = b.type === "amount" ? Math.floor((q * r) / 100) : Math.floor(q * r);
+    const amt = clampBack(b, q, raw);
     backs[b.id] = { qty: q, amount: amt };
     total += amt;
   }
@@ -74,7 +91,7 @@ export function payOf(L: Ledger, castId: string, sh: Shift, dateKey?: string): P
   const c = castById(L, castId);
   const mins = shiftMinutes(sh, L.shop);
   const wage = Math.floor((mins / 60) * castWageAt(c, L.shop, dateKey));
-  const { backs, total } = calcBacks(L.backItems, sh.backs, false);
+  const { backs, total } = calcBacks(L.backItems, sh.backs, false, c);
   const deduct = num(sh.deduct);
   const gross = wage + total - deduct;
   const paid = num(sh.paid);

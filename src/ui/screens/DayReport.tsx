@@ -1,7 +1,7 @@
 /** 日報 = 5 ステップの締めウィザード：売上 → 出勤 → 派遣 → 経費 → 現金・締め */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useApp } from "../../state/store";
-import type { Check, DayRecord, DispatchRow, Ledger, Shift } from "../../domain/types";
+import type { Cast, Check, DayRecord, DispatchRow, Ledger, Shift } from "../../domain/types";
 import { defaultPosRule, emptyDay } from "../../domain/migrate";
 import { checkTotals, clock } from "../../domain/pos";
 import { backRate, calcBacks, castWageAt, dayCashFlow, dayTotals, dispatchNames, dispatchPay, num, payOf, unpaidFor, whoLabel } from "../../domain/calc";
@@ -39,6 +39,40 @@ function AutoBadge({ d, dk, field }: { d: DayRecord; dk: string; field: string }
   );
 }
 
+/** 締めた内容を LINE に送る。日報のどこからでも同じ判定・同じ文面で送れるようにする。
+ *
+ *  ここを 1 つにまとめたのは、判定が 2 か所にあって食い違っていたため。
+ *  設定のトグルは lineAuto !== false（＝未設定なら「自動で送る」）を ON として出していたのに、
+ *  実際に送る側は !lineAuto で弾いていた。つまりトグルを一度も触っていない店では、
+ *  画面が「自動で送る」に見えるのに一度も送られなかった。 */
+function useLineReport(dk: string) {
+  const sendLine = useCloud((s) => s.sendLine);
+  const isOwner = useCloud((s) => s.isOwner);
+  const shopId = useCloud((s) => s.shopId);
+  const showToast = useApp((s) => s.showToast);
+  const canSend = !!shopId && isOwner();
+
+  /** まだ送っていなければ 1 回だけ送る。
+   *  送る前に印を付けるので、続けて呼ばれても二度送りにならない */
+  const sendOnce = (): void => {
+    if (!canSend) return;
+    const app = useApp.getState();
+    const day = app.ledger.days[dk];
+    if (!day || day.lineSentAt) return;
+    if (app.ledger.shop.lineAuto === false) return;
+    app.editDay(dk, (dd) => { dd.lineSentAt = new Date().toISOString(); });
+    const text = dayReportText(useApp.getState().ledger, dk);
+    void sendLine(text)
+      .then(() => showToast("締めを LINE に送りました"))
+      .catch((e: Error) => {
+        // 送れなかったら印を外して、手で送り直せるようにする
+        useApp.getState().editDay(dk, (dd) => { delete dd.lineSentAt; });
+        showToast(e.message || "LINE に送れませんでした");
+      });
+  };
+  return { canSend, sendOnce };
+}
+
 export function DayReport() {
   const L = useApp((s) => s.ledger);
   const ui = useApp((s) => s.ui);
@@ -55,18 +89,19 @@ export function DayReport() {
   const step = Math.min(4, Math.max(0, ui.step));
   const go = (s: number) => { setUI({ step: s, sheet: null }); window.scrollTo(0, 0); };
   const edit = (mut: (dd: DayRecord, L: Ledger) => void) => editDay(dk, mut);
+  const line = useLineReport(dk);
 
   return (
     <>
       <div className="datebar">
-        <button type="button" className="mb" aria-label="前の日" onClick={() => openDay(shiftDay(dk, -1))}><ChevLeft size={17} /></button>
+        <button type="button" className="mb" aria-label="前の日" onClick={() => openDay(shiftDay(dk, -1), 0)}><ChevLeft size={17} /></button>
         <label className="mid pick">
           <span className="d">{Number(dk.slice(5, 7))}月{Number(dk.slice(8, 10))}日（{WD[new Date(dk + "T00:00:00").getDay()]}）</span>
           <span className="s">{isToday ? "今日" : dk}</span>
-          <input type="date" value={dk} aria-label="日付" onChange={(e) => openDay(e.target.value || todayISO())} />
+          <input type="date" value={dk} aria-label="日付" onChange={(e) => openDay(e.target.value || todayISO(), 0)} />
         </label>
-        <button type="button" className="mb" aria-label="次の日" onClick={() => openDay(shiftDay(dk, 1))}><ChevRight size={17} /></button>
-        {!isToday && <button type="button" className="mb today" onClick={() => openDay(todayISO())}>今日</button>}
+        <button type="button" className="mb" aria-label="次の日" onClick={() => openDay(shiftDay(dk, 1), 0)}><ChevRight size={17} /></button>
+        {!isToday && <button type="button" className="mb today" onClick={() => openDay(todayISO(), 0)}>今日</button>}
       </div>
 
       <div className="steps" role="tablist" aria-label="締めの手順">
@@ -94,7 +129,12 @@ export function DayReport() {
         {step > 0 && <button type="button" className="btn" onClick={() => go(step - 1)}>戻る</button>}
         {step < 4
           ? <button type="button" className="btn primary" onClick={() => go(step + 1)}>次へ：{STEPS[step + 1]}</button>
-          : <button type="button" className="btn primary" onClick={() => { setUI({ tab: "month", month: dk.slice(0, 7), sheet: null }); window.scrollTo(0, 0); }}>締め完了・今月を見る</button>}
+          : <button type="button" className="btn primary" onClick={() => {
+              // 締め終わった合図なので、ここで LINE に送る（まだ送っていなければ）
+              line.sendOnce();
+              setUI({ tab: "month", month: dk.slice(0, 7), sheet: null });
+              window.scrollTo(0, 0);
+            }}>締め完了・今月を見る</button>}
       </div>
 
       {ui.sheet?.kind === "cast" && <CastSheet L={L} dk={dk} d={d} castId={ui.sheet.id} edit={edit} onClose={() => setUI({ sheet: null })} />}
@@ -207,15 +247,19 @@ function AttendStep({ L, dk, d, edit, t, openSheet, showToast }: { L: Ledger; dk
 }
 
 /* ---------- バック入力（在籍・派遣 共通） ---------- */
-function BackRows({ L, backs, isDispatch, onChange }: { L: Ledger; backs: Record<string, number | null>; isDispatch: boolean; onChange: (id: string, v: number | null) => void }) {
-  const calc = calcBacks(L.backItems, backs, isDispatch);
+function BackRows({ L, backs, isDispatch, cast, onChange }: { L: Ledger; backs: Record<string, number | null>; isDispatch: boolean; cast?: Cast | null; onChange: (id: string, v: number | null) => void }) {
+  const calc = calcBacks(L.backItems, backs, isDispatch, cast);
   return (
     <>
       {L.backItems.map((b) => {
-        const r = backRate(b, isDispatch), amt = calc.backs[b.id].amount;
+        const r = backRate(b, isDispatch, cast), amt = calc.backs[b.id].amount;
+        const own = !isDispatch && cast?.backRates?.[b.id] != null;
+        const cap = b.type === "amount" && (b.min != null || b.max != null)
+          ? ` ・ ${b.min != null ? `下限 ${yen(b.min)}` : ""}${b.min != null && b.max != null ? " / " : ""}${b.max != null ? `上限 ${yen(b.max)}` : ""}`
+          : "";
         return (
           <div key={b.id} className="backrow">
-            <div><div className="bn">{b.name || "（項目名なし）"}</div><div className="br">{b.type === "amount" ? `売上の ${r}%` : `${yen(r)} / 件`}{isDispatch ? " ・派遣" : ""}</div></div>
+            <div><div className="bn">{b.name || "（項目名なし）"}</div><div className="br">{b.type === "amount" ? `売上の ${r}%` : `${yen(r)} / 件`}{own ? " ・この子だけ" : ""}{cap}{isDispatch ? " ・派遣" : ""}</div></div>
             <div className="ctl">
               {b.type === "amount"
                 ? <NumberField style={{ width: 118 }} value={backs[b.id] ?? null} placeholder="対象売上" onChange={(v) => onChange(b.id, v)} aria-label={b.name} />
@@ -257,7 +301,7 @@ function CastSheet({ L, dk, d, castId, edit, onClose }: { L: Ledger; dk: string;
       </div>
       {plan && <div className="hint" style={{ margin: "8px 0 0" }}>予定は {plan.in}-{plan.out}{late ? ` ・ ${late}` : ""}</div>}
       <div className="hint" style={{ margin: "0 0 10px" }}>時給 {yen(castWageAt(c, L.shop, dk))} × {p.hours.toFixed(2)}h ＝ <b>{yen(p.wage)}</b>（{L.shop.roundMinutes}分単位で切り捨て）</div>
-      <BackRows L={L} backs={sh.backs} isDispatch={false} onChange={(id, v) => setPos((s) => { s.backs[id] = v; })} />
+      <BackRows L={L} backs={sh.backs} isDispatch={false} cast={c} onChange={(id, v) => setPos((s) => { s.backs[id] = v; })} />
       <div className="row3" style={{ marginTop: 11 }}>
         <label className="field" style={{ margin: 0 }}><span className="lbl">休憩 分</span><NumberField value={sh.breakMin} onChange={(v) => set((s) => { s.breakMin = v; })} /></label>
         <label className="field" style={{ margin: 0 }}><span className="lbl">控除</span><NumberField value={sh.deduct} onChange={(v) => set((s) => { s.deduct = v; })} /></label>
@@ -378,28 +422,16 @@ function ExpenseStep({ d, dk, edit, t, updateWithUndo }: { d: DayRecord; dk: str
 
 /* ---------- 5. 現金・締め ---------- */
 function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: string; d: DayRecord; edit: Edit; t: T; updateWithUndo: (m: string, mut: (L: Ledger) => void) => void }) {
-  const sendLine = useCloud((s) => s.sendLine);
-  const canSend = useCloud((s) => !!s.shopId && s.isOwner());
-  const showToast = useApp((s) => s.showToast);
+  const line = useLineReport(dk);
 
   /** 実査現金を入れたら、その日ぶんを一度だけ自動で送る。
-   *  入力のたびに走らないよう、少し待ってから最後の値で送る */
+   *  入力のたびに走らないよう、少し待ってから送る（判定と文面は useLineReport に任せる） */
   const autoSend = () => {
-    if (!L.shop.lineAuto || !canSend || d.lineSentAt) return;
+    if (!line.canSend || d.lineSentAt) return;
     if (autoTimer.current) clearTimeout(autoTimer.current);
     autoTimer.current = setTimeout(() => {
-      const now = useApp.getState().ledger;
-      const day = now.days[dk];
-      if (!day || day.lineSentAt || day.cashCounted == null) return;
-      // 先に印を付ける。送信中にもう一度呼ばれても二度送りにならない
-      useApp.getState().editDay(dk, (dd) => { dd.lineSentAt = new Date().toISOString(); });
-      void sendLine(dayReportText(now, dk))
-        .then(() => showToast("締めを LINE に送りました"))
-        .catch((e: Error) => {
-          // 送れなかったら印を外して、手で送り直せるようにする
-          useApp.getState().editDay(dk, (dd) => { delete dd.lineSentAt; });
-          showToast(e.message || "LINE に送れませんでした");
-        });
+      if (useApp.getState().ledger.days[dk]?.cashCounted == null) return;
+      line.sendOnce();
     }, 2500);
   };
   const autoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

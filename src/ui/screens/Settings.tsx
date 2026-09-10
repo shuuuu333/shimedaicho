@@ -193,6 +193,22 @@ export function Settings() {
               <label className="field" style={{ margin: 0 }}><span className="lbl">在籍</span><NumberField decimal value={b.rate} onChange={(v) => update((LL) => { LL.backItems[i].rate = v ?? 0; })} /></label>
               <label className="field" style={{ margin: 0 }}><span className="lbl">派遣</span><NumberField decimal value={b.rateD} onChange={(v) => update((LL) => { LL.backItems[i].rateD = v ?? 0; })} /></label>
             </div>
+            {b.type === "amount" && (
+              <>
+                <div className="row2" style={{ marginTop: 8 }}>
+                  <label className="field" style={{ margin: 0 }}><span className="lbl">下限（円・任意）</span>
+                    <NumberField value={b.min ?? null} placeholder="なし"
+                      onChange={(v) => update((LL) => { if (v == null) delete LL.backItems[i].min; else LL.backItems[i].min = v; })} /></label>
+                  <label className="field" style={{ margin: 0 }}><span className="lbl">上限（円・任意）</span>
+                    <NumberField value={b.max ?? null} placeholder="なし"
+                      onChange={(v) => update((LL) => { if (v == null) delete LL.backItems[i].max; else LL.backItems[i].max = v; })} /></label>
+                </div>
+                <div className="hint" style={{ margin: "6px 0 0" }}>
+                  「20% だけど上限 5,000円」のような頭打ちを入れられます。
+                  売っていない日は下限で勝手に付きません。
+                </div>
+              </>
+            )}
           </div>
         ))}
         <div className="hint" style={{ marginTop: 8 }}>「件数」は 単価×本数。「売上%」は 対象売上×％（ボトルやシャンパン向け）。ドリンクはサイズごとに行を分けてください。</div>

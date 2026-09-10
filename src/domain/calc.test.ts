@@ -283,6 +283,77 @@ describe("円グラフ・年表示の集計", () => {
   });
 });
 
+describe("バックの単価と上限", () => {
+  const shop = { name: "", cardFeeRate: 0, openingCash: 0, openingDate: "2026-09-01", defaultWage: 0,
+                 roundMinutes: 1, fixedLabor: 0, fixedCost: 0, dispatchGuarantee: 0, openTime: "20:00", closeTime: "20:00" };
+  const backs = [
+    { id: "d1", name: "ドリンク", type: "count", rate: 500, rateD: 400 },
+    { id: "b4", name: "ボトル", type: "amount", rate: 20, rateD: 10, max: 5000 },
+    { id: "b7", name: "シャンパン", type: "amount", rate: 10, rateD: 10, min: 3000 },
+  ];
+  // 時給 0・0分勤務にして、支給額＝バックだけになるようにする
+  const shift = (bs: Record<string, number>) =>
+    ({ on: true, in: "20:00", out: "20:00", breakMin: null, backs: bs, deduct: null, paid: null });
+  const led = (casts: unknown[], bs: Record<string, number>) => migrate({
+    v: 4, shop, backItems: backs, casts,
+    days: { "2026-09-01": { cashSales: 0, cardSales: 0, guests: null, expenses: [], bankDeposit: null,
+      cardReceived: null, cashCounted: null, payout: null, shifts: { a: shift(bs) }, dispatch: [], settle: [] } },
+  });
+
+  it("キャストごとの単価が店の単価より先に効く", () => {
+    const plain = led([{ id: "a", name: "あい", wage: 0, active: true }], { d1: 3 });
+    expect(C.payOf(plain, "a", plain.days["2026-09-01"].shifts.a, "2026-09-01").backTotal).toBe(1500);
+
+    // あいだけ 1本 800円
+    const own = led([{ id: "a", name: "あい", wage: 0, active: true, backRates: { d1: 800 } }], { d1: 3 });
+    expect(C.payOf(own, "a", own.days["2026-09-01"].shifts.a, "2026-09-01").backTotal).toBe(2400);
+    // 入れていない項目は店の単価のまま
+    expect(C.backRate(own.backItems[0], false, own.casts[0])).toBe(800);
+    expect(C.backRate(own.backItems[1], false, own.casts[0])).toBe(20);
+  });
+
+  it("個別単価に 0 を入れると「バックなし」になる（未設定と区別する）", () => {
+    const zero = led([{ id: "a", name: "あい", wage: 0, active: true, backRates: { d1: 0 } }], { d1: 3 });
+    expect(C.payOf(zero, "a", zero.days["2026-09-01"].shifts.a, "2026-09-01").backTotal).toBe(0);
+  });
+
+  it("派遣には個別単価が効かない（派遣単価を使う）", () => {
+    const L = led([{ id: "a", name: "あい", wage: 0, active: true, backRates: { d1: 800 } }], {});
+    expect(C.backRate(L.backItems[0], true, L.casts[0])).toBe(400);
+  });
+
+  it("売上％の上限で頭打ちになる", () => {
+    // 対象売上 10万 × 20% ＝ 2万 だが、上限 5,000円
+    const L = led([{ id: "a", name: "あい", wage: 0, active: true }], { b4: 100000 });
+    expect(C.payOf(L, "a", L.days["2026-09-01"].shifts.a, "2026-09-01").backTotal).toBe(5000);
+    // 上限より下ならそのまま（2万 × 20% ＝ 4,000）
+    const small = led([{ id: "a", name: "あい", wage: 0, active: true }], { b4: 20000 });
+    expect(C.payOf(small, "a", small.days["2026-09-01"].shifts.a, "2026-09-01").backTotal).toBe(4000);
+  });
+
+  it("売上％の下限は、売ったときだけ効く", () => {
+    // 1万 × 10% ＝ 1,000 だが、下限 3,000
+    const sold = led([{ id: "a", name: "あい", wage: 0, active: true }], { b7: 10000 });
+    expect(C.payOf(sold, "a", sold.days["2026-09-01"].shifts.a, "2026-09-01").backTotal).toBe(3000);
+    // 売っていない日に下限で勝手に付いてはいけない
+    const none = led([{ id: "a", name: "あい", wage: 0, active: true }], {});
+    expect(C.payOf(none, "a", none.days["2026-09-01"].shifts.a, "2026-09-01").backTotal).toBe(0);
+  });
+
+  it("下限・上限は件数型には付けない（移行で落とす）", () => {
+    const L = migrate({ v: 4, shop, casts: [], days: {},
+      backItems: [{ id: "x", name: "件数", type: "count", rate: 500, rateD: 500, min: 1000, max: 2000 }] });
+    expect(L.backItems[0].min).toBe(undefined);
+    expect(L.backItems[0].max).toBe(undefined);
+  });
+
+  it("個別単価と下限・上限は移行で往復しても変わらない", () => {
+    const L = led([{ id: "a", name: "あい", wage: 0, active: true, backRates: { d1: 800, b4: 25 } }], { d1: 1 });
+    expect(migrate(JSON.parse(JSON.stringify(L))).casts[0].backRates).toEqual({ d1: 800, b4: 25 });
+    expect(migrate(JSON.parse(JSON.stringify(L))).backItems).toEqual(L.backItems);
+  });
+});
+
 describe("月ごとの時給", () => {
   const base = {
     v: 4,
