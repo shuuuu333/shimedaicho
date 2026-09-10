@@ -1,12 +1,13 @@
 /** レジ（伝票）の状態。台帳のストア（useApp）とは別に持つ。
  *  伝票は Dexie の checks に直接書き、会計が済んだ時点で日報へ反映する。 */
 import { create } from "zustand";
-import { produce } from "immer";
 import type { Check, Ledger, MenuItem, PayKind, SetPlan } from "../domain/types";
-import { applyCardFee, businessDate, checkTotals, lineFromMenu, newCheck, normalizeCheck, planLabel } from "../domain/pos";
+import { applyCardFee, businessDate, checkTotals, lineFromMenu, normalizeCheck, planLabel } from "../domain/pos";
 import { defaultPosRule } from "../domain/migrate";
+import { uid } from "../domain/format";
 import { MANUAL_TAB_COLLECTED, applyChecksToDay, setManual } from "../domain/close";
 import { LocalCheckRepository, type CheckRepository } from "../data/checkRepo";
+import type { CheckOp } from "../domain/checkOps";
 import { useApp } from "./store";
 import { useCloud } from "./cloud";
 import { bindPosStore, notifyPos } from "./notify";
@@ -82,19 +83,27 @@ export interface PosStore {
 
 export function createPosStore(repo: CheckRepository) {
   return create<PosStore>()((set, get) => {
-    /** 伝票を 1 枚書き換えて保存し、必要なら日報に反映する */
-    async function write(id: string, mut: (c: Check) => void): Promise<void> {
-      const before = get().checks.find((c) => c.id === id);
-      if (!before) return;
-      const after = produce(before, mut);
-      set({ checks: get().checks.map((c) => (c.id === id ? after : c)) });
+    /** 操作を 1 つ足して、畳んだ結果を画面と保存層に反映する。
+     *
+     *  伝票まるごとを書かずに操作を足すのは、複数端末で同じ卓を触ったときに
+     *  消し合わないため（domain/checkOps.ts）。ここが「押したこと」の入口になる。 */
+    async function apply(op: CheckOp): Promise<Check | null> {
       try {
-        await repo.put(after);
+        const after = await repo.apply(op);
+        const list = get().checks;
+        const has = list.some((c) => c.id === op.checkId);
+        if (!after) set({ checks: list.filter((c) => c.id !== op.checkId) });
+        else set({ checks: has ? list.map((c) => (c.id === op.checkId ? after : c)) : [...list, after] });
         reflect();
+        return after;
       } catch (e) {
         set({ error: e instanceof Error ? e.message : String(e) });
+        return null;
       }
     }
+
+    /** 操作の共通部分。id は端末で作るので、送り直しても二重にならない */
+    const base = (checkId: string) => ({ id: uid(), checkId, at: nowISO(), by: whoAmI() });
 
     /** その営業日の伝票を日報に反映する。
      *  会計の済んだ伝票が 1 枚も無いうちは日報を作らない（「入力済み ○日」を実態と合わせるため） */
@@ -115,6 +124,9 @@ export function createPosStore(repo: CheckRepository) {
 
       async init() {
         if (get().loaded) return;
+        // レジを使い始めたのが「操作の記録」より前だった端末のための引き継ぎ。
+        // 伝票を 1 件ずつ seed の操作として置き直す（何度通しても増えない）
+        try { await repo.seedFromChecks(); } catch { /* 引き継げなくてもレジは動く */ }
         await get().reload();
         set({ loaded: true });
       },
@@ -157,12 +169,11 @@ export function createPosStore(repo: CheckRepository) {
         if (!c || c.tabPaid) return;
         const amount = c.payments.reduce((s2, p) => s2 + (p.method === "tab" ? Math.floor(p.amount) : 0), 0);
         if (amount <= 0) return;
-        const after: Check = {
-          ...c,
-          tabPaid: { at: nowISO(), date, by: whoAmI() },
-          log: [...c.log, { at: nowISO(), by: whoAmI(), act: "ツケを回収", detail: `${c.tabName ?? "（名前なし）"} ¥${amount}` }],
-        };
-        await repo.put(after);
+        const after = await repo.apply({
+          ...base(id), op: "collectTab", date,
+          log: [{ act: "ツケを回収", detail: `${c.tabName ?? "（名前なし）"} ¥${amount}` }],
+        });
+        if (!after) return;
         // 回収した日の現金として足す。レジの反映では触らない欄なので、直接足す
         useApp.getState().editDay(date, (d) => {
           d.tabCollected = (d.tabCollected ?? 0) + amount;
@@ -198,126 +209,133 @@ export function createPosStore(repo: CheckRepository) {
 
       async openSeat(seatId, guests, plan) {
         const at = nowISO();
-        const c = newCheck(get().date, seatId, guests, plan, at, whoAmI());
+        const by = whoAmI();
+        const checkId = uid();
+        const n = Math.max(1, Math.floor(guests));
+        await apply({
+          id: uid(), checkId, at, by, op: "open",
+          date: get().date, seatId, guests: n, plan,
+          log: [{ act: "入店", detail: `${n}名 ／ ${planLabel(plan)}／人` }],
+        });
         // お通し・チャージのように「入店したら人数ぶん」の商品を、その場で入れておく。
         // 毎回手で押していたぶんを消す（消したいときは行をタップして取り消せる）
         const auto = (useApp.getState().ledger.menu ?? []).filter((m) => m.active && m.autoOnEntry && m.kind === "normal");
         for (const m of auto) {
-          c.lines.push(lineFromMenu(m, at, undefined, Math.max(1, Math.floor(guests))));
-          c.log.push({ at, by: whoAmI(), act: "自動で追加", detail: `${m.name} × ${guests}名` });
+          await apply({
+            id: uid(), checkId, at, by, op: "addLine",
+            line: lineFromMenu(m, at, undefined, n),
+            log: [{ act: "自動で追加", detail: `${m.name} × ${n}名` }],
+          });
         }
-        set({ checks: [...get().checks, c], activeId: c.id });
-        await repo.put(c);
-        notifyPos({ kind: "enter", at, seat: seatNameOf(c), guests: c.guests });
-        return c.id;
+        set({ activeId: checkId });
+        const c = get().checks.find((x) => x.id === checkId);
+        if (c) notifyPos({ kind: "enter", at, seat: seatNameOf(c), guests: c.guests });
+        return checkId;
       },
 
       async addItem(id, item, castId) {
         // 履歴は人が読むものなので、キャストは id ではなく名前で残す
         const name = castId ? useApp.getState().ledger.casts.find((c) => c.id === castId)?.name : undefined;
-        await write(id, (c) => {
-          c.lines.push(lineFromMenu(item, nowISO(), castId));
-          c.log.push({ at: nowISO(), by: whoAmI(), act: "追加", detail: item.name + (name ? `／${name}` : "") });
+        const b = base(id);
+        await apply({
+          ...b, op: "addLine", line: lineFromMenu(item, b.at, castId),
+          log: [{ act: "追加", detail: item.name + (name ? `／${name}` : "") }],
         });
       },
 
       async setQty(id, lineId, qty) {
-        await write(id, (c) => {
-          const l = c.lines.find((x) => x.id === lineId);
-          if (!l) return;
-          const n = Math.max(1, Math.floor(qty));
-          if (n === l.qty) return;
-          c.log.push({ at: nowISO(), by: whoAmI(), act: "数量", detail: `${l.name} ${l.qty} → ${n}` });
-          l.qty = n;
+        const l = get().checks.find((c) => c.id === id)?.lines.find((x) => x.id === lineId);
+        if (!l) return;
+        const n = Math.max(1, Math.floor(qty));
+        if (n === l.qty) return;
+        await apply({
+          ...base(id), op: "setQty", lineId, qty: n,
+          log: [{ act: "数量", detail: `${l.name} ${l.qty} → ${n}` }],
         });
       },
 
       async voidLine(id, lineId, reason) {
         const before = get().checks.find((x) => x.id === id)?.lines.find((x) => x.id === lineId);
-        await write(id, (c) => {
-          const l = c.lines.find((x) => x.id === lineId);
-          if (!l || l.voided) return;
-          l.voided = { at: nowISO(), by: whoAmI(), reason };
-          c.log.push({ at: nowISO(), by: whoAmI(), act: "取消", detail: `${l.name}×${l.qty}／${reason}` });
+        if (!before || before.voided) return;
+        await apply({
+          ...base(id), op: "void", lineId, reason,
+          log: [{ act: "取消", detail: `${before.name}×${before.qty}／${reason}` }],
         });
         const c = get().checks.find((x) => x.id === id);
         // 取消は「現金の抜き取り」の入口なので、オーナーにその場で知らせる
-        if (c && before && !before.voided) {
+        if (c) {
           notifyPos({ kind: "void", at: nowISO(), seat: seatNameOf(c), name: `${before.name}×${before.qty}`, reason, by: whoAmI() });
         }
       },
 
       async setSetPlan(id, plan) {
         const rule = useApp.getState().ledger.posRule ?? defaultPosRule();
-        await write(id, (c) => {
-          const p = Math.max(0, Math.floor(plan.price));
-          const m = Math.max(1, Math.floor(plan.min));
-          const wasM = c.setMinutes != null && c.setMinutes > 0 ? c.setMinutes : rule.setMinutes;
-          if (p === c.setPrice && m === wasM) return;
-          c.log.push({
-            at: nowISO(), by: whoAmI(), act: "セットを変える",
-            detail: `${planLabel({ min: wasM, price: c.setPrice })} → ${planLabel({ min: m, price: p })}／人`,
-          });
-          c.setPrice = p;
-          c.setMinutes = m;
+        const c = get().checks.find((x) => x.id === id);
+        if (!c) return;
+        const p = Math.max(0, Math.floor(plan.price));
+        const m = Math.max(1, Math.floor(plan.min));
+        const wasM = c.setMinutes != null && c.setMinutes > 0 ? c.setMinutes : rule.setMinutes;
+        if (p === c.setPrice && m === wasM) return;
+        await apply({
+          ...base(id), op: "setPlan", plan: { min: m, price: p },
+          log: [{ act: "セットを変える",
+                  detail: `${planLabel({ min: wasM, price: c.setPrice })} → ${planLabel({ min: m, price: p })}／人` }],
         });
       },
 
       async setGuests(id, guests) {
-        await write(id, (c) => {
-          const n = Math.max(1, Math.floor(guests));
-          if (n === c.guests) return;
-          c.log.push({ at: nowISO(), by: whoAmI(), act: "人数", detail: `${c.guests} → ${n}` });
-          c.guests = n;
+        const c = get().checks.find((x) => x.id === id);
+        if (!c) return;
+        const n = Math.max(1, Math.floor(guests));
+        if (n === c.guests) return;
+        await apply({
+          ...base(id), op: "setGuests", guests: n,
+          log: [{ act: "人数", detail: `${c.guests} → ${n}` }],
         });
       },
 
       async extend(id, min, price) {
-        await write(id, (c) => {
-          c.extends.push({ min, price, at: nowISO() });
-          c.log.push({ at: nowISO(), by: whoAmI(), act: "延長", detail: `＋${min}分 ¥${price}／人` });
+        const b = base(id);
+        await apply({
+          ...b, op: "extend", min, price,
+          log: [{ act: "延長", detail: `＋${min}分 ¥${price}／人` }],
         });
         const c = get().checks.find((x) => x.id === id);
-        if (c) notifyPos({ kind: "extend", at: nowISO(), seat: seatNameOf(c), min });
+        if (c) notifyPos({ kind: "extend", at: b.at, seat: seatNameOf(c), min });
       },
 
       async setDiscount(id, name, amount) {
-        await write(id, (c) => {
-          const a = Math.max(0, Math.floor(amount));
-          if (a <= 0) { delete c.discount; c.log.push({ at: nowISO(), by: whoAmI(), act: "値引き取消" }); return; }
-          c.discount = { name, amount: a };
-          c.log.push({ at: nowISO(), by: whoAmI(), act: "値引き", detail: `${name} ¥${a}` });
+        const b = base(id);
+        const a = Math.max(0, Math.floor(amount));
+        await apply({
+          ...b, op: "discount", name, amount: a,
+          log: a <= 0 ? [{ act: "値引き取消" }] : [{ act: "値引き", detail: `${name} ¥${a}` }],
         });
         const c = get().checks.find((x) => x.id === id);
-        const a = Math.max(0, Math.floor(amount));
-        if (c && a > 0) notifyPos({ kind: "discount", at: nowISO(), seat: seatNameOf(c), amount: a, by: whoAmI() });
+        if (c && a > 0) notifyPos({ kind: "discount", at: b.at, seat: seatNameOf(c), amount: a, by: b.by });
       },
 
       async pay(id, method, _total, received, tabName) {
         const L = useApp.getState().ledger;
         const rule = L.posRule ?? defaultPosRule();
-        await write(id, (c) => {
-          if (c.status === "closed") return;
-          // 手数料は伝票に書き込んでから合計を出し直す。呼び出し側の数字を信じずに
-          // ここで確定させることで、画面と保存された額がずれない
-          applyCardFee(c, rule, L.shop.cardFeeRate, method === "card" ? "card" : "cash");
-          const amount = checkTotals(c, rule).total;
-          c.payments = [{ method, amount }];
-          if (method === "cash" && received != null) c.received = Math.floor(received);
-          if (method === "tab") {
-            const who = (tabName ?? "").trim();
-            if (who) c.tabName = who; else delete c.tabName;
-          } else {
-            delete c.tabName;
-          }
-          c.status = "closed";
-          c.closedAt = nowISO();
-          const fee = c.cardFee ? `（うちカード手数料 ¥${c.cardFee}）` : "";
-          const how = method === "cash" ? "現金" : method === "card" ? "カード" : `ツケ${c.tabName ? `／${c.tabName}` : ""}`;
-          c.log.push({ at: nowISO(), by: whoAmI(), act: "会計", detail: `${how} ¥${amount}${fee}` });
+        const c = get().checks.find((x) => x.id === id);
+        if (!c || c.status === "closed") return;
+        // 金額は押した時点で確定させ、操作に写す。あとから店の設定が変わっても動かない
+        const draft: Check = { ...c, cardFee: undefined };
+        applyCardFee(draft, rule, L.shop.cardFeeRate, method === "card" ? "card" : "cash");
+        const amount = checkTotals(draft, rule).total;
+        const who = method === "tab" ? (tabName ?? "").trim() : "";
+        const fee = draft.cardFee ? `（うちカード手数料 ¥${draft.cardFee}）` : "";
+        const how = method === "cash" ? "現金" : method === "card" ? "カード" : `ツケ${who ? `／${who}` : ""}`;
+        await apply({
+          ...base(id), op: "pay", method, amount,
+          ...(method === "cash" && received != null ? { received: Math.floor(received) } : {}),
+          ...(who ? { tabName: who } : {}),
+          ...(draft.cardFee ? { cardFee: draft.cardFee } : {}),
+          log: [{ act: "会計", detail: `${how} ¥${amount}${fee}` }],
         });
         set({ activeId: null });
-        const done = get().checks.find((c) => c.id === id);
+        const done = get().checks.find((x) => x.id === id);
         if (done?.status === "closed") {
           notifyPos({
             kind: "pay", at: done.closedAt ?? nowISO(), seat: seatNameOf(done), guests: done.guests,
@@ -336,58 +354,55 @@ export function createPosStore(repo: CheckRepository) {
             return item.name + (n ? `／${n}` : "");
           })
           .join("・");
-        await write(id, (c) => {
-          if (c.status !== "closed") return;
-          // 比べるのは「実際に受け取った額」。計算上の合計と比べると、
-          // 前に足して受け取らなかったぶんがあるときに、画面と記録が食い違う
-          const before = c.payments[0]?.amount ?? checkTotals(c, rule).total;
-          for (const { item, castId } of items) c.lines.push(lineFromMenu(item, nowISO(), castId));
-          const method = c.payments[0]?.method ?? "cash";
-          // 足したぶんにもカード手数料を掛け直す（受け取る場合だけ）
-          if (collect) applyCardFee(c, rule, L.shop.cardFeeRate, method === "card" ? "card" : "cash");
-          const after = checkTotals(c, rule).total;
-          c.log.push({ at: nowISO(), by: whoAmI(), act: "あとから追加", detail: label });
-          if (collect) {
-            c.payments = [{ method, amount: after }];
-            c.log.push({ at: nowISO(), by: whoAmI(), act: "追加分を受け取った", detail: `¥${before} → ¥${after}` });
-          } else {
-            // 受け取った額は動かさない。バックの本数だけ増える（実際に出しているので）
-            c.log.push({ at: nowISO(), by: whoAmI(), act: "追加分は受け取っていない", detail: `取り損ね ¥${after - before}` });
-          }
+        const c = get().checks.find((x) => x.id === id);
+        if (!c || c.status !== "closed") return;
+        const b = base(id);
+        // 比べるのは「実際に受け取った額」。計算上の合計と比べると、
+        // 前に足して受け取らなかったぶんがあるときに、画面と記録が食い違う
+        const before = c.payments[0]?.amount ?? checkTotals(c, rule).total;
+        const lines = items.map(({ item, castId }) => lineFromMenu(item, b.at, castId));
+        const method = c.payments[0]?.method ?? "cash";
+        // 足したぶんにもカード手数料を掛け直す（受け取る場合だけ）
+        const draft: Check = { ...c, lines: [...c.lines, ...lines], cardFee: undefined };
+        if (collect) applyCardFee(draft, rule, L.shop.cardFeeRate, method === "card" ? "card" : "cash");
+        const after = checkTotals(draft, rule).total;
+        await apply({
+          ...b, op: "addLate", lines, collect,
+          ...(collect ? { amount: after } : {}),
+          ...(collect && draft.cardFee ? { cardFee: draft.cardFee } : {}),
+          log: [
+            { act: "あとから追加", detail: label },
+            collect
+              ? { act: "追加分を受け取った", detail: `¥${before} → ¥${after}` }
+              // 受け取った額は動かさない。バックの本数だけ増える（実際に出しているので）
+              : { act: "追加分は受け取っていない", detail: `取り損ね ¥${after - before}` },
+          ],
         });
       },
 
       async reopen(id) {
-        await write(id, (c) => {
-          if (c.status !== "closed") return;
-          c.status = "open";
-          c.payments = [];
-          delete c.received;
-          delete c.closedAt;
-          delete c.cardFee;   // 支払い方法が決まっていない状態に戻す
-          delete c.tabName;
-          c.log.push({ at: nowISO(), by: whoAmI(), act: "会計を戻す" });
-        });
+        // 支払い方法が決まっていない状態に戻す（畳む側が cardFee・tabName も落とす）
+        await apply({ ...base(id), op: "reopen", log: [{ act: "会計を戻す" }] });
         set({ activeId: id });
       },
 
       async removeByDate(date) {
         const all = await repo.byDate(date);
-        for (const c of all) await repo.remove(c.id);
-        set({ checks: get().checks.filter((c) => c.date !== date), activeId: null });
+        for (const c of all) await apply({ ...base(c.id), op: "remove", log: [{ act: "伝票を消す" }] });
+        set({ activeId: null });
         return all;
       },
 
       async restore(list) {
-        for (const c of list) await repo.put(c);
+        // 消したのを取り消す。操作は消さずに「戻した」を足す（履歴が途切れない）
+        for (const c of list) await apply({ ...base(c.id), op: "restore", log: [{ act: "伝票を戻す" }] });
         await get().reload();
         reflect();
       },
 
       async removeCheck(id) {
-        set({ checks: get().checks.filter((c) => c.id !== id), activeId: null });
-        await repo.remove(id);
-        reflect();
+        set({ activeId: null });
+        await apply({ ...base(id), op: "remove", log: [{ act: "伝票を消す" }] });
       },
     };
   });
