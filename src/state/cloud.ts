@@ -50,6 +50,12 @@ export interface CloudState {
   isOwner(): boolean;
   /** 選択中の店での自分の役割。店を選んでいなければ owner 扱い（端末内モード） */
   role(): "owner" | "staff" | "cast";
+  /** 記録に残す「誰が」。招待のときに入れた名前 → メール → 役割 → 端末 の順に決める。
+   *  LINE でログインした人はメールを持たないので、名前を先に見ないと全員「ログイン中」になる */
+  myName(): string;
+  /** ログインしている本人に結び付いているキャスト。結び付いていなければ null。
+   *  いまはメールで突き合わせているので、LINE ログインの人は結び付かない */
+  myCastId(): string | null;
 }
 
 const LS_SHOP = "shimedaicho.shopId";
@@ -348,6 +354,27 @@ export const useCloud = create<CloudState>()((set, get) => {
       const shop = shops.find((s) => s.id === shopId);
       return !!(session && shop && shop.owner === session.user.id);
     },
+    myName() {
+      const { session, shopId, members, email } = get();
+      if (shopId) {
+        const uid = session?.user.id;
+        const me = members.find((x) => (uid && x.user_id === uid) || x.email.toLowerCase() === (email ?? "").toLowerCase());
+        const n = (me?.name ?? "").trim();
+        if (n) return n;
+      }
+      if (email) return email;
+      if (!session) return "端末";
+      return get().isOwner() ? "オーナー" : "ログイン中";
+    },
+
+    myCastId() {
+      const { email } = get();
+      if (!email) return null;
+      const e = email.toLowerCase();
+      const c = useApp.getState().ledger.casts.find((x) => (x.email ?? "").toLowerCase() === e);
+      return c?.id ?? null;
+    },
+
     role() {
       const { session, shopId, members, email } = get();
       if (!session || !shopId) return "owner";

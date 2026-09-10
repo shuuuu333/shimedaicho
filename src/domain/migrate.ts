@@ -171,6 +171,8 @@ function toDay(v: unknown): DayRecord {
   d.cashSales = toNum(v.cashSales); d.cardSales = toNum(v.cardSales); d.guests = toNum(v.guests);
   d.bankDeposit = toNum(v.bankDeposit); d.cardReceived = toNum(v.cardReceived);
   d.cashCounted = toNum(v.cashCounted); d.payout = toNum(v.payout);
+  const slips = toNum(v.slipCount);
+  if (slips != null) d.slipCount = slips;
   d.expenses = Array.isArray(v.expenses) ? v.expenses.map(toExpense).filter((x): x is Expense => !!x) : [];
   d.dispatch = Array.isArray(v.dispatch) ? v.dispatch.map(toDispatch).filter((x): x is DispatchRow => !!x) : [];
   d.settle = Array.isArray(v.settle) ? v.settle.map(toSettle).filter((x): x is Settlement => !!x) : [];

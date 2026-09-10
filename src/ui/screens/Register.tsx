@@ -12,6 +12,7 @@ import { NumberField } from "../components/NumberField";
 import { TimeField } from "../components/TimeField";
 import { CheckView } from "./CheckView";
 import { useWakeLock } from "../useWakeLock";
+import { useCloud } from "../../state/cloud";
 
 /** 分を「1:05」の形に。マイナスは超過 */
 export function hhmm(min: number): string {
@@ -197,17 +198,37 @@ const nowHM = (): string => {
 const newShift = (): Shift => ({ on: false, in: "", out: "", breakMin: null, backs: {}, deduct: null, paid: null });
 
 /** 打刻。ドリンクを売っていない子も、ここでタップすれば出勤になる。
- *  レジからの反映は in / out が空のときだけ店の初期値を入れるので、打った時刻は消えない */
+ *  レジからの反映は in / out が空のときだけ店の初期値を入れるので、打った時刻は消えない。
+ *
+ *  キャストが自分の携帯でレジを開く運用では、ここに全員を並べると他人の遅刻を消したり
+ *  自分の出勤時刻を早めたりできてしまう。だからキャストには自分のぶんだけ出す。
+ *  本人がどのキャストか分からないときは、何も出さない（開けてしまうより閉じる方に寄せる）。 */
 function Attendance({ date }: { date: string }) {
   const casts = useApp((s) => s.ledger.casts);
   const day = useApp((s) => s.ledger.days[date]) as DayRecord | undefined;
   const editDay = useApp((s) => s.editDay);
   const showToast = useApp((s) => s.showToast);
+  const role = useCloud((s) => s.role());
+  const myCastId = useCloud((s) => s.myCastId());
   const [sheet, setSheet] = useState<string | null>(null);
 
-  const active = casts.filter((c) => c.active !== false);
+  const isCast = role === "cast";
+  const all = casts.filter((c) => c.active !== false);
+  const active = isCast ? all.filter((c) => c.id === myCastId) : all;
   const shifts = day?.shifts ?? {};
   const onCount = active.filter((c) => shifts[c.id]?.on).length;
+
+  if (isCast && !active.length) {
+    return (
+      <div className="card">
+        <div className="cardhead"><h2>出勤</h2></div>
+        <div className="empty">
+          あなたのアカウントがキャストに結び付いていません<br />
+          <span className="hint">オーナーに、設定のメンバー欄で結び付けてもらってください</span>
+        </div>
+      </div>
+    );
+  }
 
   const punchIn = (id: string, name: string) => {
     const at = nowHM();
@@ -245,7 +266,10 @@ function Attendance({ date }: { date: string }) {
           );
         })}
       </div>
-      <div className="hint">タップで出勤。もう一度タップすると退勤や時刻直しができます。</div>
+      <div className="hint">
+        タップで出勤。もう一度タップすると退勤や時刻直しができます。
+        {isCast && "あなたのぶんだけ出しています。"}
+      </div>
       <PunchSheet date={date} castId={sheet} onClose={() => setSheet(null)} />
     </div>
   );

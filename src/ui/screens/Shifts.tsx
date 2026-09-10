@@ -19,17 +19,16 @@ export function Shifts() {
   const update = useApp((s) => s.update);
   const openDay = useApp((s) => s.openDay);
   const role = useCloud((s) => s.role());
-  const myEmail = useCloud((s) => s.email);
+  const myCastId = useCloud((s) => s.myCastId());
   const m = ui.month;
   /** 予定の時刻を直しているキャスト */
   const [editing, setEditing] = useState<string | null>(null);
 
   /** キャストとしてログインしているなら、その本人 */
   const me = useMemo(() => {
-    if (role !== "cast" || !myEmail) return null;
-    const e = myEmail.toLowerCase();
-    return L.casts.find((c) => (c.email ?? "").toLowerCase() === e) ?? null;
-  }, [L.casts, myEmail, role]);
+    if (role !== "cast" || !myCastId) return null;
+    return L.casts.find((c) => c.id === myCastId) ?? null;
+  }, [L.casts, myCastId, role]);
 
   const dim = daysInMonth(m);
   const lead = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1, 1).getDay();

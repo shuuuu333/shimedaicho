@@ -121,6 +121,9 @@ export interface DayRecord {
   posAt?: string;
   /** この日の締めを LINE に送った日時。二度送りを防ぐ目印 */
   lineSentAt?: string;
+  /** 閉店後に数えた紙伝票の枚数。レジの伝票の数と突き合わせて打ち漏らしを見つける。
+   *  紙とレジを併用しているあいだ（＝移行のあいだ）だけ意味がある */
+  slipCount?: number | null;
 }
 
 export interface Ledger {
@@ -267,6 +270,10 @@ export interface Check {
   received?: number;
   status: "open" | "closed";
   log: CheckLog[];
+  /** 紙伝票に番号を振っている店のための番号。
+   *  番号は書き忘れると「抜け番」に見えて嘘の警告を出すので、まず枚数で照合する。
+   *  ここは型だけ先に用意してあり、入れる画面はまだ無い */
+  slipNo?: string;
 }
 
 /** 伝票の金額の内訳 */

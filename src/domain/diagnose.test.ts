@@ -178,6 +178,43 @@ describe("打ち忘れの検知", () => {
     expect(detectMisses(LL, "2026-09-01", [], at(30)).map((x) => x.id)).not.toContain("zeroBacks");
   });
 
+  it("紙の枚数がレジの組数より多ければ、打ち漏らしを疑う", () => {
+    const LL = base({ cashCounted: 30000, slipCount: 8 });
+    const list = [chk({ id: "a", status: "closed", lines: [lineFromMenu(beer, T0)] }),
+                  chk({ id: "b", seatId: "s2", status: "closed", lines: [lineFromMenu(beer, T0)] })];
+    const m = detectMisses(LL, "2026-09-01", list, at(30));
+    expect(m[0]).toMatchObject({ id: "slipsMore", strong: true });
+    expect(m[0].text).toContain("紙の伝票は 8枚");
+    expect(m[0].text).toContain("レジには 2組");
+    expect(m[0].text).toContain("6組 打ち漏らし");
+  });
+
+  it("レジの組数のほうが多ければ、二重打ちか紙の紛失を疑う", () => {
+    const LL = base({ cashCounted: 30000, slipCount: 1 });
+    const list = [chk({ id: "a", status: "closed", lines: [lineFromMenu(beer, T0)] }),
+                  chk({ id: "b", seatId: "s2", status: "closed", lines: [lineFromMenu(beer, T0)] })];
+    expect(detectMisses(LL, "2026-09-01", list, at(30))[0]).toMatchObject({ id: "slipsFewer" });
+  });
+
+  it("枚数が合っていれば言わない。入れていなければ照合しない", () => {
+    const list = [chk({ id: "a", status: "closed", lines: [lineFromMenu(beer, T0)] }),
+                  chk({ id: "b", seatId: "s2", status: "closed", lines: [lineFromMenu(beer, T0)] })];
+    const ok = detectMisses(base({ cashCounted: 30000, slipCount: 2 }), "2026-09-01", list, at(30));
+    expect(ok.map((x) => x.id)).not.toContain("slipsMore");
+    // 未入力（null）と 0 は「数えていない」として扱う
+    for (const v of [null, 0]) {
+      const none = detectMisses(base({ cashCounted: 30000, slipCount: v }), "2026-09-01", list, at(30));
+      expect(none.map((x) => x.id).filter((id) => id.startsWith("slips"))).toEqual([]);
+    }
+  });
+
+  it("入店中の伝票も紙 1 枚として数える", () => {
+    // 会計済み 1 組 ＋ 入店中 1 組 ＝ 紙 2 枚
+    const list = [chk({ id: "a", status: "closed", lines: [lineFromMenu(beer, T0)] }), chk({ id: "b", seatId: "s2" })];
+    const m = detectMisses(base({ cashCounted: 30000, slipCount: 2 }), "2026-09-01", list, at(30));
+    expect(m.map((x) => x.id).filter((id) => id.startsWith("slips"))).toEqual([]);
+  });
+
   it("売上があるのに客数が 0 のままなら指摘する", () => {
     const LL = base({ cashCounted: 30000, guests: null });
     expect(detectMisses(LL, "2026-09-01", [], at(30)).map((x) => x.id)).toContain("noGuests");

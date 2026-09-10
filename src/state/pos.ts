@@ -10,11 +10,12 @@ import { LocalCheckRepository, type CheckRepository } from "../data/checkRepo";
 import { useApp } from "./store";
 import { useCloud } from "./cloud";
 
-/** 記録に残す「誰が」。ログインしていればメール、していなければ端末 */
+/** 記録に残す「誰が」。招待のときに入れた名前を先に見る。
+ *  メールだけを見ていると、LINE でログインしたキャストが全員「ログイン中」になり、
+ *  誰が会計したのか分からなくなる（不正防止は記録が残ることが土台なので、ここが空だと成立しない） */
 function whoAmI(): string {
   try {
-    const c = useCloud.getState();
-    return c.email || (c.session ? "ログイン中" : "端末");
+    return useCloud.getState().myName();
   } catch { return "端末"; }
 }
 const nowISO = (): string => new Date().toISOString();

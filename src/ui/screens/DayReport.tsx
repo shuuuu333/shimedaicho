@@ -2,7 +2,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useApp } from "../../state/store";
 import type { Check, DayRecord, DispatchRow, Ledger, Shift } from "../../domain/types";
-import { emptyDay } from "../../domain/migrate";
+import { defaultPosRule, emptyDay } from "../../domain/migrate";
+import { checkTotals, clock } from "../../domain/pos";
 import { backRate, calcBacks, castWageAt, dayCashFlow, dayTotals, dispatchNames, dispatchPay, num, payOf, unpaidFor, whoLabel } from "../../domain/calc";
 import { WD, addMinutes, dayLabel, jp, shiftDay, shiftMonth, todayISO, uid, yen } from "../../domain/format";
 import { NumberField } from "../components/NumberField";
@@ -494,6 +495,8 @@ function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: strin
         </div>
       </div>
 
+      {dayChecks.length > 0 && <SlipCard L={L} d={d} checks={dayChecks} edit={edit} />}
+
       {misses.length > 0 && (
         <div className="card">
           <h2>入れ忘れがないか</h2>
@@ -611,6 +614,46 @@ function SendLineCard({ L, dk, d }: { L: Ledger; dk: string; d: DayRecord }) {
         {busy ? "送っています…" : sent ? "もう一度 送る" : "この内容を LINE に送る"}
       </button>
       {err && <Notice bad title="送れませんでした">{err}</Notice>}
+    </div>
+  );
+}
+
+/** 紙の伝票と突き合わせる。紙とレジを併用しているあいだの打ち漏らしを見つける。
+ *  番号ではなく枚数で見るのは、番号は書き忘れると「抜け番」に見えて嘘の警告を出すから。
+ *  並びを入店時刻順にしてあるのは、時間制の店が紙に必ず入店時刻を書いているため
+ *  （延長の計算に要る）。運用を変えずに、紙の束と上から順に突き合わせられる。 */
+function SlipCard({ L, d, checks, edit }: { L: Ledger; d: DayRecord; checks: Check[]; edit: Edit }) {
+  const rule = L.posRule ?? defaultPosRule();
+  const rows = useMemo(() => [...checks].sort((a, b) => a.enteredAt.localeCompare(b.enteredAt)), [checks]);
+  const seatName = (c: Check) => (L.seats ?? []).find((s) => s.id === c.seatId)?.name ?? "席なし";
+  const slips = d.slipCount;
+
+  return (
+    <div className="card">
+      <div className="cardhead">
+        <h2>紙の伝票と突き合わせる</h2>
+        <span className="muted">レジ {rows.length} 組</span>
+      </div>
+      <p className="sub">紙の束を数えて枚数を入れると、打ち漏らしがあるか分かります。並びは入店時刻の順です。</p>
+      <label className="field"><span className="lbl">紙の伝票の枚数</span>
+        <NumberField value={slips ?? null} placeholder={`${rows.length} 枚なら合っています`}
+          onChange={(v) => edit((dd) => { if (v == null) delete dd.slipCount; else dd.slipCount = v; })} /></label>
+      {rows.map((c) => {
+        const voided = c.lines.filter((l) => l.voided).length;
+        return (
+          <div key={c.id} className="lrow">
+            <div className="g">
+              <div className="t">{clock(new Date(c.enteredAt))} ・ {seatName(c)} ・ {c.guests}名</div>
+              <div className="s">
+                {c.status === "open" ? "入店中" : c.payments[0]?.method === "card" ? "カード" : "現金"}
+                {voided > 0 ? ` ・ 取消 ${voided}件` : ""}
+                {c.discount ? ` ・ 値引き ${yen(c.discount.amount)}` : ""}
+              </div>
+            </div>
+            <div className="a num">{yen(c.status === "closed" ? (c.payments[0]?.amount ?? 0) : checkTotals(c, rule).total)}</div>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -367,6 +367,15 @@ describe("ランキングとシフト", () => {
     expect(migrate(JSON.parse(JSON.stringify(L))).plans).toEqual(L.plans);
   });
 
+  it("紙の枚数（slipCount）は移行で残り、無い日には付かない", () => {
+    const withSlips = migrate({ ...S, days: { ...S.days, "2026-09-01": { ...S.days["2026-09-01"], slipCount: 8 } } });
+    expect(withSlips.days["2026-09-01"].slipCount).toBe(8);
+    // 往復しても変わらない
+    expect(migrate(JSON.parse(JSON.stringify(withSlips))).days["2026-09-01"].slipCount).toBe(8);
+    // 入れていない日には欄そのものを作らない
+    expect("slipCount" in migrate(S).days["2026-09-01"]).toBe(false);
+  });
+
   it("plans の時刻は残り、壊れた時刻と重複は落ちる", () => {
     const withTimes = migrate({
       ...S,

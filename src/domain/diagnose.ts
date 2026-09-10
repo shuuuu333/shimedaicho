@@ -174,7 +174,25 @@ export function detectMisses(L: Ledger, dk: string, checks: Check[], now = Date.
     });
   }
 
-  // ② 会計済みなのに商品が 1 件も無い（セットだけ）。ドリンクの打ち忘れ
+  // ② 紙の枚数と伝票の数が合わない。
+  //    紙とレジを併用しているあいだの打ち漏らしは、これが一番はっきり出る。
+  //    番号ではなく枚数で見るのは、番号は書き忘れると「抜け番」に見えて嘘の警告を出すため
+  const slips = d?.slipCount;
+  if (slips != null && slips > 0 && slips !== mine.length) {
+    const gap = Math.abs(slips - mine.length);
+    out.push(slips > mine.length
+      ? {
+          id: "slipsMore",
+          text: `紙の伝票は ${slips}枚 ですが、レジには ${mine.length}組 しかありません。${gap}組 打ち漏らしているかもしれません。`,
+          strong: true,
+        }
+      : {
+          id: "slipsFewer",
+          text: `レジには ${mine.length}組 ありますが、紙の伝票は ${slips}枚 です。二重に打っていないか、紙が 1 枚なくなっていないか確かめてください。`,
+        });
+  }
+
+  // ③ 会計済みなのに商品が 1 件も無い（セットだけ）。ドリンクの打ち忘れ
   const bare = mine.filter((c) => c.status === "closed" && activeLines(c).length === 0);
   if (bare.length) {
     out.push({
@@ -183,7 +201,7 @@ export function detectMisses(L: Ledger, dk: string, checks: Check[], now = Date.
     });
   }
 
-  // ③ 出勤しているのに本数が全部 0 の子。
+  // ④ 出勤しているのに本数が全部 0 の子。
   //    本数を使っていない店では毎日出てしまうので、誰か 1 人でも入っている日だけ言う
   if (d) {
     const on = Object.keys(d.shifts ?? {}).filter((cid) => d.shifts[cid]?.on);
@@ -198,7 +216,7 @@ export function detectMisses(L: Ledger, dk: string, checks: Check[], now = Date.
     }
   }
 
-  // ④ 客数が入っていない。客単価が出ないので、あとの予測も効かなくなる
+  // ⑤ 客数が入っていない。客単価が出ないので、あとの予測も効かなくなる
   if (t.sales > 0 && t.guests === 0) {
     out.push({ id: "noGuests", text: "客数が 0 のままです。人数を入れると、客単価と打ち忘れの見当がつきます。" });
   }
