@@ -10,6 +10,8 @@ export interface CheckRepository {
   open(): Promise<Check[]>;
   /** まだ回収していないツケ。日をまたいで残るので、日付では引けない */
   openTabs(): Promise<Check[]>;
+  /** その月（YYYY-MM）の伝票。来店時刻の分析に使う */
+  byMonth(month: string): Promise<Check[]>;
   get(id: string): Promise<Check | null>;
   put(c: Check): Promise<void>;
   remove(id: string): Promise<void>;
@@ -37,6 +39,9 @@ export class LocalCheckRepository implements CheckRepository {
   }
   async open(): Promise<Check[]> {
     return ok((await this.db.checks.where("status").equals("open").toArray()).map(parse)).sort(byEntered);
+  }
+  async byMonth(month: string): Promise<Check[]> {
+    return ok((await this.db.checks.where("date").startsWith(month).toArray()).map(parse)).sort(byEntered);
   }
   async openTabs(): Promise<Check[]> {
     // 件数が少ない（ツケは例外的な会計）ので、全部読んで絞る。

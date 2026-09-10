@@ -3,6 +3,7 @@ import { useState, type PointerEvent } from "react";
 import type { CastMonthRow, DayTotals, MonthTotals } from "../domain/types";
 import { dayLabel, daysInMonth, jp, yen, yenShort } from "../domain/format";
 import { pct } from "../domain/calc";
+import { avgPerGroup, busiestHour, type ArrivalHour } from "../domain/arrivals";
 
 export const C = { cash: "var(--s-cash)", card: "var(--s-card)", labor: "var(--s-labor)", cost: "var(--s-cost)", rest: "var(--s-rest)", muted: "var(--s-muted)" };
 
@@ -309,6 +310,76 @@ export function YearChart({ months, onPick }: { months: { m: string; cash: numbe
         </div>
       </div>
       <div className="legend"><span><i style={{ background: C.cash }} />現金</span><span><i style={{ background: C.card }} />カード</span><span><i style={{ background: "var(--ink)", borderRadius: "50%" }} />営業利益</span></div>
+    </>
+  );
+}
+
+/** 何時にお客様が入っているか。伝票の入店時刻から出す。
+ *  棒は組数、点は 1 組あたりの平均単価。「早い時間は暇」「23時が一番濃い」が一目で分かる */
+export function ArrivalChart({ rows }: { rows: ArrivalHour[] }) {
+  const [tip, setTip] = useState<{ r: ArrivalHour; x: number } | null>(null);
+  if (!rows.length) return <div className="empty">まだ入店の記録がありません</div>;
+
+  const W = 326, H = 104;
+  const max = Math.max(1, ...rows.map((r) => r.groups));
+  const maxAvg = Math.max(1, ...rows.map((r) => avgPerGroup(r)));
+  const step = W / rows.length, bw = Math.max(6, step - 8);
+  const base = H - 14, top = 10, span = base - top;
+  const busiest = busiestHour(rows);
+
+  const onMove = (e: PointerEvent<HTMLDivElement>) => {
+    const el = (e.target as Element).closest?.(".hit") as SVGRectElement | null;
+    const r = el ? rows[Number(el.dataset.i)] : null;
+    if (!el || !r) { setTip(null); return; }
+    const wrap = e.currentTarget.getBoundingClientRect(), b = el.getBoundingClientRect();
+    setTip({ r, x: b.left - wrap.left + b.width / 2 });
+  };
+
+  const dot = (r: ArrivalHour, i: number) => {
+    const a = avgPerGroup(r);
+    if (a <= 0) return null;
+    return { x: step * i + step / 2, y: base - span * (a / maxAvg) };
+  };
+  const dots = rows.map(dot);
+  const line = dots
+    .map((d, i) => (d ? `${i && dots[i - 1] ? "L" : "M"}${d.x.toFixed(1)} ${d.y.toFixed(1)}` : ""))
+    .join(" ")
+    .trim();
+
+  return (
+    <>
+      <div className="chart" onPointerMove={onMove} onPointerDown={onMove} onPointerLeave={() => setTip(null)}>
+        <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="時間帯ごとの入店した組数と、1組あたりの平均単価">
+          <line x1={0} y1={base} x2={W} y2={base} stroke="var(--line)" strokeWidth={1} />
+          {rows.map((r, i) => {
+            if (r.groups <= 0) return null;
+            const h = span * (r.groups / max);
+            const x = step * i + (step - bw) / 2;
+            return <rect key={r.hour} x={x} y={base - h} width={bw} height={h} rx={2.5}
+              fill={busiest && r.hour === busiest.hour ? C.cash : C.muted} />;
+          })}
+          {line && <path d={line} fill="none" stroke={C.card} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />}
+          {dots.map((d, i) => (d ? <circle key={rows[i].hour} cx={d.x} cy={d.y} r={2.4} fill={C.card} /> : null))}
+          {rows.map((r, i) => (
+            <rect key={r.hour} className="hit" x={step * i} y={0} width={step} height={base} fill="transparent" data-i={i} />
+          ))}
+        </svg>
+        <div className={`tip ${tip ? "on" : ""}`} style={{ left: tip ? `clamp(0px, calc(${tip.x}px - 62px), calc(100% - 128px))` : 0, top: 0 }}>
+          {tip && (
+            <>
+              <div className="d">{tip.r.hour}時台</div>
+              <div className="r"><span className="swatch" style={{ background: C.cash }} /><span>組数</span><span>{tip.r.groups} 組</span></div>
+              <div className="r"><span>人数</span><span>{tip.r.guests} 名</span></div>
+              <div className="r"><span className="swatch" style={{ background: C.card }} /><span>1組あたり</span><span>{yen(avgPerGroup(tip.r))}</span></div>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="xaxis">{rows.map((r) => <div key={r.hour}>{r.hour}</div>)}</div>
+      <div className="legend">
+        <span><i style={{ background: C.cash }} />入店した組数</span>
+        <span><i style={{ background: C.card }} />1組あたりの単価</span>
+      </div>
     </>
   );
 }

@@ -37,6 +37,8 @@ export interface PosStore {
   reapply(date: string): Promise<void>;
   /** まだ回収していないツケを読む。日をまたいで残るので日付では引けない */
   openTabs(): Promise<Check[]>;
+  /** その月の伝票を読むだけ（画面の状態は変えない）。来店時刻の分析に使う */
+  checksOfMonth(month: string): Promise<Check[]>;
   /** ツケを回収したことにする。その伝票に印を付け、回収した営業日の日報に額を足す */
   collectTab(id: string, date: string): Promise<void>;
   /** 指定した営業日の伝票を読むだけ（画面の状態は変えない）。
@@ -120,6 +122,15 @@ export function createPosStore(repo: CheckRepository) {
           set({ date, checks: [...byId.values()], error: null });
         } catch (e) {
           set({ date, error: e instanceof Error ? e.message : String(e) });
+        }
+      },
+
+      async checksOfMonth(month) {
+        const rule = useApp.getState().ledger.posRule ?? defaultPosRule();
+        try {
+          return (await repo.byMonth(month)).map((c) => normalizeCheck(c, rule));
+        } catch {
+          return [];
         }
       },
 

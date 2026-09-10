@@ -1,15 +1,18 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useApp } from "../../state/store";
 import { useCloud } from "../../state/cloud";
-import type { RankMetric } from "../../domain/types";
+import type { Check, RankMetric } from "../../domain/types";
 import { balances, cashFlow, castContribution, castRanking, dayTotals, missingDays, monthCashFlow, monthTotals, num, owedList, pct, weekdaySales, yearTotals } from "../../domain/calc";
 import { WD, dayLabel, jp, shiftDay, shiftMonth, todayISO, yen, yenShort } from "../../domain/format";
-import { C, Calendar, CompositionChart, DailyChart, PALETTE, PieChart, YearChart, type PiePart } from "../charts";
+import { ArrivalChart, C, Calendar, CompositionChart, DailyChart, PALETTE, PieChart, YearChart, type PiePart } from "../charts";
 import { MonthBar } from "../components/MonthBar";
 import { Notice } from "../components/Notice";
 import { ChevLeft, ChevRight, Plus } from "../icons";
 import { csvFilename, monthCSV, offerFile } from "../../data/backup";
 import { forecastMonth, type Forecast } from "../../domain/forecast";
+import { arrivalsByHour, avgPerGroup, busiestHour } from "../../domain/arrivals";
+import { defaultPosRule } from "../../domain/migrate";
+import { usePos } from "../../state/pos";
 
 type PieKind = "bar" | "use" | "cast" | "dow";
 
@@ -333,6 +336,8 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
 
       {fc.ready && <ForecastCard fc={fc} />}
 
+      <ArrivalCard L={L} m={m} />
+
       <div className="tiles">
         <button type="button" className="tile link" onClick={() => { setUI({ tab: "cast" }); window.scrollTo(0, 0); }}>
           <div className="k">未払いの給料<ChevRight size={13} className="chevt" /></div><div className="v">{yen(a.unpaid)}</div>
@@ -450,6 +455,45 @@ function ForecastCard({ fc }: { fc: Forecast }) {
             </div>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+/** 何時にお客様が入っているか。レジで打った伝票の入店時刻から出す。
+ *  開店時刻を決め直したり、人を厚くする時間を決めたりするための材料。 */
+function ArrivalCard({ L, m }: { L: ReturnType<typeof useApp.getState>["ledger"]; m: string }) {
+  const checksOfMonth = usePos((s) => s.checksOfMonth);
+  const posChecks = usePos((s) => s.checks);
+  const [checks, setChecks] = useState<Check[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    void checksOfMonth(m).then((list) => { if (alive) setChecks(list); });
+    return () => { alive = false; };
+  }, [checksOfMonth, m, posChecks]);
+
+  const rule = L.posRule ?? defaultPosRule();
+  const rows = useMemo(() => arrivalsByHour(checks, rule, L.shop), [checks, rule, L.shop]);
+  const busiest = busiestHour(rows);
+  const groups = rows.reduce((s, r) => s + r.groups, 0);
+
+  // レジを使っていない月には出さない（空のグラフを置いても仕方がない）
+  if (!checks.length) return null;
+
+  return (
+    <div className="card">
+      <div className="cardhead">
+        <h2>何時に入っているか</h2>
+        <span className="muted">{groups} 組</span>
+      </div>
+      <p className="sub">レジで打った入店時刻から出しています。棒が組数、線が 1 組あたりの単価です。</p>
+      <ArrivalChart rows={rows} />
+      {busiest && (
+        <div className="hint" style={{ marginBottom: 0 }}>
+          一番入っているのは <b>{busiest.hour}時台</b>（{busiest.groups}組 ・ 1組あたり {yen(avgPerGroup(busiest))}）。
+          {rows[0] && rows[0].groups === 0 && `${rows[0].hour}時台はまだ 0 組です。`}
+        </div>
       )}
     </div>
   );
