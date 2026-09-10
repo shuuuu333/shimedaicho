@@ -53,6 +53,13 @@ export interface Shop {
   lineAuto?: boolean;
 }
 
+/** シフト予定の 1 件。時刻が空なら店の開店・閉店時刻を使う */
+export interface PlanEntry {
+  castId: string;
+  in?: string;
+  out?: string;
+}
+
 /** 在籍キャストの 1 日ぶんの出勤 */
 export interface Shift {
   on: boolean;
@@ -123,8 +130,8 @@ export interface Ledger {
   casts: Cast[];
   /** YYYY-MM-DD → 日報 */
   days: Record<string, DayRecord>;
-  /** YYYY-MM-DD → その日のシフト予定に入っているキャストID。実績は days[].shifts */
-  plans?: Record<string, string[]>;
+  /** YYYY-MM-DD → その日のシフト予定。実績は days[].shifts */
+  plans?: Record<string, PlanEntry[]>;
   /** レジの商品 */
   menu?: MenuItem[];
   /** レジの席 */

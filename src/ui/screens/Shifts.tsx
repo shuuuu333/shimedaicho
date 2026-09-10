@@ -1,11 +1,15 @@
 /** シフト。予定（オーナーが入れる）と実績（日報の出勤）を同じカレンダーで見せる。
  *  キャストとしてログインしている人には、自分のぶんだけ出す。 */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useApp } from "../../state/store";
 import { useCloud } from "../../state/cloud";
 import { castMonth, castShiftDays, payOf } from "../../domain/calc";
-import { WD, dayLabel, daysInMonth, jp, monthLabel, todayISO, yen } from "../../domain/format";
+import type { Ledger } from "../../domain/types";
+import { lateLabel, lateMinutes, planFor, planTimes, plannedIds } from "../../domain/plans";
+import { WD, addMinutes, dayLabel, daysInMonth, jp, monthLabel, todayISO, yen } from "../../domain/format";
 import { MonthBar } from "../components/MonthBar";
+import { BottomSheet } from "../components/BottomSheet";
+import { TimeField } from "../components/TimeField";
 import { ChevRight } from "../icons";
 
 export function Shifts() {
@@ -17,6 +21,8 @@ export function Shifts() {
   const role = useCloud((s) => s.role());
   const myEmail = useCloud((s) => s.email);
   const m = ui.month;
+  /** 予定の時刻を直しているキャスト */
+  const [editing, setEditing] = useState<string | null>(null);
 
   /** キャストとしてログインしているなら、その本人 */
   const me = useMemo(() => {
@@ -31,16 +37,24 @@ export function Shifts() {
   const sel = ui.calDay && ui.calDay.startsWith(m) ? ui.calDay : null;
   const active = L.casts.filter((c) => c.active !== false);
 
-  const planOf = (k: string) => L.plans?.[k] ?? [];
+  const planOf = (k: string) => plannedIds(L, k);
   const workedOf = (k: string) => Object.keys(L.days[k]?.shifts ?? {}).filter((cid) => L.days[k].shifts[cid]?.on);
 
   const togglePlan = (k: string, castId: string) =>
     update((LL) => {
       if (!LL.plans) LL.plans = {};
       const cur = LL.plans[k] ?? [];
-      LL.plans[k] = cur.includes(castId) ? cur.filter((x) => x !== castId) : [...cur, castId];
+      LL.plans[k] = cur.some((p) => p.castId === castId) ? cur.filter((p) => p.castId !== castId) : [...cur, { castId }];
       if (!LL.plans[k].length) delete LL.plans[k];
       if (!Object.keys(LL.plans).length) delete LL.plans;
+    });
+
+  /** 予定の時刻を直す。空文字を渡すと店の既定に戻る */
+  const setPlanTime = (k: string, castId: string, key: "in" | "out", v: string) =>
+    update((LL) => {
+      const row = LL.plans?.[k]?.find((p) => p.castId === castId);
+      if (!row) return;
+      if (v) row[key] = v; else delete row[key];
     });
 
   /* ---------- キャスト本人の画面 ---------- */
@@ -80,16 +94,27 @@ export function Shifts() {
         </div>
 
         <div className="sechead"><div className="t">日ごとの記録</div><div className="l" /><div className="n">{mine.length}日</div></div>
-        {mine.map((d) => (
-          <div key={d.date} className="wrow" style={{ cursor: "default" }}>
-            <span className="avatar">{Number(d.date.slice(8, 10))}</span>
-            <span className="g">
-              <span className="t">{dayLabel(d.date)}</span>
-              <span className="s jp">{d.worked ? `${d.hours.toFixed(1)}時間 はたらきました` : d.date >= today ? "これからの予定" : "予定でしたが記録がありません"}</span>
-            </span>
-            <span className="r">{d.worked ? <span className="a">{jp(d.gross)}</span> : <span className="n">—</span>}</span>
-          </div>
-        ))}
+        {mine.map((d) => {
+          const sh = L.days[d.date]?.shifts?.[me.id];
+          const late = d.worked ? lateLabel(lateMinutes(d.planIn, sh?.in)) : "";
+          return (
+            <div key={d.date} className="wrow" style={{ cursor: "default" }}>
+              <span className="avatar">{Number(d.date.slice(8, 10))}</span>
+              <span className="g">
+                <span className="t">{dayLabel(d.date)}</span>
+                <span className="s jp">
+                  {d.worked
+                    ? `${sh?.in && sh?.out ? `${sh.in}-${sh.out} ・ ` : ""}${d.hours.toFixed(1)}時間`
+                    : d.date >= today
+                      ? `${d.planIn}-${d.planOut} の予定`
+                      : "予定でしたが記録がありません"}
+                  {late ? ` ・ ${late}` : ""}
+                </span>
+              </span>
+              <span className="r">{d.worked ? <span className="a">{jp(d.gross)}</span> : <span className="n">—</span>}</span>
+            </div>
+          );
+        })}
         {!mine.length && <div className="card"><div className="empty">この月はまだ予定も記録もありません</div></div>}
       </>
     );
@@ -117,7 +142,7 @@ export function Shifts() {
             <h2>{dayLabel(sel)}</h2>
             <button type="button" className="btn sm" onClick={() => openDay(sel, 1)}>日報を開く<ChevRight size={14} /></button>
           </div>
-          <p className="sub">タップで予定に入れる／外す。すでに出勤の記録がある子には「出勤済み」と出ます。</p>
+          <p className="sub">タップで予定に入れる／外す。入れたあと下の行をタップすると、何時から何時までかを決められます。</p>
           <div className="chipgrid">
             {active.map((c) => {
               const on = selPlan.includes(c.id);
@@ -130,16 +155,45 @@ export function Shifts() {
             })}
           </div>
           {!active.length && <div className="empty" style={{ padding: 14 }}>キャストが登録されていません</div>}
+          {selPlan.length > 0 && (
+            <>
+              <div className="sechead" style={{ marginTop: 4 }}><div className="t">この日の予定</div><div className="l" /><div className="n">{selPlan.length}人</div></div>
+              {selPlan.map((cid) => {
+                const c = L.casts.find((x) => x.id === cid);
+                const row = planFor(L, sel, cid);
+                const t = planTimes(L, sel, cid)!;
+                const sh = L.days[sel]?.shifts?.[cid];
+                const late = sh?.on ? lateLabel(lateMinutes(t.in, sh.in)) : "";
+                return (
+                  <button key={cid} type="button" className="lrow" onClick={() => setEditing(cid)}>
+                    <div className="g"><div className="t">{c?.name || "（削除済み）"}</div>
+                      <div className="s">
+                        {row?.in || row?.out ? "" : "店の既定の時刻"}
+                        {late ? <>{row?.in || row?.out ? "" : " ・ "}<span style={{ color: "var(--warn)" }}>{late}</span></> : null}
+                      </div></div>
+                    <div className="a num">{t.in}-{t.out}</div>
+                  </button>
+                );
+              })}
+            </>
+          )}
           {selWorked.length > 0 && (
             <>
               <div className="sechead" style={{ marginTop: 4 }}><div className="t">この日の出勤</div><div className="l" /></div>
               {selWorked.map((cid) => {
                 const c = L.casts.find((x) => x.id === cid);
-                const p = payOf(L, cid, L.days[sel].shifts[cid], sel);
+                const sh = L.days[sel].shifts[cid];
+                const p = payOf(L, cid, sh, sel);
+                const late = lateLabel(lateMinutes(planTimes(L, sel, cid)?.in, sh.in));
                 return (
                   <div key={cid} className="lrow">
                     <div className="g"><div className="t">{c?.name || "（削除済み）"}</div>
-                      <div className="s">{p.hours.toFixed(1)}時間{selPlan.includes(cid) ? " ・ 予定どおり" : " ・ 予定になし"}</div></div>
+                      <div className="s">
+                        {sh.in && sh.out ? `${sh.in}-${sh.out} ・ ` : ""}{p.hours.toFixed(1)}時間
+                        {selPlan.includes(cid)
+                          ? (late ? <> ・ <span style={{ color: "var(--warn)" }}>{late}</span></> : null)
+                          : " ・ 予定になし"}
+                      </div></div>
                     <div className="a num">{jp(p.gross)}</div>
                   </div>
                 );
@@ -150,7 +204,52 @@ export function Shifts() {
       ) : (
         <div className="card"><div className="empty">日をタップすると、その日のシフトを決められます</div></div>
       )}
+
+      {sel && editing && selPlan.includes(editing) && (
+        <PlanSheet L={L} dk={sel} castId={editing}
+          onTime={(key, v) => setPlanTime(sel, editing, key, v)}
+          onRemove={() => { togglePlan(sel, editing); setEditing(null); }}
+          onClose={() => setEditing(null)} />
+      )}
     </>
+  );
+}
+
+/** 予定の時刻を決めるシート。日報の出勤シートと同じ TimeField を使う */
+function PlanSheet({ L, dk, castId, onTime, onRemove, onClose }: {
+  L: Ledger; dk: string; castId: string;
+  onTime: (key: "in" | "out", v: string) => void;
+  onRemove: () => void;
+  onClose: () => void;
+}) {
+  const c = L.casts.find((x) => x.id === castId);
+  const row = planFor(L, dk, castId);
+  const t = planTimes(L, dk, castId);
+  if (!t) return null;
+  const isDefault = !row?.in && !row?.out;
+  return (
+    <BottomSheet open title={`${c?.name || "（名前なし）"} ・ ${dayLabel(dk)} の予定`} onClose={onClose}
+      footer={<><span className="sum">予定 <b>{t.in}-{t.out}</b></span>
+        <button type="button" className="btn sm danger" onClick={onRemove}>予定から外す</button></>}>
+      <div className="row2">
+        <label className="field" style={{ margin: 0 }}><span className="lbl">出勤</span>
+          <TimeField value={t.in} ariaLabel="予定の出勤時刻" onChange={(v) => onTime("in", v)} /></label>
+        <label className="field" style={{ margin: 0 }}><span className="lbl">退勤</span>
+          <TimeField value={t.out} ariaLabel="予定の退勤時刻" onChange={(v) => onTime("out", v)} /></label>
+      </div>
+      <div className="quick" style={{ marginTop: 8 }}>
+        <button type="button" className="btn" onClick={() => onTime("in", addMinutes(t.in, -60))}>出勤 −60分</button>
+        <button type="button" className="btn" onClick={() => onTime("in", addMinutes(t.in, 60))}>+60分</button>
+        <button type="button" className="btn" onClick={() => onTime("out", addMinutes(t.out, -60))}>退勤 −60分</button>
+        <button type="button" className="btn" onClick={() => onTime("out", addMinutes(t.out, 60))}>+60分</button>
+        {!isDefault && <button type="button" className="btn" onClick={() => { onTime("in", ""); onTime("out", ""); }}>店の既定に戻す</button>}
+      </div>
+      <div className="hint">
+        {isDefault
+          ? `いまは店の既定（${L.shop.openTime}-${L.shop.closeTime}）です。時刻を決めると、この日だけその時刻になります。`
+          : "日報で出勤をONにすると、この時刻が最初に入ります。レジで打刻したときは、実際の時刻で上書きされます。"}
+      </div>
+    </BottomSheet>
   );
 }
 

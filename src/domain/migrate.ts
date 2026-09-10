@@ -1,7 +1,7 @@
 /** 旧アーティファクト(v1/v2, 文字列の数値) と v3 の JSON を 現行(v4) の Ledger に正規化する。
  *  旧 migrate() の振る舞い（v1 既定バック項目の置換・ドリンク名の改名・rateD 補完）も引き継ぐ。
  *  v3 の台帳にはレジのマスタが無いので、既定のメニュー・席・会計ルールを補う（backItems と同じ扱い）。 */
-import type { BackItem, Cast, DayRecord, DispatchRow, Expense, Ledger, MenuItem, MenuKind, PayMethod, PosRule, Seat, Settlement, Shift, Shop, WageChange } from "./types";
+import type { BackItem, Cast, DayRecord, DispatchRow, Expense, Ledger, MenuItem, MenuKind, PayMethod, PlanEntry, PosRule, Seat, Settlement, Shift, Shop, WageChange } from "./types";
 import { todayISO, uid } from "./format";
 
 export function defaultBacks(): BackItem[] {
@@ -72,16 +72,34 @@ export function defaultShop(): Shop {
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-/** シフト予定。日付とキャストIDの形が正しいものだけ残す */
-function toPlans(v: unknown, castIds: Set<string>): Record<string, string[]> | undefined {
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const time = (v: unknown): string | undefined => (typeof v === "string" && TIME_RE.test(v) ? v : undefined);
+
+/** シフト予定。日付とキャストIDの形が正しいものだけ残す。
+ *  v3 までの ["c1","c2"] は [{castId:"c1"},{castId:"c2"}] に変換する（無損失） */
+function toPlans(v: unknown, castIds: Set<string>): Record<string, PlanEntry[]> | undefined {
   if (!isObj(v)) return undefined;
-  const out: Record<string, string[]> = {};
+  const out: Record<string, PlanEntry[]> = {};
   for (const k of Object.keys(v)) {
     if (!DATE_RE.test(k)) continue;
     const list = v[k];
     if (!Array.isArray(list)) continue;
-    const ids = [...new Set(list.filter((x): x is string => typeof x === "string" && castIds.has(x)))];
-    if (ids.length) out[k] = ids;
+    const seen = new Set<string>();
+    const rows: PlanEntry[] = [];
+    for (const x of list) {
+      const castId = typeof x === "string" ? x : isObj(x) ? str(x.castId) : "";
+      if (!castIds.has(castId) || seen.has(castId)) continue;
+      seen.add(castId);
+      const e: PlanEntry = { castId };
+      if (isObj(x)) {
+        const i = time(x.in);
+        const o = time(x.out);
+        if (i) e.in = i;
+        if (o) e.out = o;
+      }
+      rows.push(e);
+    }
+    if (rows.length) out[k] = rows;
   }
   return Object.keys(out).length ? out : undefined;
 }

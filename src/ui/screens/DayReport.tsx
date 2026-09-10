@@ -15,6 +15,7 @@ import { MANUAL_CARD, MANUAL_CASH, MANUAL_GUESTS, isAuto, isManual, manualShift,
 import { usePos } from "../../state/pos";
 import { useCloud } from "../../state/cloud";
 import { dayReportText } from "../../domain/report";
+import { lateLabel, lateMinutes, planTimes } from "../../domain/plans";
 
 const STEPS = ["売上", "出勤", "派遣", "経費", "締め"];
 
@@ -136,8 +137,10 @@ function AttendStep({ L, dk, d, edit, t, openSheet, showToast }: { L: Ledger; dk
     const sh = dd.shifts[cid] ?? newShift();
     sh.on = !sh.on;
     if (sh.on) {
-      if (!sh.in && LL.shop.openTime) sh.in = LL.shop.openTime;
-      if (!sh.out && LL.shop.closeTime) sh.out = LL.shop.closeTime;
+      // 予定を組んであるなら、その時刻を最初に入れる（毎日打ち直さなくて済む）
+      const t = planTimes(LL, dk, cid);
+      if (!sh.in) sh.in = t?.in || LL.shop.openTime;
+      if (!sh.out) sh.out = t?.out || LL.shop.closeTime;
     }
     dd.shifts[cid] = sh;
   });
@@ -229,6 +232,8 @@ function CastSheet({ L, dk, d, castId, edit, onClose }: { L: Ledger; dk: string;
   const sh = d.shifts[castId];
   if (!c || !sh) return null;
   const p = payOf(L, castId, sh, dk);
+  const plan = planTimes(L, dk, castId);
+  const late = lateLabel(lateMinutes(plan?.in, sh.in));
   const set = (mut: (s: Shift) => void) => edit((dd) => { mut(dd.shifts[castId]); });
   // 時刻と本数はレジが面倒を見ている。手で触ったら、その子はレジの管理から外す
   // （控除・日払い・休憩はもともと手入力なので、触っても外さない）
@@ -246,8 +251,9 @@ function CastSheet({ L, dk, d, castId, edit, onClose }: { L: Ledger; dk: string;
         <button type="button" className="btn" onClick={() => setPos((s) => { s.in = addMinutes(s.in || L.shop.openTime, 60); })}>+60分</button>
         <button type="button" className="btn" onClick={() => setPos((s) => { s.out = addMinutes(s.out || L.shop.closeTime, -30); })}>早退 −30分</button>
         <button type="button" className="btn" onClick={() => setPos((s) => { s.out = addMinutes(s.out || L.shop.closeTime, -60); })}>−60分</button>
-        <button type="button" className="btn" onClick={() => setPos((s) => { s.in = L.shop.openTime; s.out = L.shop.closeTime; })}>定時に戻す</button>
+        <button type="button" className="btn" onClick={() => setPos((s) => { s.in = plan?.in ?? L.shop.openTime; s.out = plan?.out ?? L.shop.closeTime; })}>{plan ? "予定に戻す" : "定時に戻す"}</button>
       </div>
+      {plan && <div className="hint" style={{ margin: "8px 0 0" }}>予定は {plan.in}-{plan.out}{late ? ` ・ ${late}` : ""}</div>}
       <div className="hint" style={{ margin: "0 0 10px" }}>時給 {yen(castWageAt(c, L.shop, dk))} × {p.hours.toFixed(2)}h ＝ <b>{yen(p.wage)}</b>（{L.shop.roundMinutes}分単位で切り捨て）</div>
       <BackRows L={L} backs={sh.backs} isDispatch={false} onChange={(id, v) => setPos((s) => { s.backs[id] = v; })} />
       <div className="row3" style={{ marginTop: 11 }}>

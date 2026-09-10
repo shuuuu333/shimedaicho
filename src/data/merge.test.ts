@@ -38,25 +38,25 @@ describe("merge", () => {
   it("シフト予定とレジのマスタが同期で消えない", () => {
     // v3 までの mergeLedger は plans を出力に入れておらず、同期のたびに予定が消えていた
     const remote = defaultLedger();
-    remote.plans = { "2026-09-01": ["c1"] };
+    remote.plans = { "2026-09-01": [{ castId: "c1", in: "20:00" }] };
     remote.menu = [{ id: "m1", name: "R のビール", price: 800, category: "ドリンク", kind: "normal", active: true, sort: 0 }];
     remote.seats = [{ id: "s1", name: "R の席", sort: 0 }];
 
     const local = defaultLedger();
-    local.plans = { "2026-09-02": ["c2"] };
+    local.plans = { "2026-09-02": [{ castId: "c2" }] };
     local.menu = [{ id: "m2", name: "L のビール", price: 900, category: "ドリンク", kind: "normal", active: true, sort: 0 }];
     local.seats = [{ id: "s2", name: "L の席", sort: 0 }];
 
     // この端末では何も触っていない → remote 側がそのまま残る
     const keep = mergeLedger(remote, local, emptyDirty());
-    expect(keep.plans).toEqual({ "2026-09-01": ["c1"] });
+    expect(keep.plans).toEqual({ "2026-09-01": [{ castId: "c1", in: "20:00" }] });
     expect(keep.menu?.[0].name).toBe("R のビール");
     expect(keep.seats?.[0].name).toBe("R の席");
     expect(keep.posRule?.setMinutes).toBe(60);
 
     // この端末で触った → local 側を採る
     const mine = mergeLedger(remote, local, { days: new Set(), meta: true });
-    expect(mine.plans).toEqual({ "2026-09-02": ["c2"] });
+    expect(mine.plans).toEqual({ "2026-09-02": [{ castId: "c2" }] });
     expect(mine.menu?.[0].name).toBe("L のビール");
     expect(mine.seats?.[0].name).toBe("L の席");
   });
@@ -67,7 +67,7 @@ describe("merge", () => {
       (L: typeof a) => { L.menu![0].price = 12345; },
       (L: typeof a) => { L.seats!.push({ id: "z", name: "新しい席", sort: 99 }); },
       (L: typeof a) => { L.posRule!.setPrice = 2000; },
-      (L: typeof a) => { L.plans = { "2026-09-01": ["c1"] }; },
+      (L: typeof a) => { L.plans = { "2026-09-01": [{ castId: "c1" }] }; },
     ]) {
       const b = produce(a, mut);
       expect(diffDirty(a, b, emptyDirty()).meta).toBe(true);

@@ -5,6 +5,7 @@
  *  手で直した欄（DayRecord.manual）は上書きしない。 */
 import type { Check, DayRecord, Ledger, Shift } from "./types";
 import { activeLines, lineAmount } from "./pos";
+import { planTimes } from "./plans";
 
 /** manual に入れる印。ここに載っている欄はレジが触らない */
 export const MANUAL_CASH = "cashSales";
@@ -74,6 +75,8 @@ export function summarize(checks: Check[], L: Ledger): ChecksSummary {
  *  返り値は d 自身（テストで扱いやすいように）。 */
 export function applyChecksToDay(d: DayRecord, checks: Check[], L: Ledger, at = new Date().toISOString()): DayRecord {
   const s = summarize(checks, L);
+  // 渡される伝票は同じ営業日のぶんだけ（呼ぶ側で日付ごとに分けている）
+  const date = checks[0]?.date ?? "";
   d.posAt = at;
   const manual = new Set(d.manual ?? []);
   const managed = managedBackIds(L, checks);
@@ -88,8 +91,10 @@ export function applyChecksToDay(d: DayRecord, checks: Check[], L: Ledger, at = 
     const sh = (d.shifts[castId] ??= newShift());
     if (!sh.on) {
       sh.on = true;
-      if (!sh.in) sh.in = L.shop.openTime;
-      if (!sh.out) sh.out = L.shop.closeTime;
+      // 予定を組んであるならその時刻。無ければ店の既定（打刻があれば、あとで実際の時刻に上書きされる）
+      const t = planTimes(L, date, castId);
+      if (!sh.in) sh.in = t?.in || L.shop.openTime;
+      if (!sh.out) sh.out = t?.out || L.shop.closeTime;
     }
   }
 

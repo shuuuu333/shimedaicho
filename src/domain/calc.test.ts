@@ -4,6 +4,7 @@ import { describe, it, expect } from "vitest";
 import { createLegacy } from "../../test/legacy-calc.js";
 import { migrate } from "./migrate";
 import * as C from "./calc";
+import * as P2 from "./plans";
 
 /* ---------- 乱数（再現可能） ---------- */
 function rng(seed: number) {
@@ -359,10 +360,50 @@ describe("ランキングとシフト", () => {
   };
   const L = migrate(S);
 
-  it("plans は日付とIDが正しいものだけ残る", () => {
+  it("plans は日付とIDが正しいものだけ残る（旧形式の文字列配列も読める）", () => {
     expect(Object.keys(L.plans ?? {}).sort()).toEqual(["2026-09-05", "2026-09-06"]);
-    expect(L.plans!["2026-09-06"]).toEqual(["a", "b"]);
+    // v3 までの ["a","b"] は [{castId:"a"},{castId:"b"}] になる
+    expect(L.plans!["2026-09-06"]).toEqual([{ castId: "a" }, { castId: "b" }]);
     expect(migrate(JSON.parse(JSON.stringify(L))).plans).toEqual(L.plans);
+  });
+
+  it("plans の時刻は残り、壊れた時刻と重複は落ちる", () => {
+    const withTimes = migrate({
+      ...S,
+      plans: {
+        "2026-09-05": [
+          { castId: "a", in: "20:00", out: "01:00" },
+          { castId: "a", in: "22:00" },          // 同じ子の 2 件目は落ちる
+          { castId: "b", in: "25:99", out: "" }, // 時刻の形が違えば、その欄だけ落ちる
+          { castId: "zzz", in: "20:00" },        // いないキャストは落ちる
+        ],
+      },
+    });
+    expect(withTimes.plans!["2026-09-05"]).toEqual([{ castId: "a", in: "20:00", out: "01:00" }, { castId: "b" }]);
+    // 往復しても変わらない
+    expect(migrate(JSON.parse(JSON.stringify(withTimes))).plans).toEqual(withTimes.plans);
+  });
+
+  it("予定の時刻。空欄は店の開店・閉店で埋まる", () => {
+    const P = migrate({ ...S, plans: { "2026-09-05": [{ castId: "a", in: "21:00" }, { castId: "b" }] } });
+    expect(P2.planTimes(P, "2026-09-05", "a")).toEqual({ in: "21:00", out: "01:00" });
+    expect(P2.planTimes(P, "2026-09-05", "b")).toEqual({ in: "20:00", out: "01:00" });
+    expect(P2.planTimes(P, "2026-09-05", "zzz")).toBe(null);
+    expect(P2.plannedIds(P, "2026-09-05")).toEqual(["a", "b"]);
+  });
+
+  it("予定とのずれ。日付をまたいでも正しく出る", () => {
+    expect(P2.lateMinutes("20:00", "20:30")).toBe(30);
+    expect(P2.lateMinutes("20:00", "19:45")).toBe(-15);
+    expect(P2.lateMinutes("23:30", "00:30")).toBe(60);
+    expect(P2.lateMinutes("00:30", "23:30")).toBe(-60);
+    expect(P2.lateMinutes("20:00", "")).toBe(null);
+    expect(P2.lateLabel(30)).toBe("30分 遅れ");
+    expect(P2.lateLabel(-15)).toBe("15分 早い");
+    expect(P2.lateLabel(60)).toBe("1時間 遅れ");
+    expect(P2.lateLabel(90)).toBe("1時間30分 遅れ");
+    expect(P2.lateLabel(5)).toBe("");   // 5分以内は言わない
+    expect(P2.lateLabel(null)).toBe("");
   });
 
   it("castRanking は指標ごとに並び替わる", () => {
@@ -381,7 +422,8 @@ describe("ランキングとシフト", () => {
     const d = C.castShiftDays(L, "a", "2026-09");
     expect(d.map((x) => x.date)).toEqual(["2026-09-01", "2026-09-05", "2026-09-06"]);
     expect(d[0]).toMatchObject({ planned: false, worked: true, hours: 4 });
-    expect(d[1]).toMatchObject({ planned: true, worked: false, hours: 0, gross: 0 });
+    expect(d[1]).toMatchObject({ planned: true, worked: false, hours: 0, gross: 0, planIn: "20:00", planOut: "01:00" });
+    expect(d[0].planIn).toBe(undefined);   // 予定に入っていない日は時刻も出さない
     expect(C.castShiftDays(L, "b", "2026-09").length).toBe(2);
   });
 });

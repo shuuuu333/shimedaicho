@@ -406,21 +406,28 @@ export function castRanking(L: Ledger, m: string, metric: RankMetric): RankRow[]
 }
 
 /** その月に「予定」か「実績」がある日を、キャストごとに返す */
-export interface ShiftDay { date: string; planned: boolean; worked: boolean; hours: number; gross: number }
+export interface ShiftDay {
+  date: string; planned: boolean; worked: boolean; hours: number; gross: number;
+  /** 予定の時刻。予定に入っていなければ undefined（時刻が空なら店の開店・閉店時刻） */
+  planIn?: string; planOut?: string;
+}
 export function castShiftDays(L: Ledger, castId: string, m: string): ShiftDay[] {
   const dates = new Set<string>();
-  for (const k of Object.keys(L.plans ?? {})) if (k.startsWith(m) && (L.plans![k] ?? []).includes(castId)) dates.add(k);
+  for (const k of Object.keys(L.plans ?? {})) if (k.startsWith(m) && (L.plans![k] ?? []).some((p) => p.castId === castId)) dates.add(k);
   for (const k of monthKeys(L, m)) if (L.days[k].shifts?.[castId]?.on) dates.add(k);
   return [...dates].sort().map((date) => {
     const sh = L.days[date]?.shifts?.[castId];
     const worked = !!sh?.on;
     const p = worked ? payOf(L, castId, sh, date) : null;
+    const plan = (L.plans?.[date] ?? []).find((x) => x.castId === castId) ?? null;
     return {
       date,
-      planned: (L.plans?.[date] ?? []).includes(castId),
+      planned: !!plan,
       worked,
       hours: p ? p.hours : 0,
       gross: p ? p.gross : 0,
+      planIn: plan ? plan.in || L.shop.openTime : undefined,
+      planOut: plan ? plan.out || L.shop.closeTime : undefined,
     };
   });
 }
