@@ -15,6 +15,8 @@ export function PayView({ check, rule, onClose }: { check: Check; rule: PosRule;
   const [received, setReceived] = useState<number | null>(null);
   const [disc, setDisc] = useState(false);
   const [discAmount, setDiscAmount] = useState<number | null>(null);
+  const [tab, setTab] = useState(false);
+  const [tabName, setTabName] = useState("");
 
   const t = checkTotals(check, rule);
   const change = received == null ? null : changeDue(received, t.total);
@@ -70,6 +72,26 @@ export function PayView({ check, rule, onClose }: { check: Check; rule: PosRule;
         </div>
       )}
 
+      {tab && (
+        <div className="card flat">
+          <label className="field"><span className="lbl">誰のツケか</span>
+            <input className="inp" value={tabName} autoFocus placeholder="お客様の名前"
+              aria-label="ツケの相手" onChange={(e) => setTabName(e.target.value)} />
+          </label>
+          <div className="btnrow">
+            <button type="button" className="btn primary" disabled={!tabName.trim()}
+              onClick={() => { void pay(check.id, "tab", t.total, undefined, tabName.trim()); onClose(); }}>
+              {yen(t.total)} をツケにする
+            </button>
+            <button type="button" className="btn" onClick={() => { setTab(false); setTabName(""); }}>やめる</button>
+          </div>
+          <div className="hint">
+            売上には入りますが、現金にもカードにも入りません。
+            締めの「ツケ（未回収）」に残るので、もらったらそこで消します。
+          </div>
+        </div>
+      )}
+
       <div className="paygrid">
         {/* 預り金を入れていなければ「ちょうど受け取った」として会計する。
             足りない額を入れているときだけ止める */}
@@ -81,6 +103,11 @@ export function PayView({ check, rule, onClose }: { check: Check; rule: PosRule;
           カードで会計{cardFee > 0 ? <><br /><span className="num" style={{ fontSize: 12 }}>{yen(cardTotal)}</span></> : null}
         </button>
       </div>
+      {!tab && (
+        <button type="button" className="btn wide" style={{ marginTop: 8 }} onClick={() => setTab(true)}>
+          ツケにする（あとでもらう）
+        </button>
+      )}
     </BottomSheet>
   );
 }

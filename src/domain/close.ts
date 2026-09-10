@@ -11,6 +11,9 @@ import { planTimes } from "./plans";
 export const MANUAL_CASH = "cashSales";
 export const MANUAL_CARD = "cardSales";
 export const MANUAL_GUESTS = "guests";
+export const MANUAL_TAB = "tabSales";
+/** 回収したツケは、レジの反映では作れない（別の営業日の伝票のぶんが入る）ので手入力扱い */
+export const MANUAL_TAB_COLLECTED = "tabCollected";
 export const manualShift = (castId: string): string => "shift:" + castId;
 
 const newShift = (): Shift => ({ on: false, in: "", out: "", breakMin: null, backs: {}, deduct: null, paid: null });
@@ -30,6 +33,8 @@ export function managedBackIds(L: Ledger, checks: Check[] = []): Set<string> {
 export interface ChecksSummary {
   cash: number;
   card: number;
+  /** ツケ（売掛）。売上には入るが、まだお金は受け取っていない */
+  tab: number;
   guests: number;
   /** castId → backItemId → 数量（count 型は本数、amount 型は対象売上） */
   byCast: Record<string, Record<string, number>>;
@@ -41,7 +46,7 @@ export interface ChecksSummary {
 
 /** その日の伝票を集計する。会計の済んだ伝票だけが売上になる */
 export function summarize(checks: Check[], L: Ledger): ChecksSummary {
-  const s: ChecksSummary = { cash: 0, card: 0, guests: 0, byCast: {}, closed: 0, open: 0, voided: 0, discount: 0 };
+  const s: ChecksSummary = { cash: 0, card: 0, tab: 0, guests: 0, byCast: {}, closed: 0, open: 0, voided: 0, discount: 0 };
   const byId = new Map((L.backItems ?? []).map((b) => [b.id, b]));
 
   for (const c of checks) {
@@ -51,6 +56,7 @@ export function summarize(checks: Check[], L: Ledger): ChecksSummary {
     s.discount += Math.max(0, Math.floor(c.discount?.amount ?? 0));
     for (const p of c.payments) {
       if (p.method === "cash") s.cash += Math.floor(p.amount);
+      else if (p.method === "tab") s.tab += Math.floor(p.amount);
       else s.card += Math.floor(p.amount);
     }
     s.voided += c.lines.filter((l) => l.voided).length;
@@ -84,6 +90,7 @@ export function applyChecksToDay(d: DayRecord, checks: Check[], L: Ledger, at = 
   if (!manual.has(MANUAL_CASH)) d.cashSales = s.cash;
   if (!manual.has(MANUAL_CARD)) d.cardSales = s.card;
   if (!manual.has(MANUAL_GUESTS)) d.guests = s.guests;
+  if (!manual.has(MANUAL_TAB)) d.tabSales = s.tab || null;
 
   // レジに出てきたキャストは、その日の出勤として扱う
   for (const castId of Object.keys(s.byCast)) {

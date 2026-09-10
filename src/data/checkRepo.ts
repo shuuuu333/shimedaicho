@@ -8,6 +8,8 @@ export interface CheckRepository {
   byDate(date: string): Promise<Check[]>;
   /** 開いている伝票だけ。日付をまたいで残っていても拾えるようにする */
   open(): Promise<Check[]>;
+  /** まだ回収していないツケ。日をまたいで残るので、日付では引けない */
+  openTabs(): Promise<Check[]>;
   get(id: string): Promise<Check | null>;
   put(c: Check): Promise<void>;
   remove(id: string): Promise<void>;
@@ -35,6 +37,13 @@ export class LocalCheckRepository implements CheckRepository {
   }
   async open(): Promise<Check[]> {
     return ok((await this.db.checks.where("status").equals("open").toArray()).map(parse)).sort(byEntered);
+  }
+  async openTabs(): Promise<Check[]> {
+    // 件数が少ない（ツケは例外的な会計）ので、全部読んで絞る。
+    // クラウド化するときはここをサーバー側の条件に置き換える
+    const all = ok((await this.db.checks.toArray()).map(parse));
+    return all.filter((c) => c.status === "closed" && !c.tabPaid
+      && c.payments.some((p) => p.method === "tab")).sort(byEntered);
   }
   async get(id: string): Promise<Check | null> {
     const row = await this.db.checks.get(id);

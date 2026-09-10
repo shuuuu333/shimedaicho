@@ -275,6 +275,70 @@ describe("カード手数料をお客様に請求する", () => {
   });
 });
 
+describe("ツケ（売掛）", () => {
+  const tab = (L: Ledger, guests: number, amount: number, name: string): Check => {
+    const c = closed(L, guests, [], 0, 0);
+    c.payments.push({ method: "tab", amount });
+    c.tabName = name;
+    return c;
+  };
+
+  it("売上には入るが、現金にもカードにも入らない", () => {
+    const L = shopLedger();
+    const d = CL.applyChecksToDay(emptyDay(), [tab(L, 2, 8000, "田中さん")], L);
+    expect(d.tabSales).toBe(8000);
+    expect(d.cashSales).toBe(0);
+    expect(d.cardSales).toBe(0);
+
+    L.days["2026-09-06"] = d;
+    const t = C.dayTotals(L, "2026-09-06");
+    expect(t.sales).toBe(8000);     // 売上には入る
+    expect(t.tab).toBe(8000);
+    expect(C.dayCashFlow(L, "2026-09-06").net).toBe(0);   // 現金は動かない
+  });
+
+  it("回収するとその日の現金として入り、売上には二重に入らない", () => {
+    const L = shopLedger();
+    L.days["2026-09-06"] = CL.applyChecksToDay(emptyDay(), [tab(L, 2, 8000, "田中さん")], L);
+    // 別の日に回収した
+    L.days["2026-09-08"] = { ...emptyDay(), tabCollected: 8000 };
+
+    expect(C.dayTotals(L, "2026-09-08").sales).toBe(0);          // 売上は増えない
+    expect(C.dayCashFlow(L, "2026-09-08").net).toBe(8000);       // 現金は増える
+    expect(C.monthTotals(L, "2026-09").sales).toBe(8000);        // 月の売上は 1 回だけ
+  });
+
+  it("未回収のツケが balances に出る", () => {
+    const L = shopLedger();
+    L.shop.openingDate = "2026-09-01";
+    L.days["2026-09-06"] = CL.applyChecksToDay(emptyDay(), [tab(L, 2, 8000, "田中さん")], L);
+    expect(C.balances(L).tabOut).toBe(8000);
+    expect(C.balances(L).cash).toBe(0);      // まだ手元には無い
+
+    L.days["2026-09-08"] = { ...emptyDay(), tabCollected: 8000 };
+    expect(C.balances(L).tabOut).toBe(0);
+    expect(C.balances(L).cash).toBe(8000);
+  });
+
+  it("現金・カード・ツケが混ざった日も合う", () => {
+    const L = shopLedger();
+    const d = CL.applyChecksToDay(emptyDay(), [
+      closed(L, 2, [], 5000),
+      closed(L, 1, [], 0, 3000),
+      tab(L, 3, 9000, "佐藤さん"),
+    ], L);
+    expect([d.cashSales, d.cardSales, d.tabSales]).toEqual([5000, 3000, 9000]);
+    L.days["2026-09-06"] = d;
+    expect(C.dayTotals(L, "2026-09-06").sales).toBe(17000);
+    expect(C.dayTotals(L, "2026-09-06").guests).toBe(6);
+  });
+
+  it("ツケが 1 件も無ければ tabSales は付けない（欄を増やさない）", () => {
+    const L = shopLedger();
+    expect(CL.applyChecksToDay(emptyDay(), [closed(L, 2, [], 5000)], L).tabSales).toBe(null);
+  });
+});
+
 describe("営業日の判定", () => {
   const shop = { openTime: "20:00", closeTime: "01:00" };
   const at = (s: string) => new Date(s);

@@ -129,6 +129,10 @@ export interface DayRecord {
   posAt?: string;
   /** この日の締めを LINE に送った日時。二度送りを防ぐ目印 */
   lineSentAt?: string;
+  /** その日に立てたツケ（売掛）。売上には入るが、現金にもカードにも入らない */
+  tabSales?: number | null;
+  /** その日に回収したツケ。現金として手元に入る（売上には二重に入れない） */
+  tabCollected?: number | null;
   /** 閉店後に数えた紙伝票の枚数。レジの伝票の数と突き合わせて打ち漏らしを見つける。
    *  紙とレジを併用しているあいだ（＝移行のあいだ）だけ意味がある */
   slipCount?: number | null;
@@ -247,8 +251,11 @@ export interface CheckLine {
   at: string;
 }
 
+/** 会計の受け取り方。tab はツケ（売掛）で、まだお金は受け取っていない */
+export type PayKind = "cash" | "card" | "tab";
+
 export interface Payment {
-  method: Exclude<PayMethod, "bank">;
+  method: PayKind;
   amount: number;
 }
 
@@ -287,6 +294,10 @@ export interface Check {
   /** カード払いでお客様からもらった手数料。会計のときに確定して写す。
    *  現金に戻したり会計を取り消したりすると消える */
   cardFee?: number;
+  /** ツケ（売掛）にしたときの相手。顧客台帳は作らず、その場で書いた名前をそのまま持つ */
+  tabName?: string;
+  /** ツケを回収した日時と、回収した営業日。付いていれば「もらった」ということ */
+  tabPaid?: { at: string; date: string; by: string };
   log: CheckLog[];
   /** 紙伝票に番号を振っている店のための番号。
    *  番号は書き忘れると「抜け番」に見えて嘘の警告を出すので、まず枚数で照合する。
@@ -341,6 +352,8 @@ export interface Pay {
 export interface DayTotals {
   date: string;
   cash: number; card: number; sales: number; guests: number;
+  /** ツケで立てた売上と、その日に回収したツケ */
+  tab: number; tabCollected: number;
   expCash: number; expCard: number; expBank: number; exp: number;
   bankDeposit: number; cardReceived: number; cashCounted: number | null;
   labor: number; laborR: number; laborD: number;
@@ -353,6 +366,7 @@ export interface DayTotals {
 export interface MonthTotals {
   days: number;
   cash: number; card: number; sales: number; guests: number;
+  tab: number; tabCollected: number;
   exp: number; expCash: number;
   labor: number; laborR: number; laborD: number;
   paidCash: number; paidDetail: number; paidLump: number; settled: number; unpaid: number;
@@ -380,6 +394,8 @@ export interface DispatchMonthRow {
 export interface Balances {
   cash: number;
   cardOut: number;
+  /** まだ回収していないツケの合計 */
+  tabOut: number;
   lastCount: number | null;
   lastCountDate: string | null;
 }

@@ -38,6 +38,10 @@ function CashCard({ L, m }: { L: ReturnType<typeof useApp.getState>["ledger"]; m
       <p className="sub">{scope === "month" ? `${Number(m.slice(5, 7))}月に入ってきた現金と、出ていった現金` : "起点の日からの積み上げ"}</p>
       {scope === "all" && <div className="lrow"><div className="g"><div className="t">起点の現金</div><div className="s">{L.shop.openingDate}</div></div><div className="a num">{jp(opening)}</div></div>}
       <div className="lrow"><div className="g"><div className="t">現金売上</div></div><div className="a num" style={{ color: "var(--good)" }}>＋{jp(f.cash)}</div></div>
+      {f.tabCollected > 0 && (
+        <div className="lrow"><div className="g"><div className="t">受け取ったツケ</div><div className="s">売上には入れません（立てた日に入っています）</div></div>
+          <div className="a num" style={{ color: "var(--good)" }}>＋{jp(f.tabCollected)}</div></div>
+      )}
       <div className="lrow"><div className="g"><div className="t">現金で払った経費</div></div><div className="a num">−{jp(f.expCash)}</div></div>
       <div className="lrow"><div className="g"><div className="t">給料で払った額</div></div><div className="a num">−{jp(f.paidCash)}</div></div>
       <div className="lrow"><div className="g"><div className="t">銀行へ入金</div></div><div className="a num">−{jp(f.bankDeposit)}</div></div>

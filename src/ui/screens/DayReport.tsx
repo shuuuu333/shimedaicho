@@ -527,6 +527,8 @@ function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: strin
         </div>
       </div>
 
+      <TabCard dk={dk} d={d} />
+
       {dayChecks.length > 0 && <SlipCard L={L} d={d} checks={dayChecks} edit={edit} />}
 
       {misses.length > 0 && (
@@ -542,6 +544,10 @@ function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: strin
       <div className="card" id="cashcheck">
         <h2>現金の照合</h2><p className="sub">この日ぶんだけで見ます。前の日からの持ち越しは含みません。</p>
         <div className="lrow"><div className="g"><div className="t">現金売上</div></div><div className="a num" style={{ color: "var(--good)" }}>＋{jp(t.cash)}</div></div>
+        {t.tabCollected > 0 && (
+          <div className="lrow"><div className="g"><div className="t">受け取ったツケ</div><div className="s">売上には入れません（立てた日に入っています）</div></div>
+            <div className="a num" style={{ color: "var(--good)" }}>＋{jp(t.tabCollected)}</div></div>
+        )}
         <div className="lrow"><div className="g"><div className="t">現金で払った経費</div></div><div className="a num">−{jp(t.expCash)}</div></div>
         <div className="lrow"><div className="g"><div className="t">給料で払った額</div><div className="s">キャスト欄 {jp(t.paidDetail)} ＋ まとめ {jp(t.paidLump)}{t.settled ? ` ＋ 精算 ${jp(t.settled)}` : ""}</div></div><div className="a num">−{jp(t.paidCash)}</div></div>
         <div className="lrow"><div className="g"><div className="t">銀行へ入金</div></div><div className="a num">−{jp(t.bankDeposit)}</div></div>
@@ -686,6 +692,68 @@ function SlipCard({ L, d, checks, edit }: { L: Ledger; d: DayRecord; checks: Che
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** ツケ（売掛）。まだもらっていない会計を並べて、もらったらここで消す。
+ *  顧客台帳は作らず、会計のときに書いた名前をそのまま出す。 */
+function TabCard({ dk, d }: { dk: string; d: DayRecord }) {
+  const openTabs = usePos((s) => s.openTabs);
+  const collectTab = usePos((s) => s.collectTab);
+  const posChecks = usePos((s) => s.checks);
+  const showToast = useApp((s) => s.showToast);
+  const [tabs, setTabs] = useState<Check[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    void openTabs().then((list) => { if (alive) setTabs(list); });
+    return () => { alive = false; };
+  }, [openTabs, posChecks]);
+
+  const amountOf = (c: Check) => c.payments.reduce((s, p) => s + (p.method === "tab" ? Math.floor(p.amount) : 0), 0);
+  const total = tabs.reduce((s, c) => s + amountOf(c), 0);
+  const collected = num(d.tabCollected);
+  const madeToday = num(d.tabSales);
+
+  if (!tabs.length && !collected && !madeToday) return null;
+
+  const collect = async (c: Check) => {
+    await collectTab(c.id, dk);
+    setTabs(await openTabs());
+    showToast(`${c.tabName || "ツケ"} ${yen(amountOf(c))} を受け取りました`);
+  };
+
+  return (
+    <div className="card">
+      <div className="cardhead">
+        <h2>ツケ（未回収）</h2>
+        <span className="muted">{tabs.length ? `${tabs.length}件 ・ ${yen(total)}` : "なし"}</span>
+      </div>
+      <p className="sub">まだもらっていない会計です。もらったら「もらった」を押すと、その日の現金に入ります。</p>
+
+      {madeToday > 0 && (
+        <div className="lrow"><div className="g"><div className="t">この日 立てたツケ</div>
+          <div className="s">売上には入っていますが、現金にもカードにも入っていません</div></div>
+          <div className="a num">{yen(madeToday)}</div></div>
+      )}
+      {collected > 0 && (
+        <div className="lrow"><div className="g"><div className="t">この日 受け取ったツケ</div>
+          <div className="s">手元の現金に入っています（売上には二重に入れません）</div></div>
+          <div className="a num" style={{ color: "var(--good)" }}>＋{yen(collected)}</div></div>
+      )}
+
+      {tabs.map((c) => (
+        <div key={c.id} className="lrow">
+          <div className="g">
+            <div className="t">{c.tabName || "（名前なし）"}</div>
+            <div className="s">{dayLabel(c.date)}{c.date === dk ? "（この日）" : ""} ・ {c.guests}名</div>
+          </div>
+          <div className="a num">{yen(amountOf(c))}</div>
+          <button type="button" className="btn sm" style={{ marginLeft: 8 }} onClick={() => void collect(c)}>もらった</button>
+        </div>
+      ))}
+      {!tabs.length && <div className="hint" style={{ marginTop: 4 }}>未回収のツケはありません。</div>}
     </div>
   );
 }

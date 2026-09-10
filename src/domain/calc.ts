@@ -118,7 +118,7 @@ export function monthKeys(L: Ledger, m: string): string[] {
 
 export function emptyDayTotals(date: string): DayTotals {
   return {
-    date, cash: 0, card: 0, sales: 0, guests: 0, expCash: 0, expCard: 0, expBank: 0, exp: 0,
+    date, cash: 0, card: 0, sales: 0, guests: 0, tab: 0, tabCollected: 0, expCash: 0, expCard: 0, expBank: 0, exp: 0,
     bankDeposit: 0, cardReceived: 0, cashCounted: null, labor: 0, laborR: 0, laborD: 0,
     paidCash: 0, paidDetail: 0, paidLump: 0, paidCount: 0, settled: 0, unpaid: 0,
     workers: 0, workersR: 0, workersD: 0, hours: 0, fee: 0, profit: 0,
@@ -130,7 +130,10 @@ export function dayTotals(L: Ledger, dateKey: string): DayTotals {
   const d: DayRecord | undefined = L.days[dateKey];
   const z = emptyDayTotals(dateKey);
   if (!d) return z;
-  z.cash = num(d.cashSales); z.card = num(d.cardSales); z.sales = z.cash + z.card; z.guests = num(d.guests);
+  z.cash = num(d.cashSales); z.card = num(d.cardSales);
+  // ツケは売上には入るが、現金にもカードにも入らない。回収したときに現金として入る
+  z.tab = num(d.tabSales); z.tabCollected = num(d.tabCollected);
+  z.sales = z.cash + z.card + z.tab; z.guests = num(d.guests);
   for (const e of d.expenses ?? []) {
     const a = num(e.amount);
     z.exp += a;
@@ -160,13 +163,13 @@ export function dayTotals(L: Ledger, dateKey: string): DayTotals {
   return z;
 }
 
-const MONTH_SUM_FIELDS = ["cash", "card", "sales", "guests", "exp", "expCash", "labor", "laborR", "laborD", "paidCash", "paidDetail", "paidLump", "settled", "unpaid", "fee", "bankDeposit", "cardReceived", "hours"] as const;
+const MONTH_SUM_FIELDS = ["cash", "card", "sales", "guests", "tab", "tabCollected", "exp", "expCash", "labor", "laborR", "laborD", "paidCash", "paidDetail", "paidLump", "settled", "unpaid", "fee", "bankDeposit", "cardReceived", "hours"] as const;
 
 /** 月の集計 */
 export function monthTotals(L: Ledger, m: string): MonthTotals {
   const keys = monthKeys(L, m);
   const acc: MonthTotals = {
-    days: keys.length, cash: 0, card: 0, sales: 0, guests: 0, exp: 0, expCash: 0, labor: 0, laborR: 0, laborD: 0,
+    days: keys.length, cash: 0, card: 0, sales: 0, guests: 0, tab: 0, tabCollected: 0, exp: 0, expCash: 0, labor: 0, laborR: 0, laborD: 0,
     paidCash: 0, paidDetail: 0, paidLump: 0, settled: 0, unpaid: 0, fee: 0, bankDeposit: 0, cardReceived: 0, hours: 0, workers: 0,
     series: [], settledFor: 0, fixedLabor: 0, fixedCost: 0, laborAll: 0, costAll: 0, profit: 0, avgSpend: 0,
   };
@@ -249,26 +252,29 @@ export function owedList(L: Ledger, m: string): Owed[] {
 /** 全期間の現金・カード残 */
 export function balances(L: Ledger): Balances {
   const start = L.shop.openingDate || "0000-00-00";
-  let cash = num(L.shop.openingCash), cardOut = 0;
+  let cash = num(L.shop.openingCash), cardOut = 0, tabOut = 0;
   let lastCount: number | null = null, lastCountDate: string | null = null;
   for (const k of dayKeys(L).filter((k) => k >= start)) {
     const t = dayTotals(L, k);
-    cash += t.cash - t.expCash - t.paidCash - t.bankDeposit;
+    cash += t.cash + t.tabCollected - t.expCash - t.paidCash - t.bankDeposit;
     cardOut += t.card - (t.card * num(L.shop.cardFeeRate)) / 100 - t.cardReceived;
+    tabOut += t.tab - t.tabCollected;
     if (t.cashCounted != null) { lastCount = t.cashCounted; lastCountDate = k; }
   }
-  return { cash, cardOut, lastCount, lastCountDate };
+  return { cash, cardOut, tabOut, lastCount, lastCountDate };
 }
 
 /** 現金の動き。レジ金を毎日入れ替える店では、その日だけで見る。 */
-export interface CashFlow { cash: number; expCash: number; paidCash: number; bankDeposit: number; net: number }
+export interface CashFlow { cash: number; tabCollected: number; expCash: number; paidCash: number; bankDeposit: number; net: number }
 export function cashFlow(L: Ledger, keys: string[]): CashFlow {
-  const f: CashFlow = { cash: 0, expCash: 0, paidCash: 0, bankDeposit: 0, net: 0 };
+  const f: CashFlow = { cash: 0, tabCollected: 0, expCash: 0, paidCash: 0, bankDeposit: 0, net: 0 };
   for (const k of keys) {
     const t = dayTotals(L, k);
-    f.cash += t.cash; f.expCash += t.expCash; f.paidCash += t.paidCash; f.bankDeposit += t.bankDeposit;
+    f.cash += t.cash; f.tabCollected += t.tabCollected;
+    f.expCash += t.expCash; f.paidCash += t.paidCash; f.bankDeposit += t.bankDeposit;
   }
-  f.net = f.cash - f.expCash - f.paidCash - f.bankDeposit;
+  // 回収したツケは、売上ではないが手元の現金としては増える
+  f.net = f.cash + f.tabCollected - f.expCash - f.paidCash - f.bankDeposit;
   return f;
 }
 /** その日 1 日ぶんの現金の動き */
@@ -286,7 +292,7 @@ export function cashAsOf(L: Ledger, dk: string): number {
   let cash = num(L.shop.openingCash);
   for (const k of dayKeys(L).filter((k) => k >= start && k <= dk)) {
     const t = dayTotals(L, k);
-    cash += t.cash - t.expCash - t.paidCash - t.bankDeposit;
+    cash += t.cash + t.tabCollected - t.expCash - t.paidCash - t.bankDeposit;
   }
   return cash;
 }

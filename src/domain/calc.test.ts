@@ -128,7 +128,9 @@ describe("旧コードとの同値性", () => {
         for (const who of ["c:a1", "c:gone", "d:ゆき", "d:りん", ""]) expect(C.unpaidFor(L, who, m)).toBe(Lg.unpaidFor(who, m));
         expect(C.settlementsFor(L, m)).toBe(Lg.settlementsFor(m));
       }
-      expect(C.balances(L)).toEqual(Lg.balances());
+      // toMatchObject にしてあるのは、ツケ（tabOut）のように旧コードに無い欄が
+      // 増えたため。旧コードが持っている欄はすべて一致していないと通らない
+      expect(C.balances(L)).toMatchObject(Lg.balances());
       expect(C.dispatchNames(L)).toEqual(Lg.dispatchNames());
       for (const who of ["c:a1", "c:zzz", "d:ゆき", ""]) expect(C.whoLabel(L, who)).toBe(Lg.whoLabel(who));
     }
