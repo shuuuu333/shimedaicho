@@ -1,7 +1,7 @@
 /** 日報 = 5 ステップの締めウィザード：売上 → 出勤 → 派遣 → 経費 → 現金・締め */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useApp } from "../../state/store";
-import type { DayRecord, DispatchRow, Ledger, Shift } from "../../domain/types";
+import type { Check, DayRecord, DispatchRow, Ledger, Shift } from "../../domain/types";
 import { emptyDay } from "../../domain/migrate";
 import { backRate, calcBacks, castWageAt, dayCashFlow, dayTotals, dispatchNames, dispatchPay, num, payOf, unpaidFor, whoLabel } from "../../domain/calc";
 import { WD, addMinutes, dayLabel, jp, shiftDay, shiftMonth, todayISO, uid, yen } from "../../domain/format";
@@ -16,7 +16,7 @@ import { usePos } from "../../state/pos";
 import { useCloud } from "../../state/cloud";
 import { dayReportText } from "../../domain/report";
 import { lateLabel, lateMinutes, planTimes } from "../../domain/plans";
-import { diagnoseCash } from "../../domain/diagnose";
+import { detectMisses, diagnoseCash } from "../../domain/diagnose";
 
 const STEPS = ["売上", "出勤", "派遣", "経費", "締め"];
 
@@ -404,8 +404,19 @@ function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: strin
   const autoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (autoTimer.current) clearTimeout(autoTimer.current); }, []);
 
-  // その日のレジの伝票の枚数（消すときに一緒に消える件数を見せる）
-  const checkCount = usePos((s) => s.checks.filter((c) => c.date === dk).length);
+  // その日のレジの伝票（枚数は消すときの確認に、中身は打ち忘れの検知に使う）。
+  // 日報は今の営業日以外も開けるので、画面が持っている分ではなく保存層から日付で引く
+  const checksOf = usePos((s) => s.checksOf);
+  const posChecks = usePos((s) => s.checks);
+  const [dayChecks, setDayChecks] = useState<Check[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void checksOf(dk).then((list) => { if (alive) setDayChecks(list); });
+    return () => { alive = false; };
+    // posChecks が変わる＝レジで何か打った。そのときは読み直す
+  }, [checksOf, dk, posChecks]);
+  const checkCount = dayChecks.length;
+  const misses = useMemo(() => detectMisses(L, dk, dayChecks), [L, dk, dayChecks]);
   const removeByDate = usePos((s) => s.removeByDate);
   const restoreChecks = usePos((s) => s.restore);
 
@@ -482,6 +493,16 @@ function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: strin
           {t.settled > 0 && <span className="hint" style={{ margin: "0 0 0 auto" }}>精算計 <b className="num">{yen(t.settled)}</b></span>}
         </div>
       </div>
+
+      {misses.length > 0 && (
+        <div className="card">
+          <h2>入れ忘れがないか</h2>
+          <p className="sub">レジと日報を見て、抜けていそうなところです。合っていれば、そのまま進んでください。</p>
+          <ul className="hintlist">
+            {misses.map((m) => <li key={m.id} className={m.strong ? "strong" : ""}>{m.text}</li>)}
+          </ul>
+        </div>
+      )}
 
       <div className="card" id="cashcheck">
         <h2>現金の照合</h2><p className="sub">この日ぶんだけで見ます。前の日からの持ち越しは含みません。</p>

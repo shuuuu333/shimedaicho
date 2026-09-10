@@ -254,7 +254,8 @@ nav.tabs svg{width:22px;height:22px}
 .notice.bad .ic{color:var(--crit)}
 .notice.bad .t{color:var(--crit)}
 /* 現金が合わないときの原因の候補。上に出るものが一番あやしい */
-.hintlist{list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:6px}
+.hintlist{list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:6px;
+  font-size:12.5px; color:var(--ink-2); line-height:1.6}
 .hintlist li{position:relative; padding-left:14px}
 .hintlist li::before{content:""; position:absolute; left:2px; top:.62em; width:5px; height:5px;
   border-radius:999px; background:currentColor; opacity:.45}

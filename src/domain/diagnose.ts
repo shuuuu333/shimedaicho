@@ -14,7 +14,9 @@
  *  ぜんぶ台帳にあるデータで解ける（LLM は要らない）。 */
 import { dayCashFlow, dayTotals, dispatchPay, num, payOf } from "./calc";
 import { jp, yen } from "./format";
-import type { Ledger } from "./types";
+import { activeLines, allowedMin } from "./pos";
+import { defaultPosRule } from "./migrate";
+import type { Check, Ledger } from "./types";
 
 /** 候補ひとつ。strong は「金額が一致した」手がかりで、一番上に出す */
 export interface CashHint { id: string; text: string; strong?: boolean }
@@ -118,11 +120,88 @@ export function diagnoseCash(L: Ledger, dk: string): CashDiagnosis | null {
       }
     }
 
-    if (t.guests === 0 && t.sales > 0) push("noGuests", "客数が 0 のままです。売上が入っているので、人数の入れ忘れがないか確かめてください。");
     if (t.sales === 0) push("noSales", "売上が 0 のままです。伝票を打ち忘れていないか確かめてください。");
     if (t.card > 0) push("cashAsCard", "現金でもらった会計を、カードで打っていないか確かめてください。");
     push("changeKept", `お客様にお釣り ${jp(extra)} 円を渡し忘れていないか確かめてください。`);
   }
 
   return { diff, hints: hints.slice(0, MAX_HINTS) };
+}
+
+
+/* ==================== 打ち忘れの検知 ==================== */
+
+/** レジは「打てば正しい」が前提だが、忙しいと打ち忘れる。締めのときに聞く。
+ *  現金の差額（diagnoseCash）が「何かおかしい」と教え、こちらが「何が」を教える。 */
+export interface Miss {
+  id: string;
+  text: string;
+  /** 一番あやしいもの。上に太字で出す */
+  strong?: boolean;
+  /** 営業中のレジ画面にも出してよいもの。
+   *  締めのときだけ意味がある指摘（本数が 0、客数が 0）は営業中に出すと毎回鳴って無視される */
+  live?: boolean;
+}
+
+/** open のままの伝票を「会計の打ち忘れ」と見なすまでの猶予（終了予定から何分）。
+ *  営業中の席を毎回警告すると、すぐ無視されるようになる */
+const OPEN_STALE_MIN = 60;
+
+/** 名前を並べる。多いときは 3 つまでで「ほか n件」 */
+function names(list: string[]): string {
+  if (list.length <= 3) return list.join("・");
+  return list.slice(0, 3).join("・") + ` ほか${list.length - 3}件`;
+}
+
+/** その営業日の打ち忘れらしいところ。伝票は呼ぶ側から渡す（Dexie に依存しないため） */
+export function detectMisses(L: Ledger, dk: string, checks: Check[], now = Date.now()): Miss[] {
+  const rule = L.posRule ?? defaultPosRule();
+  const d = L.days[dk];
+  const t = dayTotals(L, dk);
+  const mine = checks.filter((c) => c.date === dk);
+  const seatName = (c: Check) => (L.seats ?? []).find((s) => s.id === c.seatId)?.name ?? "席なし";
+  const out: Miss[] = [];
+
+  // ① 終了予定を大きく過ぎて入店中のまま。会計そのものが抜けるので一番お金が消える
+  const stale = mine.filter((c) => c.status === "open"
+    && now - (Date.parse(c.enteredAt) + allowedMin(c, rule) * 60000) > OPEN_STALE_MIN * 60000);
+  if (stale.length) {
+    out.push({
+      id: "openStale",
+      text: `${names(stale.map(seatName))} が入店中のままです。会計を打ち忘れていないか確かめてください。`,
+      strong: true,
+      live: true,
+    });
+  }
+
+  // ② 会計済みなのに商品が 1 件も無い（セットだけ）。ドリンクの打ち忘れ
+  const bare = mine.filter((c) => c.status === "closed" && activeLines(c).length === 0);
+  if (bare.length) {
+    out.push({
+      id: "noItems",
+      text: `${names(bare.map(seatName))} の伝票に商品が 1 件も入っていません。ドリンクは本当に出ていませんか？`,
+    });
+  }
+
+  // ③ 出勤しているのに本数が全部 0 の子。
+  //    本数を使っていない店では毎日出てしまうので、誰か 1 人でも入っている日だけ言う
+  if (d) {
+    const on = Object.keys(d.shifts ?? {}).filter((cid) => d.shifts[cid]?.on);
+    const total = (cid: string) => Object.values(d.shifts[cid].backs ?? {}).reduce((a: number, b) => a + num(b), 0);
+    const zero = on.filter((cid) => total(cid) === 0);
+    if (zero.length && zero.length < on.length) {
+      const who = zero.map((cid) => (L.casts.find((x) => x.id === cid)?.name ?? "").trim() || "（名前なし）");
+      out.push({
+        id: "zeroBacks",
+        text: `${names(who)} の本数が全部 0 のままです。ドリンクを付け忘れていないか確かめてください。`,
+      });
+    }
+  }
+
+  // ④ 客数が入っていない。客単価が出ないので、あとの予測も効かなくなる
+  if (t.sales > 0 && t.guests === 0) {
+    out.push({ id: "noGuests", text: "客数が 0 のままです。人数を入れると、客単価と打ち忘れの見当がつきます。" });
+  }
+
+  return out;
 }

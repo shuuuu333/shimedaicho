@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { migrate } from "./migrate";
-import { avgSpend, diagnoseCash } from "./diagnose";
-import type { Ledger } from "./types";
+import { avgSpend, detectMisses, diagnoseCash } from "./diagnose";
+import { lineFromMenu, newCheck } from "./pos";
+import type { Check, Ledger, MenuItem } from "./types";
 
 const shop = {
   name: "", cardFeeRate: 0, openingCash: 0, openingDate: "2026-09-01", defaultWage: 2000,
@@ -87,10 +88,6 @@ describe("現金が合わないときの原因の候補", () => {
     expect(ids({ cashCounted: 33300 })).toEqual(["changeKept"]);
   });
 
-  it("客数 0 のまま売上があるときは、そこを指摘する", () => {
-    expect(ids({ cashCounted: 55000, guests: null })).toContain("noGuests");
-  });
-
   it("候補は多くても 3 件", () => {
     for (const c of [22000, 27000, 50000, 33300]) expect(D({ cashCounted: c })!.hints.length).toBeLessThanOrEqual(3);
   });
@@ -105,5 +102,89 @@ describe("現金が合わないときの原因の候補", () => {
     expect(avgSpend(only, "2026-09-05")).toBe(8000);
     // 客数の入っている日がどこにも無ければ 0（倍数の当てはめをやめる合図）
     expect(avgSpend(only, "2026-10-01")).toBe(0);
+  });
+});
+
+/* ---------- 打ち忘れの検知 ---------- */
+
+const T0 = "2026-09-01T20:00:00.000Z";
+const at = (min: number) => Date.parse(T0) + min * 60000;
+const beer: MenuItem = { id: "m1", name: "ビール", price: 800, category: "ドリンク", kind: "normal", active: true, sort: 0 };
+
+/** 入店 20:00 の伝票。closed にすると会計済み扱い */
+function chk(over: Partial<Check> = {}): Check {
+  return { ...newCheck("2026-09-01", "s1", 2, 3000, T0, "test"), ...over };
+}
+
+describe("打ち忘れの検知", () => {
+  const L = base({ cashCounted: 30000 });
+
+  it("何も無ければ何も言わない", () => {
+    const c = chk({ status: "closed", lines: [lineFromMenu(beer, T0)] });
+    expect(detectMisses(L, "2026-09-01", [c], at(30))).toEqual([]);
+  });
+
+  it("終了予定を大きく過ぎて入店中のままなら、会計の打ち忘れを疑う", () => {
+    const c = chk();   // セット60分 → 21:00 まで
+    // 21:30 の時点ではまだ言わない（営業中に毎回警告すると無視される）
+    expect(detectMisses(L, "2026-09-01", [c], at(90))).toEqual([]);
+    // 22:30 なら言う
+    const m = detectMisses(L, "2026-09-01", [c], at(150));
+    expect(m[0]).toMatchObject({ id: "openStale", strong: true });
+    expect(m[0].text).toContain("カウンター1");
+  });
+
+  it("延長を押していれば、そのぶん猶予が伸びる", () => {
+    const c = chk({ extends: [{ min: 60, price: 1500, at: T0 }] });   // 22:00 まで
+    expect(detectMisses(L, "2026-09-01", [c], at(150))).toEqual([]);  // 22:30 はまだ
+    expect(detectMisses(L, "2026-09-01", [c], at(210))[0]?.id).toBe("openStale");
+  });
+
+  it("会計済みで商品が 1 件も無い伝票を拾う", () => {
+    const m = detectMisses(L, "2026-09-01", [chk({ status: "closed" })], at(30));
+    expect(m[0]).toMatchObject({ id: "noItems" });
+    expect(m[0].text).toContain("カウンター1");
+  });
+
+  it("取り消した行しか無い伝票も「商品が無い」として拾う", () => {
+    const line = { ...lineFromMenu(beer, T0), voided: { at: T0, by: "x", reason: "打ち間違い" } };
+    expect(detectMisses(L, "2026-09-01", [chk({ status: "closed", lines: [line] })], at(30))[0]?.id).toBe("noItems");
+  });
+
+  it("席が多いときは 3 つまで名前を出して、あとは件数にする", () => {
+    const seats = ["s1", "s2", "s3", "s4", "s5"];
+    const list = seats.map((seatId) => chk({ id: seatId, seatId, status: "closed" }));
+    const m = detectMisses(L, "2026-09-01", list, at(30));
+    expect(m[0].text).toContain("ほか2件");
+  });
+
+  it("出勤しているのに本数が全部 0 の子を拾う", () => {
+    // あいは 2 本入っている。みくは 0 本 → みくだけ言う
+    const LL = base({ cashCounted: 30000, shifts: {
+      a: { on: true, in: "20:00", out: "00:00", breakMin: null, backs: { d1: 2 }, deduct: null, paid: null },
+      b: { on: true, in: "20:00", out: "00:00", breakMin: null, backs: {}, deduct: null, paid: null },
+    } });
+    const m = detectMisses(LL, "2026-09-01", [], at(30));
+    expect(m[0]).toMatchObject({ id: "zeroBacks" });
+    expect(m[0].text).toContain("みく");
+    expect(m[0].text).not.toContain("あい");
+  });
+
+  it("全員 0 本の日は言わない（本数を使っていない店で毎日出てしまう）", () => {
+    const LL = base({ cashCounted: 30000, shifts: {
+      a: { on: true, in: "20:00", out: "00:00", breakMin: null, backs: {}, deduct: null, paid: null },
+      b: { on: true, in: "20:00", out: "00:00", breakMin: null, backs: { d1: 0 }, deduct: null, paid: null },
+    } });
+    expect(detectMisses(LL, "2026-09-01", [], at(30)).map((x) => x.id)).not.toContain("zeroBacks");
+  });
+
+  it("売上があるのに客数が 0 のままなら指摘する", () => {
+    const LL = base({ cashCounted: 30000, guests: null });
+    expect(detectMisses(LL, "2026-09-01", [], at(30)).map((x) => x.id)).toContain("noGuests");
+  });
+
+  it("ほかの営業日の伝票は見ない", () => {
+    const c = chk({ date: "2026-09-02" });
+    expect(detectMisses(L, "2026-09-01", [c], at(300))).toEqual([]);
   });
 });

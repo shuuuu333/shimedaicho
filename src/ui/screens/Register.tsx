@@ -4,6 +4,7 @@ import type { Check, DayRecord, Shift } from "../../domain/types";
 import { usePos } from "../../state/pos";
 import { checkTotals, clock, endsAt, lineAmount, remainingMin, seatState, setPriceChoices, setUnitPrice } from "../../domain/pos";
 import { summarize } from "../../domain/close";
+import { detectMisses } from "../../domain/diagnose";
 import { yen } from "../../domain/format";
 import { defaultPosRule } from "../../domain/migrate";
 import { BottomSheet } from "../components/BottomSheet";
@@ -54,6 +55,8 @@ export function Register() {
   const bySeat = new Map(open.filter((c) => c.seatId).map((c) => [c.seatId as string, c]));
   const noSeat = open.filter((c) => !c.seatId);
   const sum = summarize(checks.filter((c) => c.date === date), L);
+  // 営業中に言って意味のある打ち忘れだけ（＝会計を打ち忘れて入店中のままの席）
+  const misses = useMemo(() => detectMisses(L, date, checks, now).filter((m) => m.live), [L, date, checks, now]);
 
   if (activeId) return <CheckView id={activeId} />;
 
@@ -66,6 +69,14 @@ export function Register() {
         <div className="tile"><div className="k">取消 / 値引き</div><div className="v">{sum.voided} / {yen(sum.discount)}</div>
           <div className="n">{date}</div></div>
       </div>
+
+      {misses.length > 0 && (
+        <div className="card">
+          <ul className="hintlist" style={{ margin: 0 }}>
+            {misses.map((m) => <li key={m.id} className={m.strong ? "strong" : ""}>{m.text}</li>)}
+          </ul>
+        </div>
+      )}
 
       <Attendance date={date} />
 
