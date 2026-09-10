@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useApp } from "../../state/store";
 import { NumberField } from "../components/NumberField";
 import { TimeField } from "../components/TimeField";
@@ -11,12 +11,37 @@ import { PosSettings } from "./Menu";
 import { defaultPosRule } from "../../domain/migrate";
 import { InstallCard } from "../components/InstallCard";
 import { useCloud } from "../../state/cloud";
-import { uid } from "../../domain/format";
+import { uid, yen } from "../../domain/format";
 import { backupFilename, backupJSON, csvFilename, monthCSV, offerFile, parseBackup } from "../../data/backup";
 import { LocalRepository } from "../../data/localRepository";
 import { LocalCheckRepository } from "../../data/checkRepo";
 import { usePos } from "../../state/pos";
 import type { SnapshotInfo } from "../../data/repository";
+
+/** 深リンク（goSettings の section）が、どのまとまりに入っているか */
+const GROUP_OF: Record<string, string> = {
+  shop: "shop",
+  cash: "money", fixed: "money",
+  backs: "pay",
+  pos: "pos", menu: "pos", seats: "pos",
+  data: "data",
+  theme: "app", version: "app",
+};
+
+/** 設定のまとまり。開くまで中身を描かないので、画面が短くなるだけでなく軽くもなる */
+function Section({ id, title, sub, open, onToggle, children }: {
+  id: string; title: string; sub: string; open: boolean; onToggle: () => void; children: ReactNode;
+}) {
+  return (
+    <div className="card" id={"setgrp-" + id} style={{ padding: open ? undefined : "0" }}>
+      <button type="button" className="lrow" aria-expanded={open} style={{ width: "100%", borderBottom: open ? undefined : 0 }} onClick={onToggle}>
+        <div className="g"><div className="t">{title}</div><div className="s">{sub}</div></div>
+        <div className="a" style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink-3)" }}>{open ? "閉じる" : "開く"}</div>
+      </button>
+      {open && <div style={{ paddingTop: 4 }}>{children}</div>}
+    </div>
+  );
+}
 
 /** 何日バックアップしていなければ注意を出すか。
  *  レジの伝票も端末内にしかないので、月 1 回では取り返しがつかない */
@@ -80,12 +105,28 @@ export function Settings() {
     </div>
   );
 
+  // 設定は 6 つのまとまりに畳んである。ほかの画面から「起点を直す」などで飛んで
+  // きたときは、その項目が入っているまとまりを開いてから、そこまで動かす
+  const [openSec, setOpenSec] = useState<string | null>(null);
+  const [pendingFocus, setPendingFocus] = useState<string | null>(null);
+
   useEffect(() => {
     if (!ui.setFocus) { window.scrollTo(0, 0); return; }
-    const el = document.getElementById("set-" + ui.setFocus);
+    const f = ui.setFocus;
     setUI({ setFocus: null });
-    if (el) requestAnimationFrame(() => { el.scrollIntoView({ block: "start", behavior: "smooth" }); el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); });
+    const g = GROUP_OF[f];
+    if (g) setOpenSec(g);
+    setPendingFocus(f);
   }, [ui.setFocus, setUI]);
+
+  useEffect(() => {
+    if (!pendingFocus) return;
+    const el = document.getElementById("set-" + pendingFocus);
+    setPendingFocus(null);
+    if (el) requestAnimationFrame(() => { el.scrollIntoView({ block: "start", behavior: "smooth" }); el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); });
+  }, [pendingFocus, openSec]);
+
+  const sec = (key: string) => ({ open: openSec === key, onToggle: () => setOpenSec(openSec === key ? null : key) });
 
   const shop = <K extends keyof typeof S>(k: K, v: (typeof S)[K]) => update((LL) => { LL.shop[k] = v; });
   const exportJson = async () => {
@@ -157,8 +198,7 @@ export function Settings() {
 
   return (
     <>
-      {themeCard}
-      <InstallCard />
+      <Section id="shop" title="お店のこと" sub={`${S.name || "店名なし"} ・ 時給 ${yen(S.defaultWage)} ・ カード手数料 ${S.cardFeeRate}%`} {...sec("shop")}>
       <div className="card" id="set-shop">
         <h2>店舗</h2>
         <label className="field"><span className="lbl">店名</span><input className="inp" value={S.name} placeholder="店名" onChange={(e) => shop("name", e.target.value)} /></label>
@@ -195,6 +235,9 @@ export function Settings() {
         </div>
       </div>
 
+      </Section>
+
+      <Section id="pay" title="給料のルール" sub={`バック ${L.backItems.length}項目 ・ ${L.backItems.slice(0, 2).map((x) => x.name || "（名前なし）").join("・")}${L.backItems.length > 2 ? " ほか" : ""}`} {...sec("pay")}>
       <div className="card" id="set-backs">
         <h2>バックの単価</h2><p className="sub">お店のルールをそのまま入れてください。日報の入力欄がここで決まります。</p>
         {L.backItems.map((b, i) => (
@@ -233,8 +276,13 @@ export function Settings() {
         <div className="btnrow" style={{ marginTop: 10 }}><button type="button" className="btn sm" onClick={() => update((LL) => { LL.backItems.push({ id: uid(), name: "", type: "count", rate: 0, rateD: 0 }); })}>＋ 項目を足す</button></div>
       </div>
 
-      <PosSettings />
+      </Section>
 
+      <Section id="pos" title="レジ" sub={`セット ${yen(rule.setPrice)}／${rule.setMinutes}分 ・ 商品 ${(L.menu ?? []).length}品 ・ 席 ${(L.seats ?? []).length}`} {...sec("pos")}>
+      <PosSettings />
+      </Section>
+
+      <Section id="money" title="現金と固定費" sub={`起点 ${S.openingDate} ・ 固定費 ${yen(S.fixedLabor + S.fixedCost)}／月`} {...sec("money")}>
       <div className="card" id="set-cash">
         <h2>現金の起点</h2><p className="sub">ここを基準に、日報から現金残を積み上げます</p>
         <div>
@@ -251,12 +299,15 @@ export function Settings() {
         </div>
       </div>
 
+      </Section>
+
+      <Section id="share" title="共有と安全" sub="クラウド同期・LINE 通知・暗証番号" {...sec("share")}>
       <CloudCard />
-
       <LineCard />
-
       <PinCard />
+      </Section>
 
+      <Section id="data" title="データ" sub="バックアップ・読み込み・保存の履歴" {...sec("data")}>
       <div className="card" id="set-data">
         <h2>データ</h2>
         <p className="sub">入力はこの端末の中（ブラウザのデータベース）にも必ず自動保存されます。クラウド同期を使わない場合は、端末を替えるときにバックアップを書き出して読み込んでください。</p>
@@ -286,6 +337,11 @@ export function Settings() {
         )}
       </div>
 
+      </Section>
+
+      <Section id="app" title="アプリのこと" sub="見た目・ホーム画面に追加・使い方・版" {...sec("app")}>
+      {themeCard}
+      <InstallCard />
       <div className="card">
         <h2>使い方</h2>
         <div className="lrow"><div className="g"><div className="t">1. 設定を決める</div><div className="s">時給・バック単価・カード手数料・現金の起点</div></div></div>
@@ -304,6 +360,7 @@ export function Settings() {
         </div>
         {updateMsg && <div className="hint">{updateMsg}</div>}
       </div>
+      </Section>
     </>
   );
 }
