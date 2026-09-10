@@ -440,6 +440,27 @@ describe("ランキングとシフト", () => {
     expect(migrate(JSON.parse(JSON.stringify(L))).plans).toEqual(L.plans);
   });
 
+  it("旧い料金プラン（金額だけの並び）は、当時のセット時間を付けて移行する", () => {
+    // v4 の途中までは setPriceOptions: number[] で、時間は店で 1 つに固定だった
+    const L2 = migrate({ ...S, posRule: { setMinutes: 40, setPrice: 2000, setPriceOptions: [2000, 2500] } });
+    expect(L2.posRule!.setPlans).toEqual([{ min: 40, price: 2000 }, { min: 40, price: 2500 }]);
+    // 往復しても変わらない
+    expect(migrate(JSON.parse(JSON.stringify(L2))).posRule!.setPlans).toEqual(L2.posRule!.setPlans);
+  });
+
+  it("時間の違うセットを並べられる。重複は消え、短い順に並ぶ", () => {
+    const L2 = migrate({ ...S, posRule: { setMinutes: 60, setPrice: 3000,
+      setPlans: [{ min: 60, price: 3000 }, { min: 40, price: 2000 }, { min: 40, price: 2000 }, { min: 90, price: 4000 }] } });
+    expect(L2.posRule!.setPlans).toEqual([
+      { min: 40, price: 2000 }, { min: 60, price: 3000 }, { min: 90, price: 4000 },
+    ]);
+  });
+
+  it("料金プランが空なら、雛形の並びを入れる（入店で何も選べない状態を作らない）", () => {
+    const L2 = migrate({ ...S, posRule: { setMinutes: 60, setPrice: 3000, setPlans: [] } });
+    expect(L2.posRule!.setPlans.length).toBeGreaterThan(0);
+  });
+
   it("「入店したら人数ぶん」の印は移行で残る。キャストに紐づく商品には付かない", () => {
     const L2 = migrate({
       ...S,

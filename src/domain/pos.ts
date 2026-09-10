@@ -1,6 +1,6 @@
 /** レジ（伝票）の計算。UI にも保存層にも依存しない。
  *  金額はすべて整数（円）で、端数は floor に統一する（calc.ts と同じ流儀）。 */
-import type { Check, CheckExtend, CheckLine, CheckTotals, MenuItem, PosRule, Shop } from "./types";
+import type { Check, CheckExtend, CheckLine, CheckTotals, MenuItem, PosRule, SetPlan, Shop } from "./types";
 import { shiftDay, uid } from "./format";
 
 /* ---------- 営業日 ---------- */
@@ -64,7 +64,9 @@ export function elapsedMin(c: Check, now: number): number {
 
 /** 今の会計で認められている滞在時間（分）。最初のセット ＋ 押した延長のぶん */
 export function allowedMin(c: Check, rule: PosRule): number {
-  return rule.setMinutes + c.extends.reduce((s, e) => s + e.min, 0);
+  // 伝票が自分の分数を持っていればそれを使う。持っていない古い伝票は店の設定で見る
+  const base = c.setMinutes != null && c.setMinutes > 0 ? Math.floor(c.setMinutes) : rule.setMinutes;
+  return base + c.extends.reduce((s, e) => s + e.min, 0);
 }
 
 /** 何時までか。席で「22:30まで」と言えるようにする */
@@ -185,22 +187,40 @@ export function changeDue(received: number, total: number): number {
 
 /* ---------- 伝票を作る ---------- */
 
-export function newCheck(date: string, seatId: string | null, guests: number, setPrice: number, at: string, by: string): Check {
-  const p = Math.max(0, Math.floor(setPrice));
+export function newCheck(date: string, seatId: string | null, guests: number, plan: SetPlan, at: string, by: string): Check {
+  const p = Math.max(0, Math.floor(plan.price));
+  const m = Math.max(1, Math.floor(plan.min));
   const n = Math.max(1, Math.floor(guests));
   return {
-    id: uid(), date, seatId, guests: n, setPrice: p,
+    id: uid(), date, seatId, guests: n, setPrice: p, setMinutes: m,
     enteredAt: at, extends: [], lines: [], payments: [], status: "open",
-    log: [{ at, by, act: "入店", detail: `${n}名 ／ セット ¥${p}／人` }],
+    log: [{ at, by, act: "入店", detail: `${n}名 ／ ${planLabel({ min: m, price: p })}／人` }],
   };
 }
 
 /** 入店のときに出すセット料金の候補。設定の並びに、既定の料金も必ず入れる */
-export function setPriceChoices(rule: PosRule): number[] {
-  const list = [...(rule.setPriceOptions ?? []), rule.setPrice]
-    .map((v) => Math.max(0, Math.floor(v)))
-    .filter((v) => v > 0);
-  return [...new Set(list)].sort((a, b) => a - b);
+/** 入店のときに 1 タップで選べるセット。店の既定（setMinutes / setPrice）も必ず入れる。
+ *  時間の短い順、同じ時間なら安い順。同じ組み合わせは 1 つにまとめる */
+export function setPlanChoices(rule: PosRule): SetPlan[] {
+  const seen = new Set<string>();
+  const out: SetPlan[] = [];
+  const add = (min: number, price: number) => {
+    const m = Math.max(1, Math.floor(min)), p = Math.floor(price);
+    if (p <= 0) return;
+    const key = `${m}:${p}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ min: m, price: p });
+  };
+  for (const x of rule.setPlans ?? []) add(x.min, x.price);
+  add(rule.setMinutes, rule.setPrice);
+  return out.sort((a, b) => a.min - b.min || a.price - b.price);
+}
+
+/** 「40分 ¥2,000」のような見せ方。1時間ちょうどは「1時間」と書く */
+export function planLabel(p: SetPlan): string {
+  const h = p.min % 60 === 0 ? `${p.min / 60}時間` : `${p.min}分`;
+  return `${h} ¥${p.price.toLocaleString("ja-JP")}`;
 }
 
 /** 保存から読んだ伝票をならす。

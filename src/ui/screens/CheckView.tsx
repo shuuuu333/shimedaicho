@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../../state/store";
 import { usePos } from "../../state/pos";
-import { activeLines, checkTotals, clock, elapsedMin, endsAt, extendOptions, lineAmount, remainingMin, setPriceChoices } from "../../domain/pos";
+import { activeLines, checkTotals, clock, elapsedMin, endsAt, extendOptions, lineAmount, planLabel, remainingMin, setPlanChoices } from "../../domain/pos";
 import { jp, yen } from "../../domain/format";
 import { defaultPosRule } from "../../domain/migrate";
 import { BottomSheet } from "../components/BottomSheet";
@@ -20,7 +20,7 @@ export function CheckView({ id }: { id: string }) {
   const addItem = usePos((s) => s.addItem);
   const extend = usePos((s) => s.extend);
   const setGuests = usePos((s) => s.setGuests);
-  const setSetPrice = usePos((s) => s.setSetPrice);
+  const setSetPlan = usePos((s) => s.setSetPlan);
   const removeCheck = usePos((s) => s.removeCheck);
 
   const [now, setNow] = useState(() => Date.now());
@@ -44,6 +44,8 @@ export function CheckView({ id }: { id: string }) {
   if (!check) return <div className="empty">伝票が見つかりません</div>;
   const seat = (L.seats ?? []).find((s) => s.id === check.seatId);
   const t = checkTotals(check, rule);
+  /** この伝票のセットの時間。持っていない古い伝票は店の設定で見る */
+  const setMin = check.setMinutes != null && check.setMinutes > 0 ? check.setMinutes : rule.setMinutes;
   const left = remainingMin(check, rule, now);
   const lines = activeLines(check);
 
@@ -181,17 +183,23 @@ export function CheckView({ id }: { id: string }) {
         </button>
       </BottomSheet>
 
-      <BottomSheet open={priceSheet} title="セット料金を変える" onClose={() => setPriceSheet(false)}>
-        <div className="hint">1名あたりの金額です。延長ぶんはそのまま残ります。</div>
+      <BottomSheet open={priceSheet} title="セットを変える" onClose={() => setPriceSheet(false)}>
+        <div className="hint">1名あたりの時間と金額です。延長ぶんはそのまま残ります。</div>
         <div className="pricerow">
-          {setPriceChoices(rule).map((p) => (
-            <button key={p} type="button" className="btn" aria-pressed={check.setPrice === p}
-              onClick={() => { void setSetPrice(check.id, p); setPriceSheet(false); }}>{yen(p)}</button>
+          {setPlanChoices(rule).map((p) => (
+            <button key={`${p.min}:${p.price}`} type="button" className="btn"
+              aria-pressed={check.setPrice === p.price && setMin === p.min}
+              onClick={() => { void setSetPlan(check.id, p); setPriceSheet(false); }}>{planLabel(p)}</button>
           ))}
         </div>
-        <label className="field"><span className="lbl">ほかの金額</span>
-          <NumberField value={check.setPrice} onChange={(v) => void setSetPrice(check.id, v ?? 0)} aria-label="セット料金" />
-        </label>
+        <div className="row2">
+          <label className="field" style={{ margin: 0 }}><span className="lbl">ほかの時間（分）</span>
+            <NumberField value={setMin} onChange={(v) => void setSetPlan(check.id, { min: v ?? rule.setMinutes, price: check.setPrice })} aria-label="セットの時間" />
+          </label>
+          <label className="field" style={{ margin: 0 }}><span className="lbl">ほかの金額</span>
+            <NumberField value={check.setPrice} onChange={(v) => void setSetPlan(check.id, { min: setMin, price: v ?? 0 })} aria-label="セット料金" />
+          </label>
+        </div>
       </BottomSheet>
 
       <LineSheet line={lineSheet} checkId={check.id} onClose={() => setLineSheet(null)} />

@@ -10,7 +10,7 @@ const shop = { openTime: "20:00" };
 /** その日の何時に入店したか（ローカル時刻）で伝票を作る */
 function at(hour: number, guests = 2, paid?: number): Check {
   const d = new Date(2026, 8, 6, hour, 30, 0);
-  const c = newCheck("2026-09-06", "s1", guests, 3000, d.toISOString(), "test");
+  const c = newCheck("2026-09-06", "s1", guests, { min: 60, price: 3000 }, d.toISOString(), "test");
   if (paid != null) {
     c.status = "closed";
     c.payments.push({ method: "cash", amount: paid });

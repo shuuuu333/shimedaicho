@@ -2,8 +2,8 @@
  *  伝票は Dexie の checks に直接書き、会計が済んだ時点で日報へ反映する。 */
 import { create } from "zustand";
 import { produce } from "immer";
-import type { Check, Ledger, MenuItem, PayKind } from "../domain/types";
-import { applyCardFee, businessDate, checkTotals, lineFromMenu, newCheck, normalizeCheck } from "../domain/pos";
+import type { Check, Ledger, MenuItem, PayKind, SetPlan } from "../domain/types";
+import { applyCardFee, businessDate, checkTotals, lineFromMenu, newCheck, normalizeCheck, planLabel } from "../domain/pos";
 import { defaultPosRule } from "../domain/migrate";
 import { MANUAL_TAB_COLLECTED, applyChecksToDay, setManual } from "../domain/close";
 import { LocalCheckRepository, type CheckRepository } from "../data/checkRepo";
@@ -54,11 +54,13 @@ export interface PosStore {
   setActive(id: string | null): void;
 
   /** 入店。セット料金はその場で選んだ値を伝票に写す */
-  openSeat(seatId: string | null, guests: number, setPrice: number): Promise<string>;
+  /** 入店。選んだセット（時間と料金）をその場で伝票に写す */
+  openSeat(seatId: string | null, guests: number, plan: SetPlan): Promise<string>;
   addItem(id: string, item: MenuItem, castId?: string): Promise<void>;
   setQty(id: string, lineId: string, qty: number): Promise<void>;
   voidLine(id: string, lineId: string, reason: string): Promise<void>;
-  setSetPrice(id: string, price: number): Promise<void>;
+  /** セットを変える。時間も一緒に変えられる（40分コースへの入れ替えなど） */
+  setSetPlan(id: string, plan: SetPlan): Promise<void>;
   setGuests(id: string, guests: number): Promise<void>;
   /** 延長。分数と 1 人あたりの料金を、押した時点の値で記録する */
   extend(id: string, min: number, price: number): Promise<void>;
@@ -194,9 +196,9 @@ export function createPosStore(repo: CheckRepository) {
 
       setActive(id) { set({ activeId: id }); },
 
-      async openSeat(seatId, guests, setPrice) {
+      async openSeat(seatId, guests, plan) {
         const at = nowISO();
-        const c = newCheck(get().date, seatId, guests, setPrice, at, whoAmI());
+        const c = newCheck(get().date, seatId, guests, plan, at, whoAmI());
         // お通し・チャージのように「入店したら人数ぶん」の商品を、その場で入れておく。
         // 毎回手で押していたぶんを消す（消したいときは行をタップして取り消せる）
         const auto = (useApp.getState().ledger.menu ?? []).filter((m) => m.active && m.autoOnEntry && m.kind === "normal");
@@ -245,12 +247,19 @@ export function createPosStore(repo: CheckRepository) {
         }
       },
 
-      async setSetPrice(id, price) {
+      async setSetPlan(id, plan) {
+        const rule = useApp.getState().ledger.posRule ?? defaultPosRule();
         await write(id, (c) => {
-          const p = Math.max(0, Math.floor(price));
-          if (p === c.setPrice) return;
-          c.log.push({ at: nowISO(), by: whoAmI(), act: "セット料金", detail: `¥${c.setPrice} → ¥${p}／人` });
+          const p = Math.max(0, Math.floor(plan.price));
+          const m = Math.max(1, Math.floor(plan.min));
+          const wasM = c.setMinutes != null && c.setMinutes > 0 ? c.setMinutes : rule.setMinutes;
+          if (p === c.setPrice && m === wasM) return;
+          c.log.push({
+            at: nowISO(), by: whoAmI(), act: "セットを変える",
+            detail: `${planLabel({ min: wasM, price: c.setPrice })} → ${planLabel({ min: m, price: p })}／人`,
+          });
           c.setPrice = p;
+          c.setMinutes = m;
         });
       },
 

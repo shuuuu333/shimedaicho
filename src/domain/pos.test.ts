@@ -6,7 +6,9 @@ import * as C from "./calc";
 import type { Check, Ledger, MenuItem, PosRule } from "./types";
 
 const RULE: PosRule = {
-  setMinutes: 60, setPrice: 1500, setPriceOptions: [2000, 2500, 3000], extendMinutes: 30, extendPrice: 1000,
+  setMinutes: 60, setPrice: 1500,
+  setPlans: [{ min: 60, price: 2000 }, { min: 60, price: 2500 }, { min: 60, price: 3000 }],
+  extendMinutes: 30, extendPrice: 1000,
   tableChargeRate: 0, tableChargeOnSet: false,
   taxRate: 10, taxOnSet: false, taxOnExtend: false, taxOnItems: false,
   alertBeforeMin: 10, autoExtend: false, roundTo: 1,
@@ -19,8 +21,8 @@ const at = (min: number) => Date.parse(T0) + min * 60000;
 const menu = (id: string, price: number, backItemId?: string): MenuItem =>
   ({ id, name: id, price, category: "x", kind: backItemId ? "castLinked" : "normal", backItemId, active: true, sort: 0 });
 
-function check(guests = 2, setPrice = RULE.setPrice): Check {
-  return P.newCheck("2026-09-06", "s1", guests, setPrice, T0, "test");
+function check(guests = 2, setPrice = RULE.setPrice, min = RULE.setMinutes): Check {
+  return P.newCheck("2026-09-06", "s1", guests, { min, price: setPrice }, T0, "test");
 }
 
 describe("伝票の金額", () => {
@@ -48,10 +50,44 @@ describe("伝票の金額", () => {
     expect(P.checkTotals(c, 値上げ後).setAmount).toBe(6000);   // 入店時の ¥3,000 のまま
   });
 
-  it("入店で選べる金額は、設定の並びに既定の料金も入れて重複を消す", () => {
-    expect(P.setPriceChoices(RULE)).toEqual([1500, 2000, 2500, 3000]);
-    expect(P.setPriceChoices({ ...RULE, setPrice: 2500 })).toEqual([2000, 2500, 3000]);
-    expect(P.setPriceChoices({ ...RULE, setPriceOptions: [] })).toEqual([1500]);
+  it("入店で選べるセットは、設定の並びに店の既定も入れて重複を消す", () => {
+    expect(P.setPlanChoices(RULE)).toEqual([
+      { min: 60, price: 1500 }, { min: 60, price: 2000 }, { min: 60, price: 2500 }, { min: 60, price: 3000 },
+    ]);
+    // 既定と同じ組み合わせは 1 つにまとまる
+    expect(P.setPlanChoices({ ...RULE, setPrice: 2500 }).length).toBe(3);
+    expect(P.setPlanChoices({ ...RULE, setPlans: [] })).toEqual([{ min: 60, price: 1500 }]);
+    // 時間の短い順、同じ時間なら安い順
+    const mixed = P.setPlanChoices({ ...RULE, setPlans: [{ min: 90, price: 4000 }, { min: 40, price: 2000 }, { min: 40, price: 1800 }] });
+    expect(mixed).toEqual([
+      { min: 40, price: 1800 }, { min: 40, price: 2000 }, { min: 60, price: 1500 }, { min: 90, price: 4000 },
+    ]);
+  });
+
+  it("40分のセットを選ぶと、その伝票だけ 40分 になる", () => {
+    const c = check(2, 2000, 40);
+    expect(c.setMinutes).toBe(40);
+    expect(P.allowedMin(c, RULE)).toBe(40);
+    // 店の設定（60分）は変えていないので、ほかの伝票は 60分 のまま
+    expect(P.allowedMin(check(2), RULE)).toBe(60);
+    // 延長はそのまま足される
+    ext(c, 30, 1000);
+    expect(P.allowedMin(c, RULE)).toBe(70);
+    // 入店のログに時間と料金が残る
+    expect(c.log[0].detail).toBe("2名 ／ 40分 ¥2,000／人");
+  });
+
+  it("時間を持っていない古い伝票は、店の設定で見る", () => {
+    const old = { ...check(2), setMinutes: undefined };
+    expect(P.allowedMin(old, RULE)).toBe(60);
+    expect(P.allowedMin(old, { ...RULE, setMinutes: 90 })).toBe(90);
+  });
+
+  it("1時間ちょうどは「1時間」と書く", () => {
+    expect(P.planLabel({ min: 40, price: 2000 })).toBe("40分 ¥2,000");
+    expect(P.planLabel({ min: 60, price: 3000 })).toBe("1時間 ¥3,000");
+    expect(P.planLabel({ min: 120, price: 6000 })).toBe("2時間 ¥6,000");
+    expect(P.planLabel({ min: 90, price: 4500 })).toBe("90分 ¥4,500");
   });
 
   it("＋30分 と ＋1時間 を混ぜて押せる", () => {
@@ -199,7 +235,7 @@ function shopLedger(): Ledger {
 
 /** 会計を済ませた伝票を作る */
 function closed(_L: Ledger, guests: number, lines: [string, number, string | undefined, string | undefined, number][], cash: number, card = 0): Check {
-  const c = P.newCheck("2026-09-06", "s1", guests, RULE.setPrice, T0, "test");
+  const c = P.newCheck("2026-09-06", "s1", guests, { min: RULE.setMinutes, price: RULE.setPrice }, T0, "test");
   for (const [id, price, backItemId, castId, qty] of lines) {
     c.lines.push(P.lineFromMenu(menu(id, price, backItemId), T0, castId, qty));
   }
@@ -398,7 +434,7 @@ describe("レジを日報に反映する", () => {
 
   it("会計前（open）の伝票は売上に入らない", () => {
     const L = shopLedger();
-    const open = P.newCheck("2026-09-06", "s2", 2, RULE.setPrice, T0, "test");
+    const open = P.newCheck("2026-09-06", "s2", 2, { min: RULE.setMinutes, price: RULE.setPrice }, T0, "test");
     open.lines.push(P.lineFromMenu(menu("cd", 1500, "d2"), T0, "c1"));
     const d = CL.applyChecksToDay(emptyDay(), [open], L);
     expect(d.cashSales).toBe(0);

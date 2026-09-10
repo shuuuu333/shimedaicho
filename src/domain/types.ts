@@ -206,13 +206,18 @@ export interface Seat {
 }
 
 /** 会計のルール */
+/** 入店のときに選ぶセットの組み合わせ。時間と料金は必ず対で決まる。
+ *  料金だけを選ばせると、40分 ¥2,000 のコースを選んでも 60分 になってしまう */
+export interface SetPlan { min: number; price: number }
+
 export interface PosRule {
   /** 1 セットの分数 */
   setMinutes: number;
   /** セット料金（1 人あたり）の既定 */
   setPrice: number;
-  /** 入店のときに 1 タップで選べるセット料金。店の料金プランを並べておく */
-  setPriceOptions: number[];
+  /** 入店のときに 1 タップで選べるセット。「40分 ¥2,000／60分 ¥3,000」のように、
+   *  時間と料金の組み合わせで並べる。時間の違うコースを持つ店のため */
+  setPlans: SetPlan[];
   extendMinutes: number;
   /** 延長料金（1 人あたり・extendMinutes ぶん） */
   extendPrice: number;
@@ -299,6 +304,9 @@ export interface Check {
   /** この伝票のセット料金（1 人あたり）。入店した時点の値を写す。
    *  あとで店の設定を変えても、過去の会計は変わらない */
   setPrice: number;
+  /** この伝票のセットの時間（分）。料金と同じく入店した時点の値を写す。
+   *  無ければ店の設定（PosRule.setMinutes）を使う（v4 の途中までの伝票） */
+  setMinutes?: number;
   enteredAt: string;
   closedAt?: string;
   /** 延長。空なら最初のセットだけ */

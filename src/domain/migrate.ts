@@ -1,7 +1,7 @@
 /** 旧アーティファクト(v1/v2, 文字列の数値) と v3 の JSON を 現行(v4) の Ledger に正規化する。
  *  旧 migrate() の振る舞い（v1 既定バック項目の置換・ドリンク名の改名・rateD 補完）も引き継ぐ。
  *  v3 の台帳にはレジのマスタが無いので、既定のメニュー・席・会計ルールを補う（backItems と同じ扱い）。 */
-import type { BackItem, Cast, DayRecord, DispatchRow, Expense, Ledger, MenuItem, MenuKind, PayMethod, PlanEntry, PosRule, Seat, Settlement, Shift, Shop, WageChange } from "./types";
+import type { BackItem, Cast, DayRecord, DispatchRow, Expense, Ledger, MenuItem, MenuKind, PayMethod, PlanEntry, PosRule, Seat, SetPlan, Settlement, Shift, Shop, WageChange } from "./types";
 import { todayISO, uid } from "./format";
 
 export function defaultBacks(): BackItem[] {
@@ -20,7 +20,8 @@ export function defaultBacks(): BackItem[] {
 /** レジの会計ルールの既定値。ガールズバー想定（設定でいつでも変えられる） */
 export function defaultPosRule(): PosRule {
   return {
-    setMinutes: 60, setPrice: 3000, setPriceOptions: [2000, 2500, 3000],
+    setMinutes: 60, setPrice: 3000,
+    setPlans: [{ min: 60, price: 2000 }, { min: 60, price: 2500 }, { min: 60, price: 3000 }],
     extendMinutes: 30, extendPrice: 1500,
     // テーブルチャージは既定 0%。勝手に上乗せしないで、設定で入れてもらう
     tableChargeRate: 0, tableChargeOnSet: false,
@@ -265,6 +266,33 @@ function toMenuItem(v: unknown): MenuItem | null {
   if (v.autoOnEntry === true && kind === "normal") item.autoOnEntry = true;
   return item;
 }
+/** 入店で選べるセット。
+ *  v4 の途中までは料金だけの並び（setPriceOptions: number[]）だった。
+ *  そのころは時間が店で 1 つに固定だったので、当時の setMinutes を全部に付ける（無損失） */
+function toSetPlans(v: Record<string, unknown>, d: PosRule): SetPlan[] {
+  const min = toNumOr(v.setMinutes, d.setMinutes);
+  const seen = new Set<string>();
+  const out: SetPlan[] = [];
+  const add = (mn: number, price: number) => {
+    const m2 = Math.max(1, Math.floor(mn)), p2 = Math.floor(price);
+    if (p2 <= 0) return;
+    const key = `${m2}:${p2}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ min: m2, price: p2 });
+  };
+  if (Array.isArray(v.setPlans)) {
+    for (const x of v.setPlans) {
+      if (!isObj(x)) continue;
+      add(toNumOr(x.min, min), toNumOr(x.price, 0));
+    }
+  } else if (Array.isArray(v.setPriceOptions)) {
+    for (const x of v.setPriceOptions) add(min, toNumOr(x, 0));
+  }
+  if (!out.length) return d.setPlans;
+  return out.sort((a, b) => a.min - b.min || a.price - b.price);
+}
+
 function toSeat(v: unknown): Seat | null {
   if (!isObj(v)) return null;
   return { id: str(v.id) || uid(), name: str(v.name), sort: toNumOr(v.sort, 0) };
@@ -275,9 +303,7 @@ function toPosRule(v: unknown): PosRule {
   return {
     setMinutes: toNumOr(v.setMinutes, d.setMinutes),
     setPrice: toNumOr(v.setPrice, d.setPrice),
-    setPriceOptions: Array.isArray(v.setPriceOptions)
-      ? [...new Set(v.setPriceOptions.map((x) => toNum(x) ?? 0).filter((x) => x > 0))].sort((a, b) => a - b)
-      : d.setPriceOptions,
+    setPlans: toSetPlans(v, d),
     extendMinutes: toNumOr(v.extendMinutes, d.extendMinutes),
     extendPrice: toNumOr(v.extendPrice, d.extendPrice),
     // 初期の版は「サービス料」という名前だった。同じ％なのでそのまま引き継ぐ

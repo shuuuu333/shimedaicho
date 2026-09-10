@@ -8,7 +8,7 @@ const menu = (id: string, price: number, backItemId?: string): MenuItem =>
   ({ id, name: id, price, category: "x", kind: backItemId ? "castLinked" : "normal", backItemId, active: true, sort: 0 });
 
 function sampleCheck(): Check {
-  const c = newCheck("2026-09-06", "s1", 2, 3000, "2026-09-06T20:00:00.000Z", "test");
+  const c = newCheck("2026-09-06", "s1", 2, { min: 60, price: 3000 }, "2026-09-06T20:00:00.000Z", "test");
   c.lines.push(lineFromMenu(menu("cd", 1500, "d2"), "2026-09-06T20:10:00.000Z", "c1"));
   c.lines.push(lineFromMenu(menu("beer", 800), "2026-09-06T20:20:00.000Z"));
   c.lines[1].voided = { at: "2026-09-06T20:25:00.000Z", by: "me", reason: "打ち間違い" };

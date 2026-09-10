@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../../state/store";
-import type { Check, DayRecord, MenuItem, PosRule, Shift } from "../../domain/types";
+import type { Check, DayRecord, MenuItem, PosRule, SetPlan, Shift } from "../../domain/types";
 import { usePos } from "../../state/pos";
-import { checkTotals, clock, endsAt, lineAmount, lineFromMenu, remainingMin, seatState, setPriceChoices, setUnitPrice } from "../../domain/pos";
+import { checkTotals, clock, endsAt, lineAmount, lineFromMenu, planLabel, remainingMin, seatState, setPlanChoices, setUnitPrice } from "../../domain/pos";
 import { summarize } from "../../domain/close";
 import { detectMisses } from "../../domain/diagnose";
 import { yen } from "../../domain/format";
@@ -40,8 +40,11 @@ export function Register() {
   // レジを開いているあいだは画面を消させない（伝票画面も Register の中で描いている）
   useWakeLock(true);
   const [detail, setDetail] = useState<string | null>(null);
-  const [price, setPrice] = useState(rule.setPrice);
-  const openEntry = (seatId: string | null, name: string) => { setPrice(rule.setPrice); setEntry({ seatId, name }); };
+  const [plan, setPlan] = useState<SetPlan>({ min: rule.setMinutes, price: rule.setPrice });
+  const openEntry = (seatId: string | null, name: string) => {
+    setPlan({ min: rule.setMinutes, price: rule.setPrice });
+    setEntry({ seatId, name });
+  };
 
   useEffect(() => { void init(); }, [init]);
   useEffect(() => {
@@ -165,23 +168,32 @@ export function Register() {
         }} />
 
       <BottomSheet open={!!entry} title={`${entry?.name ?? ""} に入店`} onClose={() => setEntry(null)}>
-        <div className="lbl">セット料金（1名あたり）</div>
+        <div className="lbl">セット（1名あたり）</div>
         <div className="pricerow">
-          {setPriceChoices(rule).map((p) => (
-            <button key={p} type="button" className="btn" aria-pressed={price === p} onClick={() => setPrice(p)}>{yen(p)}</button>
+          {setPlanChoices(rule).map((p) => (
+            <button key={`${p.min}:${p.price}`} type="button" className="btn"
+              aria-pressed={plan.min === p.min && plan.price === p.price}
+              onClick={() => setPlan(p)}>{planLabel(p)}</button>
           ))}
         </div>
-        <label className="field"><span className="lbl">ほかの金額</span>
-          <NumberField value={price} onChange={(v) => setPrice(v ?? 0)} aria-label="セット料金" />
-        </label>
+        <div className="row2">
+          <label className="field" style={{ margin: 0 }}><span className="lbl">ほかの時間（分）</span>
+            <NumberField value={plan.min} onChange={(v) => setPlan({ ...plan, min: v ?? rule.setMinutes })} aria-label="セットの時間" />
+          </label>
+          <label className="field" style={{ margin: 0 }}><span className="lbl">ほかの金額</span>
+            <NumberField value={plan.price} onChange={(v) => setPlan({ ...plan, price: v ?? 0 })} aria-label="セット料金" />
+          </label>
+        </div>
         <div className="hint">
-          {price > 0 ? `2名なら ${yen(price * 2)}、3名なら ${yen(price * 3)}。` : "金額を入れてください。"}
+          {plan.price > 0
+            ? `${planLabel(plan)}。2名なら ${yen(plan.price * 2)}、3名なら ${yen(plan.price * 3)}。`
+            : "金額を入れてください。"}
           人数を押すと入店します。
         </div>
         <div className="guestgrid">
           {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-            <button key={n} type="button" className="btn" disabled={price <= 0} onClick={() => {
-              const e = entry; setEntry(null); if (e) void openSeat(e.seatId, n, price);
+            <button key={n} type="button" className="btn" disabled={plan.price <= 0} onClick={() => {
+              const e = entry; setEntry(null); if (e) void openSeat(e.seatId, n, plan);
             }}>{n}名</button>
           ))}
         </div>

@@ -113,7 +113,7 @@ const beer: MenuItem = { id: "m1", name: "ビール", price: 800, category: "ド
 
 /** 入店 20:00 の伝票。closed にすると会計済み扱い */
 function chk(over: Partial<Check> = {}): Check {
-  return { ...newCheck("2026-09-01", "s1", 2, 3000, T0, "test"), ...over };
+  return { ...newCheck("2026-09-01", "s1", 2, { min: 60, price: 3000 }, T0, "test"), ...over };
 }
 
 describe("打ち忘れの検知", () => {

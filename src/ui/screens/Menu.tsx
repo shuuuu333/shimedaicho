@@ -3,8 +3,9 @@ import { useApp } from "../../state/store";
 import { defaultBacks, defaultMenu, defaultPosRule, defaultSeats } from "../../domain/migrate";
 import { uid, yen } from "../../domain/format";
 import { NumberField } from "../components/NumberField";
+import { planLabel } from "../../domain/pos";
 import { Trash } from "../icons";
-import type { MenuItem } from "../../domain/types";
+import type { MenuItem, SetPlan } from "../../domain/types";
 
 /** レジの設定（会計ルール・商品・席）。設定画面のカードとして並ぶ */
 export function PosSettings() {
@@ -37,22 +38,38 @@ export function PosSettings() {
             <NumberField value={rule.setPrice} onChange={(v) => setRule({ setPrice: v ?? 0 })} /></label>
         </div>
         <div className="field">
-          <span className="lbl">入店のときに 1 タップで選べる金額</span>
-          <div className="pricerow">
-            {(rule.setPriceOptions ?? []).map((p, i) => (
-              <span key={i} className="pricechip">
-                <NumberField value={p} aria-label={`料金プラン ${i + 1}`}
-                  onChange={(v) => setRule({ setPriceOptions: (rule.setPriceOptions ?? []).map((x, j) => (j === i ? (v ?? 0) : x)) })} />
-                <button type="button" className="iconbtn" aria-label={`${p} を消す`}
-                  onClick={() => setRule({ setPriceOptions: (rule.setPriceOptions ?? []).filter((_, j) => j !== i) })}>
+          <span className="lbl">入店のときに 1 タップで選べるセット</span>
+          {(rule.setPlans ?? []).map((p, i) => {
+            const plans = rule.setPlans ?? [];
+            const put = (patch: Partial<SetPlan>) =>
+              setRule({ setPlans: plans.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
+            return (
+              <div key={i} className="backrow" style={{ gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="row2">
+                    <label className="field" style={{ margin: 0 }}><span className="lbl">時間（分）</span>
+                      <NumberField value={p.min} aria-label={`セット ${i + 1} の時間`} onChange={(v) => put({ min: v ?? rule.setMinutes })} /></label>
+                    <label className="field" style={{ margin: 0 }}><span className="lbl">料金</span>
+                      <NumberField value={p.price} aria-label={`セット ${i + 1} の料金`} onChange={(v) => put({ price: v ?? 0 })} /></label>
+                  </div>
+                </div>
+                <button type="button" className="iconbtn" aria-label={`${planLabel(p)} を消す`}
+                  onClick={() => setRule({ setPlans: plans.filter((_, j) => j !== i) })}>
                   <Trash />
                 </button>
-              </span>
-            ))}
+              </div>
+            );
+          })}
+          <div className="btnrow" style={{ marginTop: 8 }}>
+            <button type="button" className="btn sm"
+              onClick={() => setRule({ setPlans: [...(rule.setPlans ?? []), { min: rule.setMinutes, price: rule.setPrice }] })}>＋ セットを足す</button>
+            <button type="button" className="btn sm"
+              onClick={() => setRule({ setPlans: [...(rule.setPlans ?? []), { min: 40, price: rule.setPrice }] })}>＋ 40分を足す</button>
           </div>
-          <button type="button" className="btn sm" style={{ marginTop: 8 }}
-            onClick={() => setRule({ setPriceOptions: [...(rule.setPriceOptions ?? []), rule.setPrice] })}>＋ 金額を足す</button>
-          <div className="hint">¥3,000 / ¥2,500 / ¥2,000 のように並べておくと、入店のときに押すだけで選べます。</div>
+          <div className="hint">
+            「40分 ¥2,000 / 60分 ¥3,000」のように並べておくと、入店のときに押すだけで選べます。
+            時間の違うコースがある店は、ここで作ってください。
+          </div>
         </div>
 
         <div className="row2">
