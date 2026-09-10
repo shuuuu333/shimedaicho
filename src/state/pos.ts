@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { produce } from "immer";
 import type { Check, Ledger, MenuItem } from "../domain/types";
-import { businessDate, lineFromMenu, newCheck, normalizeCheck } from "../domain/pos";
+import { businessDate, checkTotals, lineFromMenu, newCheck, normalizeCheck } from "../domain/pos";
 import { defaultPosRule } from "../domain/migrate";
 import { applyChecksToDay } from "../domain/close";
 import { LocalCheckRepository, type CheckRepository } from "../data/checkRepo";
@@ -52,6 +52,11 @@ export interface PosStore {
   setDiscount(id: string, name: string, amount: number): Promise<void>;
   pay(id: string, method: "cash" | "card", total: number, received?: number): Promise<void>;
   reopen(id: string): Promise<void>;
+  /** 会計済みの伝票に、あとから注文を足す（「戻す → 追加 → 会計」の 3 手を 1 手にする）。
+   *  合計が変わるので collect で「実際に受け取ったか」を分ける。
+   *  false なら受け取った額は元のまま＝その差は取り損ね。
+   *  黙って売上を増やすと、現金が合わなくなる */
+  addLate(id: string, items: { item: MenuItem; castId?: string }[], collect: boolean): Promise<void>;
   removeCheck(id: string): Promise<void>;
   /** その営業日の伝票をまとめて消す。消した伝票を返すので、取り消しで戻せる */
   removeByDate(date: string): Promise<Check[]>;
@@ -216,6 +221,34 @@ export function createPosStore(repo: CheckRepository) {
           c.log.push({ at: nowISO(), by: whoAmI(), act: "会計", detail: `${method === "cash" ? "現金" : "カード"} ¥${total}` });
         });
         set({ activeId: null });
+      },
+
+      async addLate(id, items, collect) {
+        if (!items.length) return;
+        const L = useApp.getState().ledger;
+        const rule = L.posRule ?? defaultPosRule();
+        const label = items
+          .map(({ item, castId }) => {
+            const n = castId ? L.casts.find((c) => c.id === castId)?.name : undefined;
+            return item.name + (n ? `／${n}` : "");
+          })
+          .join("・");
+        await write(id, (c) => {
+          if (c.status !== "closed") return;
+          // 比べるのは「実際に受け取った額」。計算上の合計と比べると、
+          // 前に足して受け取らなかったぶんがあるときに、画面と記録が食い違う
+          const before = c.payments[0]?.amount ?? checkTotals(c, rule).total;
+          for (const { item, castId } of items) c.lines.push(lineFromMenu(item, nowISO(), castId));
+          const after = checkTotals(c, rule).total;
+          c.log.push({ at: nowISO(), by: whoAmI(), act: "あとから追加", detail: label });
+          if (collect) {
+            c.payments = [{ method: c.payments[0]?.method ?? "cash", amount: after }];
+            c.log.push({ at: nowISO(), by: whoAmI(), act: "追加分を受け取った", detail: `¥${before} → ¥${after}` });
+          } else {
+            // 受け取った額は動かさない。バックの本数だけ増える（実際に出しているので）
+            c.log.push({ at: nowISO(), by: whoAmI(), act: "追加分は受け取っていない", detail: `取り損ね ¥${after - before}` });
+          }
+        });
       },
 
       async reopen(id) {

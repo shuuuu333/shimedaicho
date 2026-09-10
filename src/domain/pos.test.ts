@@ -349,6 +349,25 @@ describe("レジを日報に反映する", () => {
     expect(d.manual).toBeUndefined();
   });
 
+  it("あとから足して受け取らなかったぶんは、売上は増えず本数だけ増える", () => {
+    const L = shopLedger();
+    // ドリンクM 2本で ¥10,000 受け取って会計済み
+    const c = closed(L, 2, [["cdM", 1500, "d2", "c1", 2]], 10000);
+    const beforeDay = CL.applyChecksToDay(emptyDay(), [c], L);
+    expect(beforeDay.cashSales).toBe(10000);
+    expect(beforeDay.shifts.c1.backs).toEqual({ d2: 2 });
+
+    // あとから 1 本足したが、受け取った額は動かさなかった（＝取り損ね）
+    const late = { ...c, lines: [...c.lines, P.lineFromMenu(menu("cdM", 1500, "d2"), T0, "c1", 1)] };
+    const d = CL.applyChecksToDay(emptyDay(), [late], L);
+    expect(d.cashSales).toBe(10000);              // 売上は増えない
+    expect(d.shifts.c1.backs).toEqual({ d2: 3 }); // 本数は増える（実際に出しているので）
+
+    // 受け取った額も直したときは、売上も増える
+    const collected = { ...late, payments: [{ method: "cash" as const, amount: 11500 }] };
+    expect(CL.applyChecksToDay(emptyDay(), [collected], L).cashSales).toBe(11500);
+  });
+
   it("反映したあと、既存の給与計算がそのまま走る", () => {
     const L = shopLedger();
     L.days["2026-09-06"] = CL.applyChecksToDay(emptyDay(), [

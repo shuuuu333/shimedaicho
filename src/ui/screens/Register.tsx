@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useApp } from "../../state/store";
-import type { Check, DayRecord, Shift } from "../../domain/types";
+import type { Check, DayRecord, MenuItem, PosRule, Shift } from "../../domain/types";
 import { usePos } from "../../state/pos";
-import { checkTotals, clock, endsAt, lineAmount, remainingMin, seatState, setPriceChoices, setUnitPrice } from "../../domain/pos";
+import { checkTotals, clock, endsAt, lineAmount, lineFromMenu, remainingMin, seatState, setPriceChoices, setUnitPrice } from "../../domain/pos";
 import { summarize } from "../../domain/close";
 import { detectMisses } from "../../domain/diagnose";
 import { yen } from "../../domain/format";
@@ -315,6 +315,7 @@ function CheckDetail({ id, onClose, onReopen, onRemove }: { id: string | null; o
   const L = useApp((s) => s.ledger);
   const rule = L.posRule ?? defaultPosRule();
   const check = usePos((s) => s.checks.find((c) => c.id === id)) as Check | undefined;
+  const [late, setLate] = useState(false);
   if (!id || !check) return null;
 
   const seat = (L.seats ?? []).find((s) => s.id === check.seatId);
@@ -372,7 +373,12 @@ function CheckDetail({ id, onClose, onReopen, onRemove }: { id: string | null; o
       </ol>
       <div className="hint">取り消した行も消さずに残しています。あとから何があったか追えます。</div>
 
-      <button type="button" className="btn wide" style={{ marginTop: 12 }} onClick={() => onReopen(check.id)}>
+      <button type="button" className="btn primary wide" style={{ marginTop: 12 }} onClick={() => setLate(true)}>
+        注文をあとから足す
+      </button>
+      <div className="hint">「戻す → 追加 → 会計」をしなくても、ここから足せます。</div>
+
+      <button type="button" className="btn wide" style={{ marginTop: 4 }} onClick={() => onReopen(check.id)}>
         会計を取り消してやり直す
       </button>
       <button type="button" className="btn danger wide" style={{ marginTop: 8 }} onClick={() => onRemove(check.id)}>
@@ -382,6 +388,109 @@ function CheckDetail({ id, onClose, onReopen, onRemove }: { id: string | null; o
         消すと履歴ごと無くなり、日報の売上と本数からも引かれます。<b>元に戻せません。</b>
         打ち間違いを直すだけなら「会計を取り消してやり直す」の方を使ってください。
       </div>
+
+      {late && <LateAddSheet check={check} rule={rule} onClose={() => setLate(false)} onDone={onClose} />}
+    </BottomSheet>
+  );
+}
+
+/** 会計済みの伝票に、あとから注文を足す。
+ *
+ *  足したぶんは確定するまで書き込まない（ここで閉じても伝票は動かない）。
+ *  合計が変わるので、最後に「実際にいくら受け取ったのか」を正直に聞く。
+ *  黙って売上を増やすと、そのぶん現金が合わなくなる。 */
+function LateAddSheet({ check, rule, onClose, onDone }: { check: Check; rule: PosRule; onClose: () => void; onDone: () => void }) {
+  const L = useApp((s) => s.ledger);
+  const addLate = usePos((s) => s.addLate);
+  const showToast = useApp((s) => s.showToast);
+
+  const menu = useMemo(() => (L.menu ?? []).filter((m) => m.active).sort((a, b) => a.sort - b.sort), [L.menu]);
+  const cats = useMemo(() => [...new Set(menu.map((m) => m.category))], [menu]);
+  const [cat, setCat] = useState<string | null>(null);
+  const shown = menu.filter((m) => m.category === (cat ?? cats[0]));
+  const casts = (L.casts ?? []).filter((c) => c.active !== false);
+  const [picking, setPicking] = useState<MenuItem | null>(null);
+  /** まだ書き込んでいない追加ぶん */
+  const [staged, setStaged] = useState<{ item: MenuItem; castId?: string }[]>([]);
+
+  const before = checkTotals(check, rule).total;
+  const paid = check.payments[0]?.amount ?? before;
+  // 足したあとの合計。伝票そのものは触らずに、行だけ足した姿で計算する
+  const after = checkTotals(
+    { ...check, lines: [...check.lines, ...staged.map(({ item, castId }) => lineFromMenu(item, check.enteredAt, castId))] },
+    rule,
+  ).total;
+
+  const tap = (m: MenuItem) => {
+    if (m.kind === "castLinked") setPicking(m);
+    else setStaged((s) => [...s, { item: m }]);
+  };
+  const finish = (collect: boolean) => {
+    void addLate(check.id, staged, collect);
+    showToast(collect ? `追加ぶんを受け取りました（${yen(after)}）` : `追加ぶんは受け取っていません（${yen(after - paid)}）`);
+    onClose();
+    onDone();
+  };
+
+  return (
+    <BottomSheet open title="注文をあとから足す" onClose={onClose}
+      footer={staged.length > 0
+        ? <span className="sum">合計 {yen(paid)} → <b>{yen(after)}</b><br />実際に受け取った額はどちら？</span>
+        : <span className="sum">商品をタップして足してください</span>}>
+      <div className="seg menuseg">
+        {cats.map((c) => (
+          <button key={c} type="button" aria-pressed={(cat ?? cats[0]) === c} onClick={() => setCat(c)}>{c}</button>
+        ))}
+      </div>
+      <div className="menugrid">
+        {shown.map((m) => (
+          <button key={m.id} type="button" className={`menubtn ${m.kind === "castLinked" ? "cast" : ""}`} onClick={() => tap(m)}>
+            <b>{m.name}</b><span>{yen(m.price)}</span>
+          </button>
+        ))}
+        {shown.length === 0 && <div className="empty">このカテゴリに商品がありません</div>}
+      </div>
+
+      {staged.length > 0 && (
+        <>
+          <div className="cardhead" style={{ marginTop: 12 }}><h2>足したもの</h2></div>
+          {staged.map((x, i) => (
+            <div key={i} className="lrow">
+              <div className="g"><div className="t">{x.item.name}</div>
+                <div className="s">{x.castId ? (L.casts.find((c) => c.id === x.castId)?.name ?? "") : ""}</div></div>
+              <div className="a">{yen(x.item.price)}</div>
+              <button type="button" className="btn sm" style={{ marginLeft: 8 }}
+                onClick={() => setStaged((s) => s.filter((_, j) => j !== i))}>やめる</button>
+            </div>
+          ))}
+          <button type="button" className="btn primary wide" style={{ marginTop: 12 }} onClick={() => finish(true)}>
+            {yen(after)} 受け取った
+          </button>
+          <button type="button" className="btn wide" style={{ marginTop: 8 }} onClick={() => finish(false)}>
+            {yen(paid)} のままだった
+          </button>
+          <div className="hint">
+            「{yen(paid)} のままだった」を選ぶと、売上は増えません（{yen(after - paid)} は取り損ねたぶんとして記録に残ります）。
+            キャストの本数は、実際に出しているのでどちらでも付きます。
+          </div>
+        </>
+      )}
+
+      <BottomSheet open={!!picking} title={`${picking?.name ?? ""} は誰の分？`} onClose={() => setPicking(null)}>
+        <div className="chipgrid">
+          {casts.map((c) => (
+            <button key={c.id} type="button" className="btn chip"
+              onClick={() => { const m = picking; setPicking(null); if (m) setStaged((s) => [...s, { item: m, castId: c.id }]); }}>
+              {c.name || "（名前なし）"}
+            </button>
+          ))}
+          {casts.length === 0 && <div className="empty">先にキャストを登録してください</div>}
+        </div>
+        <button type="button" className="btn wide" style={{ marginTop: 12 }}
+          onClick={() => { const m = picking; setPicking(null); if (m) setStaged((s) => [...s, { item: m }]); }}>
+          キャストを付けずに入れる
+        </button>
+      </BottomSheet>
     </BottomSheet>
   );
 }
