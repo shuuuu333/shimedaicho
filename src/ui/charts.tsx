@@ -383,3 +383,65 @@ export function ArrivalChart({ rows }: { rows: ArrivalHour[] }) {
     </>
   );
 }
+
+/** キャスト本人の累積グラフ。資産運用アプリの「右肩上がり」を借りている。
+ *
+ *  棒ではなく面にしてあるのは、日ごとの上下より「積み上がっていること」を
+ *  見せたいから。給料は働けば必ず増えるので、この形と相性がいい。
+ *  先月の同じ日までの線を薄く重ねて、過去の自分と比べられるようにする。 */
+export function CastCumChart({ month, days, prevDays }: {
+  month: string;
+  days: { day: number; cum: number }[];
+  prevDays?: { day: number; cum: number }[];
+}) {
+  const dim = daysInMonth(month);
+  const W = 320, H = 96, padL = 2, padB = 14;
+  const top = Math.max(
+    ...days.map((d) => d.cum),
+    ...(prevDays ?? []).map((d) => d.cum),
+    1,
+  );
+  const max = niceMax(top);
+  const x = (day: number) => padL + ((day - 1) / Math.max(1, dim - 1)) * (W - padL * 2);
+  const y = (v: number) => H - padB - (v / max) * (H - padB - 6);
+
+  /** 階段状につなぐ。出勤した日だけ増えるので、線でつなぐと嘘になる
+   *  （出ていない日に少しずつ増えているように見えてしまう） */
+  const steps = (list: { day: number; cum: number }[]): string => {
+    if (!list.length) return "";
+    let d = `M${x(1)} ${y(0)}`;
+    let prev = 0;
+    for (const p of list) {
+      d += ` L${x(p.day)} ${y(prev)} L${x(p.day)} ${y(p.cum)}`;
+      prev = p.cum;
+    }
+    d += ` L${x(dim)} ${y(prev)}`;
+    return d;
+  };
+  const line = steps(days);
+  const area = line ? `${line} L${x(dim)} ${y(0)} Z` : "";
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="chart" role="img"
+      aria-label={`${Number(month.slice(5, 7))}月の積み上げ。いま ${yen(days.length ? days[days.length - 1].cum : 0)}`}>
+      <defs>
+        <linearGradient id="castcum" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={C.rest} stopOpacity="0.34" />
+          <stop offset="100%" stopColor={C.rest} stopOpacity="0.02" />
+        </linearGradient>
+      </defs>
+      <line x1={padL} y1={y(0)} x2={W - padL} y2={y(0)} stroke="var(--line)" strokeWidth="1" />
+      {prevDays && prevDays.length > 0 && (
+        <path d={steps(prevDays)} fill="none" stroke={C.muted} strokeWidth="1.6"
+          strokeDasharray="3 3" strokeLinejoin="round" />
+      )}
+      {area && <path d={area} fill="url(#castcum)" />}
+      {line && <path d={line} fill="none" stroke={C.rest} strokeWidth="2.2" strokeLinejoin="round" />}
+      {days.length > 0 && (
+        <circle cx={x(days[days.length - 1].day)} cy={y(days[days.length - 1].cum)} r="3.4" fill={C.rest} />
+      )}
+      <text x={padL} y={H - 2} className="ct" style={{ fontSize: 9.5 }}>1日</text>
+      <text x={W - padL} y={H - 2} textAnchor="end" className="ct" style={{ fontSize: 9.5 }}>{dim}日</text>
+    </svg>
+  );
+}
