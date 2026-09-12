@@ -84,26 +84,48 @@ export function CloudCard() {
                 離れている人には<b>リンク</b>、目の前にいる人には<b>QR</b>。どちらも 1 回きりで、60 分で切れます。
               </div>
               {c.members.map((mb) => {
-                const linked = L.casts.find((x) => (x.email ?? "").toLowerCase() === mb.email.toLowerCase());
+                // 結び付きは cast_id（招待のときに決めたもの）を先に見る。
+                // 古い台帳はメールで結び付けていたので、そちらも拾う
+                const linked = L.casts.find((x) => x.id === mb.cast_id)
+                  ?? L.casts.find((x) => (x.email ?? "").toLowerCase() === mb.email.toLowerCase());
                 return (
-                  <div key={mb.email} className="lrow" style={{ padding: "9px 0" }}>
-                    <div className="g"><div className="t" style={{ fontSize: 13.5 }}>{label(mb)}</div>
-                      <div className="s">{mb.role === "owner" ? "オーナー" : mb.role === "cast" ? `キャスト${linked ? ` ・ ${linked.name}` : "（結び付け待ち）"}` : "スタッフ"}</div></div>
+                  <div key={mb.email} style={{ borderBottom: "1px solid var(--line)", padding: "9px 0" }}>
+                    <div className="lrow" style={{ padding: 0, borderBottom: 0 }}>
+                      <div className="g"><div className="t" style={{ fontSize: 13.5 }}>{label(mb)}</div>
+                        <div className="s">{mb.role === "owner" ? "オーナー" : mb.role === "cast" ? `キャスト${linked ? ` ・ ${linked.name}` : "（結び付け待ち）"}` : "スタッフ"}</div></div>
+                      {mb.role === "cast" && (
+                        <select className="inp" style={{ width: 116, padding: "8px 6px", fontSize: 12.5, minHeight: 38 }}
+                          aria-label="どのキャストか" value={linked?.id ?? ""} disabled={c.busy}
+                          onChange={(e) => {
+                            const id = e.target.value || null;
+                            void c.setMember(mb.email, { cast_id: id });
+                            // 古い経路（メールでの結び付け）もそろえておく
+                            update((LL) => {
+                              for (const x of LL.casts) if ((x.email ?? "").toLowerCase() === mb.email.toLowerCase()) delete x.email;
+                              const t = id ? LL.casts.find((x) => x.id === id) : undefined;
+                              if (t && mb.email.includes("@")) t.email = mb.email.toLowerCase();
+                            });
+                          }}>
+                          <option value="">— 選ぶ —</option>
+                          {L.casts.map((x) => <option key={x.id} value={x.id}>{x.name || "（名前なし）"}</option>)}
+                        </select>
+                      )}
+                      {mb.role !== "owner" && (
+                        <button type="button" className="iconbtn" aria-label={`${label(mb)} を外す`} disabled={c.busy}
+                          onClick={() => { if (window.confirm(`${label(mb)} を外しますか？`)) void c.removeMember(mb.email); }}><Trash /></button>
+                      )}
+                    </div>
                     {mb.role === "cast" && (
-                      <select className="inp" style={{ width: 116, padding: "8px 6px", fontSize: 12.5, minHeight: 38 }}
-                        aria-label="どのキャストか" value={linked?.id ?? ""}
-                        onChange={(e) => update((LL) => {
-                          for (const x of LL.casts) if ((x.email ?? "").toLowerCase() === mb.email.toLowerCase()) delete x.email;
-                          const t = LL.casts.find((x) => x.id === e.target.value);
-                          if (t) t.email = mb.email.toLowerCase();
-                        })}>
-                        <option value="">— 選ぶ —</option>
-                        {L.casts.map((x) => <option key={x.id} value={x.id}>{x.name || "（名前なし）"}</option>)}
-                      </select>
-                    )}
-                    {mb.role !== "owner" && (
-                      <button type="button" className="iconbtn" aria-label={`${label(mb)} を外す`} disabled={c.busy}
-                        onClick={() => { if (window.confirm(`${label(mb)} を外しますか？`)) void c.removeMember(mb.email); }}><Trash /></button>
+                      <label className="lrow" style={{ padding: "6px 0 0", borderBottom: 0, cursor: "pointer" }}>
+                        <div className="g"><div className="t" style={{ fontSize: 12.5 }}>レジを打たせる</div>
+                          <div className="s">
+                            {mb.can_register
+                              ? "卓で会計できます。取消・値引き・ほかの子の打刻はできません"
+                              : "いまは自分のシフトと給料だけ見られます"}
+                          </div></div>
+                        <input type="checkbox" checked={!!mb.can_register} disabled={c.busy}
+                          onChange={(e) => void c.setMember(mb.email, { can_register: e.target.checked })} />
+                      </label>
                     )}
                   </div>
                 );

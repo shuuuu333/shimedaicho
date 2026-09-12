@@ -512,7 +512,7 @@ bindPosStore(usePos);
 {
   const key = () => {
     const c = useCloud.getState();
-    return `${c.shopId ?? ""}:${c.session?.user.id ?? ""}:${c.members.length}`;
+    return `${c.shopId ?? ""}:${c.session?.user.id ?? ""}:${c.me?.role ?? ""}:${c.me?.can_register ?? ""}`;
   };
   let last = "";
   const check = () => {
@@ -520,7 +520,7 @@ bindPosStore(usePos);
     if (k === last) return;
     last = k;
     const c = useCloud.getState();
-    if (c.shopId && c.session && c.role() !== "cast") usePos.getState().startSync();
+    if (c.shopId && c.session && (c.role() !== "cast" || c.canRegister())) usePos.getState().startSync();
     else usePos.getState().stopSync();
   };
   useCloud.subscribe(check);

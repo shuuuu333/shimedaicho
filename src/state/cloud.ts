@@ -17,6 +17,8 @@ export interface CloudState {
   shops: api.ShopRow[];
   shopId: string | null;
   members: api.MemberRow[];
+  /** 自分のメンバー行。メンバー表を読まずに済むので、他人の行が出てこない */
+  me: api.MyMember | null;
   status: CloudStatus;
   lastSyncAt: string | null;
   error: string | null;
@@ -37,6 +39,8 @@ export interface CloudState {
   renameShop(name: string): Promise<void>;
   addMember(email: string, role?: "staff" | "cast"): Promise<void>;
   removeMember(email: string): Promise<void>;
+  /** メンバーの設定を変える（どのキャストか・レジを打たせるか）。オーナーだけ */
+  setMember(email: string, patch: { cast_id?: string | null; can_register?: boolean }): Promise<void>;
   syncNow(): Promise<void>;
   /** QR を作る（オーナー用） */
   makeInvite(role: "staff" | "cast", name: string, castId: string | null): Promise<api.InviteRow | null>;
@@ -54,8 +58,11 @@ export interface CloudState {
    *  LINE でログインした人はメールを持たないので、名前を先に見ないと全員「ログイン中」になる */
   myName(): string;
   /** ログインしている本人に結び付いているキャスト。結び付いていなければ null。
-   *  いまはメールで突き合わせているので、LINE ログインの人は結び付かない */
+   *  招待のときに決めた cast_id を先に見る。無ければメールで突き合わせる
+   *  （LINE ログインの人はメールを持たないので、cast_id が無いと結び付かない） */
   myCastId(): string | null;
+  /** レジを打たせてよい人か。役割とは別の軸（オーナーが決める） */
+  canRegister(): boolean;
 }
 
 const LS_SHOP = "shimedaicho.shopId";
@@ -132,12 +139,29 @@ export const useCloud = create<CloudState>()((set, get) => {
   }
 
   /** 店を選んだとき・起動時：クラウドを取り込む（無ければ端末の台帳を上げる） */
+  /** キャストは「自分に関係する部分だけに削った台帳」を読む。
+   *
+   *  サーバーが削って返し、計算はこちらの calc.ts に任せる。
+   *  同じコード・同じ数字のまま、他人の時給や店の利益がサーバーから出ない。
+   *  書き込みは元から owner/staff だけなので、読むだけで終わる。 */
+  async function pullAsCast(shopId: string): Promise<boolean> {
+    const data = await api.pullCastLedger(shopId);
+    if (data == null) return false;   // 関数がまだ無い環境では、今までの経路に落ちる
+    setVersion(null);                 // キャストは push しないので版は持たない
+    applyLedger(migrate(data));
+    set({ status: "synced", lastSyncAt: new Date().toISOString() });
+    return true;
+  }
+
   async function pull(): Promise<void> {
     const { shopId } = get();
     if (!shopId) return;
     if (!navigator.onLine) { set({ status: "offline" }); return; }
     set({ status: "syncing", error: null });
     try {
+      if (get().role() === "cast") {
+        if (await pullAsCast(shopId)) return;
+      }
       const remote = await api.pullLedger(shopId);
       const local = useApp.getState().ledger;
       if (!remote) {
@@ -208,7 +232,7 @@ export const useCloud = create<CloudState>()((set, get) => {
 
   return {
     configured: api.cloudConfigured,
-    session: null, email: null, shops: [], shopId: null, members: [],
+    session: null, email: null, shops: [], shopId: null, members: [], me: null,
     status: api.cloudConfigured ? "signedout" : "off", lastSyncAt: null, error: null, linkSent: false, pendingEmail: null, busy: false,
 
     async init() {
@@ -262,8 +286,10 @@ export const useCloud = create<CloudState>()((set, get) => {
       unsubRealtime?.(); unsubRealtime = null;
       if (id !== get().shopId) { setVersion(null); dirty = emptyDirty(); saveDirty(); }
       lsSet(LS_SHOP, id);
-      set({ shopId: id, members: [] });
-      if (!id) { set({ status: "noshop" }); return; }
+      set({ shopId: id, members: [], me: null });
+      if (!id) { set({ status: "noshop", me: null }); return; }
+      // 自分の行だけを先に取る。役割・名前・cast_id・レジを打てるかが分かる
+      try { set({ me: await api.myMember(id) }); } catch { set({ me: null }); }
       try { set({ members: await api.listMembers(id) }); } catch { /* staff は見えない場合がある */ }
       await pull();
       watchRealtime();
@@ -281,6 +307,19 @@ export const useCloud = create<CloudState>()((set, get) => {
       catch (e) { set({ error: msg(e) }); }
       finally { set({ busy: false }); }
     },
+    async setMember(email, patch) {
+      const { shopId } = get();
+      if (!shopId) return;
+      set({ busy: true, error: null });
+      try {
+        await api.updateMember(shopId, email, patch);
+        set({ members: await api.listMembers(shopId) });
+        // 自分の行を変えたときは、見える画面もすぐ切り替わるように取り直す
+        set({ me: await api.myMember(shopId) });
+      } catch (e) { set({ error: msg(e) }); }
+      finally { set({ busy: false }); }
+    },
+
     async removeMember(email) {
       const { shopId } = get();
       if (!shopId) return;
@@ -370,6 +409,9 @@ export const useCloud = create<CloudState>()((set, get) => {
     },
 
     myCastId() {
+      // 招待のときに決めた結び付きが一番確か（LINE ログインでも効く）
+      const m = get().me;
+      if (m?.cast_id) return m.cast_id;
       const { email } = get();
       if (!email) return null;
       const e = email.toLowerCase();
@@ -377,13 +419,21 @@ export const useCloud = create<CloudState>()((set, get) => {
       return c?.id ?? null;
     },
 
+    canRegister() {
+      const r = get().role();
+      if (r !== "cast") return true;   // オーナーとスタッフは元から打てる
+      return !!get().me?.can_register;
+    },
+
     role() {
-      const { session, shopId, members, email } = get();
+      const { session, shopId, members, email, me } = get();
       if (!session || !shopId) return "owner";
       if (get().isOwner()) return "owner";
+      // 自分の行が取れていればそれを信じる（メンバー表はキャストには絞られている）
+      if (me?.role) return me.role === "cast" ? "cast" : "staff";
       const uid = session.user.id;
-      const me = members.find((x) => x.user_id === uid || x.email.toLowerCase() === (email ?? "").toLowerCase());
-      return me?.role === "cast" ? "cast" : "staff";
+      const row = members.find((x) => x.user_id === uid || x.email.toLowerCase() === (email ?? "").toLowerCase());
+      return row?.role === "cast" ? "cast" : "staff";
     },
   };
 });

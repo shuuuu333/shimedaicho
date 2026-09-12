@@ -51,7 +51,8 @@ const rule = () => useApp.getState().ledger.shop.notify ?? defaultNotify();
 function canSend(): boolean {
   try {
     const c = useCloud.getState();
-    return !!c.shopId && c.role() !== "cast";
+    // レジを打つキャストの端末からも通知は出す（会計した事実を知らせたいので）
+    return !!c.shopId && (c.role() !== "cast" || c.canRegister());
   } catch { return false; }
 }
 

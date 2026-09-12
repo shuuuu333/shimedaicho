@@ -36,6 +36,7 @@ export default function App() {
   const name = useApp((s) => s.ledger.shop.name);
   const cloudInit = useCloud((s) => s.init);
   const role = useCloud((s) => s.role());
+  const canRegister = useCloud((s) => s.canRegister());
   const joinByToken = useCloud((s) => s.joinByToken);
   const showToast = useApp((s) => s.showToast);
   useEffect(() => {
@@ -73,7 +74,9 @@ export default function App() {
     setJoinToken(token);
   }, [joinByToken, showToast]);
 
-  const tabs = role === "cast" ? TABS.filter((t) => t.id === "shift")
+  // 見える画面は 3 段階。レジを打つキャストにはレジも出す（給料と売上は自分のぶんだけ）
+  const tabs = role === "cast"
+    ? TABS.filter((t) => t.id === "shift" || (canRegister && t.id === "reg"))
     : role === "staff" ? TABS.filter((t) => t.id === "reg" || t.id === "day" || t.id === "shift")
     : TABS;
   useEffect(() => {

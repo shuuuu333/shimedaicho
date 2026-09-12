@@ -43,7 +43,9 @@ export class OpsSync {
   private can(): boolean {
     try {
       const c = useCloud.getState();
-      return api.cloudConfigured && !!c.shopId && !!c.session && c.role() !== "cast";
+      // レジを打つキャストは伝票を読み書きする。それ以外のキャストは同期しない
+      return api.cloudConfigured && !!c.shopId && !!c.session
+        && (c.role() !== "cast" || c.canRegister());
     } catch { return false; }
   }
 

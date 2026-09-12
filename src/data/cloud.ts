@@ -11,7 +11,7 @@ export const cloudConfigured = !!supabase;
 
 export interface ShopRow { id: string; name: string; owner: string; created_at: string }
 export type MemberRole = "owner" | "staff" | "cast";
-export interface MemberRow { shop_id: string; email: string; role: MemberRole; created_at: string; name?: string | null; user_id?: string | null }
+export interface MemberRow { shop_id: string; email: string; role: MemberRole; created_at: string; name?: string | null; user_id?: string | null; cast_id?: string | null; can_register?: boolean }
 export interface InviteRow { token: string; shop_id: string; role: "staff" | "cast"; name: string; cast_id: string | null; expires_at: string; used_at: string | null }
 export interface Redeemed { shop_id: string; shop_name: string; role: string; cast_id: string | null }
 export interface RemoteLedger { data: unknown; version: number; updated_at: string; updated_by: string | null }
@@ -97,6 +97,12 @@ export async function addMember(shopId: string, email: string, role: "staff" | "
   const { error } = await sb().from("shop_members").insert({ shop_id: shopId, email: email.trim().toLowerCase(), role });
   if (error) fail(error, "メンバーを追加できませんでした");
 }
+/** メンバーの設定を変える（どのキャストか・レジを打たせるか）。オーナーだけ */
+export async function updateMember(shopId: string, email: string, patch: { cast_id?: string | null; can_register?: boolean }): Promise<void> {
+  const { error } = await sb().from("shop_members").update(patch).eq("shop_id", shopId).eq("email", email);
+  if (error) fail(error, "メンバーの設定を変えられませんでした");
+}
+
 export async function removeMember(shopId: string, email: string): Promise<void> {
   const { error } = await sb().from("shop_members").delete().eq("shop_id", shopId).eq("email", email);
   if (error) fail(error, "メンバーを外せませんでした");
@@ -181,6 +187,25 @@ export async function redeemInvite(token: string): Promise<Redeemed> {
 }
 
 /* ---------- 台帳 ---------- */
+/** 自分のメンバー行（役割・名前・cast_id・レジを打てるか）。
+ *  メンバー表を直接読まずに済むので、他人の行が出てこない */
+export interface MyMember { role: string; name: string | null; cast_id: string | null; can_register: boolean }
+export async function myMember(shopId: string): Promise<MyMember | null> {
+  const { data, error } = await sb().rpc("my_member", { sid: shopId });
+  if (error) return null;   // 関数がまだ無い環境では、今までの判定に落ちる
+  const rows = (data ?? []) as MyMember[];
+  return rows[0] ?? null;
+}
+
+/** キャスト向けの、削った台帳。
+ *  返ってくるのは「自分の給料を出すのに必要なものだけ」。
+ *  関数がまだ無い環境では null を返し、呼ぶ側が今までの経路に落ちる */
+export async function pullCastLedger(shopId: string): Promise<unknown | null> {
+  const { data, error } = await sb().rpc("my_cast_ledger", { sid: shopId });
+  if (error) return null;
+  return data ?? null;
+}
+
 export async function pullLedger(shopId: string): Promise<RemoteLedger | null> {
   const { data, error } = await sb().from("ledgers").select("data, version, updated_at, updated_by").eq("shop_id", shopId).maybeSingle();
   if (error) fail(error, "台帳を取れませんでした");
