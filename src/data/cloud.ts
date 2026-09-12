@@ -1,6 +1,7 @@
 /** Supabase との通信（認証・店・メンバー・台帳）。環境変数が無ければ supabase は null で、同期機能は出ない。 */
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import type { Ledger } from "../domain/types";
+import { opFromRow, opToRow, type CheckOp, type OpRow } from "../domain/checkOps";
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -213,6 +214,74 @@ export function subscribeLedger(shopId: string, cb: (row: RemoteLedger) => void)
     .on("postgres_changes", { event: "*", schema: "public", table: "ledgers", filter: `shop_id=eq.${shopId}` }, (payload) => {
       const row = payload.new as Partial<RemoteLedger> | undefined;
       if (row && typeof row.version === "number") cb(row as RemoteLedger);
+    })
+    .subscribe();
+  return () => { void sb().removeChannel(ch); };
+}
+
+/* ---------- 伝票の操作（check_ops） ---------- */
+
+/** check_ops の 1 行。行と CheckOp の行き来は domain/checkOps.ts が持つ
+ *  （落ちる項目が無いことを、そちらのテストで固定している） */
+export type OpRemote = OpRow & { shop_id: string };
+
+const toOpRemote = (shopId: string, o: CheckOp, userId: string | null): Record<string, unknown> =>
+  ({ ...opToRow(o), shop_id: shopId, by_user: userId });
+
+const fromOpRemote = (r: OpRemote): CheckOp => opFromRow(r);
+
+/** 操作をまとめて送る。同じ id はサーバー側で 1 つになるので、送り直しても増えない。
+ *  check_ops は追記だけなので、既にある行は触らない（ignoreDuplicates） */
+export async function pushOps(shopId: string, ops: CheckOp[]): Promise<void> {
+  if (!ops.length) return;
+  const { data: user } = await sb().auth.getUser();
+  const uid = user?.user?.id ?? null;
+  const rows = ops.map((o) => toOpRemote(shopId, o, uid));
+  const { error } = await sb().from("check_ops").upsert(rows, { onConflict: "id", ignoreDuplicates: true });
+  if (error) fail(error, "伝票の操作を送れませんでした");
+}
+
+/** その営業日ぶんの操作を取る。open / seed 以外は date が空なので、
+ *  まず日付で伝票を絞り、その伝票 id に紐づく操作を取り直す（2 段） */
+export async function pullOpsByDate(shopId: string, date: string): Promise<CheckOp[]> {
+  const c = sb();
+  const heads = await c.from("check_ops").select("check_id").eq("shop_id", shopId).eq("date", date);
+  if (heads.error) fail(heads.error, "伝票を取れませんでした");
+  const ids = [...new Set(((heads.data ?? []) as { check_id: string }[]).map((r) => r.check_id))];
+  if (!ids.length) return [];
+  return pullOpsByChecks(shopId, ids);
+}
+
+/** 伝票 id を指定して、その伝票の操作を全部取る */
+export async function pullOpsByChecks(shopId: string, checkIds: string[]): Promise<CheckOp[]> {
+  if (!checkIds.length) return [];
+  const out: CheckOp[] = [];
+  // in() は長さに上限があるので、200 件ずつに割る
+  for (let i = 0; i < checkIds.length; i += 200) {
+    const part = checkIds.slice(i, i + 200);
+    const { data, error } = await sb().from("check_ops").select("*")
+      .eq("shop_id", shopId).in("check_id", part).order("at");
+    if (error) fail(error, "伝票を取れませんでした");
+    for (const r of (data ?? []) as OpRemote[]) out.push(fromOpRemote(r));
+  }
+  return out;
+}
+
+/** ある時点より後に足された操作を取る。つながり直したときの追いつきに使う */
+export async function pullOpsSince(shopId: string, sinceISO: string): Promise<CheckOp[]> {
+  const { data, error } = await sb().from("check_ops").select("*")
+    .eq("shop_id", shopId).gt("created_at", sinceISO).order("created_at");
+  if (error) fail(error, "伝票を取れませんでした");
+  return ((data ?? []) as OpRemote[]).map(fromOpRemote);
+}
+
+/** ほかの端末が押した操作を、その場で受け取る */
+export function subscribeOps(shopId: string, cb: (op: CheckOp) => void): () => void {
+  const ch = sb()
+    .channel("ops:" + shopId)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "check_ops", filter: `shop_id=eq.${shopId}` }, (payload) => {
+      const row = payload.new as OpRemote | undefined;
+      if (row?.id && row.check_id) cb(fromOpRemote(row));
     })
     .subscribe();
   return () => { void sb().removeChannel(ch); };

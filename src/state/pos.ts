@@ -11,6 +11,7 @@ import type { CheckOp } from "../domain/checkOps";
 import { useApp } from "./store";
 import { useCloud } from "./cloud";
 import { bindPosStore, notifyPos } from "./notify";
+import { OpsSync } from "./opsSync";
 
 /** 記録に残す「誰が」。招待のときに入れた名前を先に見る。
  *  メールだけを見ていると、LINE でログインしたキャストが全員「ログイン中」になり、
@@ -37,6 +38,13 @@ export interface PosStore {
   /** 伝票画面で開いている伝票 */
   activeId: string | null;
   error: string | null;
+  /** まだクラウドへ送れていない操作の数。黙って遅れているのが一番怖いので画面に出す */
+  pending: number;
+  /** 同期が失敗している理由。null なら問題なし */
+  syncError: string | null;
+  /** 店が決まったら同期を始める（クラウド側から呼ぶ） */
+  startSync(): void;
+  stopSync(): void;
 
   init(): Promise<void>;
   reload(): Promise<void>;
@@ -90,6 +98,8 @@ export function createPosStore(repo: CheckRepository) {
     async function apply(op: CheckOp): Promise<Check | null> {
       try {
         const after = await repo.apply(op);
+        // 送れなくてもここは通す。操作は端末に残り、つながったときに追いつく
+        void sync.flush();
         const list = get().checks;
         const has = list.some((c) => c.id === op.checkId);
         if (!after) set({ checks: list.filter((c) => c.id !== op.checkId) });
@@ -104,6 +114,14 @@ export function createPosStore(repo: CheckRepository) {
 
     /** 操作の共通部分。id は端末で作るので、送り直しても二重にならない */
     const base = (checkId: string) => ({ id: uid(), checkId, at: nowISO(), by: whoAmI() });
+
+    /** クラウドとの行き来。届いた操作は apply と同じ道を通す（畳み方を 1 つにする） */
+    const sync = new OpsSync({
+      repo,
+      onRemote: async (op) => { await apply(op); },
+      onPending: (n) => { if (get().pending !== n) set({ pending: n }); },
+      onError: (msg) => { if (get().syncError !== msg) set({ syncError: msg }); },
+    });
 
     /** その営業日の伝票を日報に反映する。
      *  会計の済んだ伝票が 1 枚も無いうちは日報を作らない（「入力済み ○日」を実態と合わせるため） */
@@ -121,6 +139,11 @@ export function createPosStore(repo: CheckRepository) {
       checks: [],
       activeId: null,
       error: null,
+      pending: 0,
+      syncError: null,
+
+      startSync() { sync.start(); void get().reload(); },
+      stopSync() { sync.stop(); },
 
       async init() {
         if (get().loaded) return;
@@ -141,6 +164,8 @@ export function createPosStore(repo: CheckRepository) {
           const byId = new Map(today.map((c) => [c.id, normalizeCheck(c, rule)]));
           for (const c of open) if (!byId.has(c.id)) byId.set(c.id, normalizeCheck(c, rule));
           set({ date, checks: [...byId.values()], error: null });
+          // つながっていれば、ほかの端末が押したぶんを読み直す
+          void sync.catchUp(date, [...byId.values()].filter((c) => c.status === "open").map((c) => c.id));
         } catch (e) {
           set({ date, error: e instanceof Error ? e.message : String(e) });
         }
@@ -413,3 +438,23 @@ export const usePos = createPosStore(new LocalCheckRepository());
 // 通知に「いま何組入っているか」を添えるために、伝票を読む口を渡しておく。
 // notify → pos の import を作ると循環するので、こちらから渡す
 bindPosStore(usePos);
+
+// 店・ログイン・役割が変わったら、伝票の同期を始め直す。
+// cloud → pos の import を作ると循環するので、こちらから見張る
+{
+  const key = () => {
+    const c = useCloud.getState();
+    return `${c.shopId ?? ""}:${c.session?.user.id ?? ""}:${c.members.length}`;
+  };
+  let last = "";
+  const check = () => {
+    const k = key();
+    if (k === last) return;
+    last = k;
+    const c = useCloud.getState();
+    if (c.shopId && c.session && c.role() !== "cast") usePos.getState().startSync();
+    else usePos.getState().stopSync();
+  };
+  useCloud.subscribe(check);
+  check();
+}

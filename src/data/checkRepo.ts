@@ -1,7 +1,7 @@
 /** 伝票の保存層。台帳（Repository）とは別に持つ。
  *  Phase 3 で Supabase 実装に差し替えられるよう、UI からはこのインターフェースだけを見る。 */
 import { ShimeDB, type CheckRow, type OpRow } from "./db";
-import { foldCheck, seedOps, sortOps, type CheckOp } from "../domain/checkOps";
+import { dateOfOp, foldCheck, seedOps, sortOps, type CheckOp } from "../domain/checkOps";
 import type { Check } from "../domain/types";
 
 export interface CheckRepository {
@@ -16,6 +16,10 @@ export interface CheckRepository {
   markSent(ids: string[]): Promise<void>;
   /** 端末の中にある伝票を、操作の記録へ移す。すでに操作がある伝票は触らない */
   seedFromChecks(by?: string): Promise<number>;
+  /** その操作をもう持っているか。自分が送った操作が返ってきたときに弾く */
+  hasOp(id: string): Promise<boolean>;
+  /** 送信待ちの件数 */
+  pendingCount(): Promise<number>;
   /** その営業日の伝票を全部（開いているもの・会計済みの両方） */
   byDate(date: string): Promise<Check[]>;
   /** 開いている伝票だけ。日付をまたいで残っていても拾えるようにする */
@@ -44,12 +48,6 @@ function toRow(c: Check): CheckRow {
 
 function toOpRow(o: CheckOp, sent = 0): OpRow {
   return { id: o.id, checkId: o.checkId, date: dateOfOp(o), at: o.at, sent, json: JSON.stringify(o) };
-}
-/** 操作がどの営業日のものか。open と seed は自分で持っている */
-function dateOfOp(o: CheckOp): string {
-  if (o.op === "open") return o.date;
-  if (o.op === "seed") return o.check.date;
-  return "";
 }
 function parseOp(row: OpRow): CheckOp | null {
   try { return JSON.parse(row.json) as CheckOp; } catch { return null; }
@@ -113,6 +111,14 @@ export class LocalCheckRepository implements CheckRepository {
   async pending(): Promise<CheckOp[]> {
     const rows = await this.db.ops.where("sent").equals(0).toArray();
     return sortOps(rows.map(parseOp).filter((x): x is CheckOp => !!x));
+  }
+
+  async hasOp(id: string): Promise<boolean> {
+    return !!(await this.db.ops.get(id));
+  }
+
+  async pendingCount(): Promise<number> {
+    return this.db.ops.where("sent").equals(0).count();
   }
 
   async markSent(ids: string[]): Promise<void> {

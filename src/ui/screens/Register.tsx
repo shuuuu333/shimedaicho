@@ -74,6 +74,8 @@ export function Register() {
           <div className="n">{date}</div></div>
       </div>
 
+      <SyncRow />
+
       {misses.length > 0 && (
         <div className="card">
           <ul className="hintlist" style={{ margin: 0 }}>
@@ -504,5 +506,30 @@ function LateAddSheet({ check, rule, onClose, onDone }: { check: Check; rule: Po
         </button>
       </BottomSheet>
     </BottomSheet>
+  );
+}
+
+/** 伝票がクラウドへ送れているか。
+ *  黙って遅れているのが一番怖いので、未送信が残っているときだけ出す。
+ *  端末内だけで使っているときは何も出さない（その状態が正常なので）。 */
+function SyncRow() {
+  const pending = usePos((s) => s.pending);
+  const syncError = usePos((s) => s.syncError);
+  const shopId = useCloud((s) => s.shopId);
+  if (!shopId) return null;
+  if (pending === 0 && !syncError) return null;
+
+  return (
+    <div className="card">
+      <ul className="hintlist" style={{ margin: 0 }}>
+        {pending > 0 && (
+          <li className="strong">
+            まだ送れていない操作が {pending}件 あります。
+            この端末には残っているので、つながれば自動で追いつきます。
+          </li>
+        )}
+        {syncError && <li>{syncError}</li>}
+      </ul>
+    </div>
   );
 }

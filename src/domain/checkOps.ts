@@ -179,6 +179,38 @@ function pushLog(c: Check, o: CheckOp): void {
   c.log.push(...rows);
 }
 
+/* ---------- データベースの行との行き来 ---------- */
+
+/** check_ops の 1 行ぶん。id / checkId / at / by / op は列に、残りは payload にまとめる。
+ *  date は列に出す（1 日ぶんを引くため）。持っているのは open と seed だけ */
+export interface OpRow {
+  id: string;
+  check_id: string;
+  date: string;
+  at: string;
+  op: string;
+  by_name: string;
+  payload: Record<string, unknown>;
+}
+
+/** その操作がどの営業日のものか。open と seed だけが自分で持っている */
+export function dateOfOp(o: CheckOp): string {
+  if (o.op === "open") return o.date;
+  if (o.op === "seed") return o.check.date;
+  return "";
+}
+
+/** 操作を行の形にする */
+export function opToRow(o: CheckOp): OpRow {
+  const { id, checkId, at, by, op, ...rest } = o as CheckOp & Record<string, unknown>;
+  return { id, check_id: checkId, date: dateOfOp(o), at, op, by_name: by, payload: rest };
+}
+
+/** 行を操作に戻す。opToRow と往復して中身が落ちないことをテストで固定している */
+export function opFromRow(r: OpRow): CheckOp {
+  return { id: r.id, checkId: r.check_id, at: r.at, by: r.by_name, op: r.op, ...(r.payload ?? {}) } as unknown as CheckOp;
+}
+
 /** 端末の中にある伝票を、共有へ移すための種にする。
  *
  *  営業中には切り替えられないので、閉店後に一度だけ通す想定。
