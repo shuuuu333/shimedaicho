@@ -246,6 +246,35 @@ function closed(_L: Ledger, guests: number, lines: [string, number, string | und
   return c;
 }
 
+describe("紙に書いてある時刻から日時を作る", () => {
+  const shop = { openTime: "20:00", closeTime: "01:00" };
+  const hm = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+
+  it("営業中の時刻はその日", () => {
+    expect(hm(P.atOnBusinessDate("2026-09-06", "20:15", shop))).toBe("2026-09-06 20:15");
+    expect(hm(P.atOnBusinessDate("2026-09-06", "23:50", shop))).toBe("2026-09-06 23:50");
+  });
+
+  it("日をまたいだ時刻は翌日にする（そうしないと営業日から外れる）", () => {
+    expect(hm(P.atOnBusinessDate("2026-09-06", "00:30", shop))).toBe("2026-09-07 00:30");
+    expect(hm(P.atOnBusinessDate("2026-09-06", "01:00", shop))).toBe("2026-09-07 01:00");
+    // 区切りは businessDate() と同じ「閉店＋4時間」
+    expect(hm(P.atOnBusinessDate("2026-09-06", "03:00", shop))).toBe("2026-09-07 03:00");
+    expect(hm(P.atOnBusinessDate("2026-09-06", "06:00", shop))).toBe("2026-09-06 06:00");
+  });
+
+  it("日をまたがない営業（昼のカフェ）は、いつでもその日", () => {
+    const day = { openTime: "11:00", closeTime: "20:00" };
+    expect(hm(P.atOnBusinessDate("2026-09-06", "11:30", day))).toBe("2026-09-06 11:30");
+    expect(hm(P.atOnBusinessDate("2026-09-06", "00:30", day))).toBe("2026-09-06 00:30");
+  });
+
+  it("時刻の形が違えば今の時刻にする（伝票が作れなくなるより、ずれる方がまし）", () => {
+    const out = P.atOnBusinessDate("2026-09-06", "", shop);
+    expect(Number.isFinite(Date.parse(out))).toBe(true);
+  });
+});
+
 describe("カード手数料をお客様に請求する", () => {
   const onGuest: PosRule = { ...RULE, cardFeeOnGuest: true };
 

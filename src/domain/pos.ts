@@ -74,6 +74,24 @@ export function endsAt(c: Check, rule: PosRule): Date {
   return new Date(Date.parse(c.enteredAt) + allowedMin(c, rule) * 60000);
 }
 
+/** 営業日と「紙に書いてある時刻」から、実際の日時を作る。
+ *
+ *  閉店が翌 1:00 の店で紙に「0:30」と書いてあれば、それは翌日の 0:30。
+ *  区切りは businessDate() と同じ「閉店＋4時間」にそろえてある
+ *  （そうしないと、写した伝票がその営業日から外れてしまう）。 */
+export function atOnBusinessDate(date: string, hhmm: string, shop: Pick<Shop, "openTime" | "closeTime">): string {
+  const mins = toMin(hhmm);
+  const open = toMin(shop.openTime);
+  const close = toMin(shop.closeTime);
+  const [y, m, d] = date.split("-").map(Number);
+  if (mins == null || !y) return new Date().toISOString();
+  // 日をまたぐ営業で、閉店から 4 時間のあいだの時刻なら「翌日」
+  const nextDay = open != null && close != null && close < open && mins < close + AFTER_CLOSE_GRACE;
+  const dt = new Date(y, (m || 1) - 1, d || 1, Math.floor(mins / 60), mins % 60, 0, 0);
+  if (nextDay) dt.setDate(dt.getDate() + 1);
+  return dt.toISOString();
+}
+
 /** 時計の表示 HH:MM */
 export function clock(d: Date): string {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;

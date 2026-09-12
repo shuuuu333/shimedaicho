@@ -2,7 +2,7 @@
  *  伝票は Dexie の checks に直接書き、会計が済んだ時点で日報へ反映する。 */
 import { create } from "zustand";
 import type { Check, Ledger, MenuItem, PayKind, SetPlan } from "../domain/types";
-import { applyCardFee, businessDate, checkTotals, lineFromMenu, normalizeCheck, planLabel } from "../domain/pos";
+import { applyCardFee, atOnBusinessDate, businessDate, checkTotals, lineFromMenu, normalizeCheck, planLabel } from "../domain/pos";
 import { defaultPosRule } from "../domain/migrate";
 import { uid } from "../domain/format";
 import { MANUAL_TAB_COLLECTED, applyChecksToDay, setManual } from "../domain/close";
@@ -65,6 +65,9 @@ export interface PosStore {
   /** 入店。セット料金はその場で選んだ値を伝票に写す */
   /** 入店。選んだセット（時間と料金）をその場で伝票に写す */
   openSeat(seatId: string | null, guests: number, plan: SetPlan): Promise<string>;
+  /** 紙の伝票を 1 枚ぶん、閉店後にまとめて入れる。会計済みの伝票として入る。
+   *  営業中の流れ（席→タイマー→注文）は写す作業に向かないので、別の入り口にしてある */
+  enterFromPaper(slip: PaperSlip): Promise<string | null>;
   addItem(id: string, item: MenuItem, castId?: string): Promise<void>;
   setQty(id: string, lineId: string, qty: number): Promise<void>;
   voidLine(id: string, lineId: string, reason: string): Promise<void>;
@@ -87,6 +90,20 @@ export interface PosStore {
   removeByDate(date: string): Promise<Check[]>;
   /** 消した伝票を戻す（取り消し用） */
   restore(list: Check[]): Promise<void>;
+}
+
+/** 紙の伝票 1 枚ぶん。金額はここから計算するので、打つのは数だけ */
+export interface PaperSlip {
+  seatId: string | null;
+  guests: number;
+  plan: SetPlan;
+  /** 紙に書いてある入店時刻 HH:MM。空なら今の時刻 */
+  enteredAt: string;
+  /** 延長を何回ぶん押したか */
+  extendTimes: number;
+  lines: { item: MenuItem; castId?: string; qty: number }[];
+  method: PayKind;
+  tabName?: string;
 }
 
 export function createPosStore(repo: CheckRepository) {
@@ -255,6 +272,57 @@ export function createPosStore(repo: CheckRepository) {
         set({ activeId: checkId });
         const c = get().checks.find((x) => x.id === checkId);
         if (c) notifyPos({ kind: "enter", at, seat: seatNameOf(c), guests: c.guests });
+        return checkId;
+      },
+
+      async enterFromPaper(slip) {
+        const L = useApp.getState().ledger;
+        const rule = L.posRule ?? defaultPosRule();
+        const date = get().date;
+        const by = whoAmI();
+        const checkId = uid();
+        const n = Math.max(1, Math.floor(slip.guests));
+        // at は「写した時刻」、enteredAt は「紙に書いてあった時刻」。別ものとして持つ
+        const entered = slip.enteredAt ? atOnBusinessDate(date, slip.enteredAt, L.shop) : nowISO();
+
+        let c = await apply({
+          id: uid(), checkId, at: nowISO(), by, op: "open",
+          date, seatId: slip.seatId, guests: n, plan: slip.plan, enteredAt: entered,
+          log: [{ act: "紙から入れる", detail: `${n}名 ／ ${planLabel(slip.plan)}／人 ／ 入店 ${slip.enteredAt || "—"}` }],
+        });
+        if (!c) return null;
+
+        for (let i = 0; i < Math.max(0, Math.floor(slip.extendTimes)); i++) {
+          c = await apply({
+            id: uid(), checkId, at: nowISO(), by, op: "extend",
+            min: rule.extendMinutes, price: rule.extendPrice,
+            log: [{ act: "延長", detail: `＋${rule.extendMinutes}分 ¥${rule.extendPrice}／人` }],
+          });
+        }
+        for (const { item, castId, qty } of slip.lines) {
+          if (qty <= 0) continue;
+          const who = castId ? L.casts.find((x) => x.id === castId)?.name : undefined;
+          c = await apply({
+            id: uid(), checkId, at: nowISO(), by, op: "addLine",
+            line: lineFromMenu(item, entered, castId, Math.floor(qty)),
+            log: [{ act: "追加", detail: `${item.name}${who ? `／${who}` : ""}${qty > 1 ? ` ×${qty}` : ""}` }],
+          });
+        }
+        if (!c) return null;
+
+        // 金額はここで確定させる。会計と同じ道を通す
+        const draft: Check = { ...c, cardFee: undefined };
+        applyCardFee(draft, rule, L.shop.cardFeeRate, slip.method === "card" ? "card" : "cash");
+        const amount = checkTotals(draft, rule).total;
+        const tab = slip.method === "tab" ? (slip.tabName ?? "").trim() : "";
+        const fee = draft.cardFee ? `（うちカード手数料 ¥${draft.cardFee}）` : "";
+        const how = slip.method === "cash" ? "現金" : slip.method === "card" ? "カード" : `ツケ${tab ? `／${tab}` : ""}`;
+        await apply({
+          id: uid(), checkId, at: nowISO(), by, op: "pay", method: slip.method, amount,
+          ...(tab ? { tabName: tab } : {}),
+          ...(draft.cardFee ? { cardFee: draft.cardFee } : {}),
+          log: [{ act: "会計", detail: `${how} ¥${amount}${fee}` }],
+        });
         return checkId;
       },
 

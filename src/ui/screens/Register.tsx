@@ -11,6 +11,7 @@ import { BottomSheet } from "../components/BottomSheet";
 import { NumberField } from "../components/NumberField";
 import { TimeField } from "../components/TimeField";
 import { CheckView } from "./CheckView";
+import { LateEntrySheet } from "./LateEntry";
 import { useWakeLock } from "../useWakeLock";
 import { useCloud } from "../../state/cloud";
 
@@ -40,6 +41,7 @@ export function Register() {
   // レジを開いているあいだは画面を消させない（伝票画面も Register の中で描いている）
   useWakeLock(true);
   const [detail, setDetail] = useState<string | null>(null);
+  const [paper, setPaper] = useState(false);
   const [plan, setPlan] = useState<SetPlan>({ min: rule.setMinutes, price: rule.setPrice });
   const openEntry = (seatId: string | null, name: string) => {
     setPlan({ min: rule.setMinutes, price: rule.setPrice });
@@ -135,7 +137,16 @@ export function Register() {
       )}
 
       <div className="card">
-        <div className="cardhead"><h2>会計済み</h2><span className="muted">{closed.length} 組</span></div>
+        <div className="cardhead">
+          <h2>会計済み</h2>
+          <span className="muted">{closed.length} 組</span>
+        </div>
+        <div className="btnrow" style={{ marginBottom: 10 }}>
+          <button type="button" className="btn sm" onClick={() => setPaper(true)}>＋ 紙の伝票から入れる</button>
+        </div>
+        <div className="hint" style={{ margin: "-4px 0 10px" }}>
+          閉店後に紙から写すときはこちら。1 枚ずつ、入店時刻から順に入れられます。
+        </div>
         {closed.length === 0 ? (
           <div className="empty">まだ会計はありません</div>
         ) : closed.map((c) => {
@@ -168,6 +179,8 @@ export function Register() {
           setDetail(null);
           void removeCheck(id);
         }} />
+
+      {paper && <LateEntrySheet onClose={() => setPaper(false)} />}
 
       <BottomSheet open={!!entry} title={`${entry?.name ?? ""} に入店`} onClose={() => setEntry(null)}>
         <div className="lbl">セット（1名あたり）</div>

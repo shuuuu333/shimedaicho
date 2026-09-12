@@ -37,7 +37,10 @@ export type CheckOp =
   /** 端末の中にある伝票を、そのまま 1 件の操作として置き直す。
    *  端末内から共有へ切り替えるときの種。中身は伝票まるごとなので無損失 */
   | (OpBase & { op: "seed"; check: Check })
-  | (OpBase & { op: "open"; date: string; seatId: string | null; guests: number; plan: SetPlan })
+  /** enteredAt を渡すと、伝票の入店時刻をそこにする。
+   *  閉店後に紙から写すとき、at（押した時刻）と入店時刻は別ものになるため。
+   *  並べ替えは at のままなので、畳む順は変わらない */
+  | (OpBase & { op: "open"; date: string; seatId: string | null; guests: number; plan: SetPlan; enteredAt?: string })
   | (OpBase & { op: "addLine"; line: CheckLine })
   | (OpBase & { op: "setQty"; lineId: string; qty: number })
   | (OpBase & { op: "void"; lineId: string; reason: string })
@@ -92,7 +95,7 @@ export function foldCheck(ops: CheckOp[]): Check | null {
         guests: Math.max(1, int(o.guests)),
         setPrice: Math.max(0, int(o.plan.price)),
         setMinutes: Math.max(1, int(o.plan.min)),
-        enteredAt: o.at, extends: [], lines: [], payments: [], status: "open", log: [],
+        enteredAt: o.enteredAt || o.at, extends: [], lines: [], payments: [], status: "open", log: [],
       };
       pushLog(c, o);
       continue;

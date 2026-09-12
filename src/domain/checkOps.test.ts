@@ -30,6 +30,18 @@ describe("操作を畳んで伝票を作る", () => {
     expect(checkTotals(c, RULE).total).toBe(6000);
   });
 
+  it("紙から写すときは、押した時刻と入店時刻を分けて持てる", () => {
+    const c = foldCheck([open({ at: T(300), enteredAt: T(15) } as Partial<CheckOp>)])!;
+    expect(c.enteredAt).toBe(T(15));   // 紙に書いてあった時刻
+    // 畳む順は at のままなので、あとから押した操作もちゃんと後ろに来る
+    const c2 = foldCheck([
+      open({ at: T(300), enteredAt: T(15) } as Partial<CheckOp>),
+      { id: "a1", checkId: "k1", at: T(301), by: "x", op: "addLine", line: line("beer", 800) } as CheckOp,
+    ])!;
+    expect(c2.lines.length).toBe(1);
+    expect(c2.enteredAt).toBe(T(15));
+  });
+
   it("入店が届いていない操作は、届くまで捨てる", () => {
     const add: CheckOp = { id: "a1", checkId: "k1", at: T(5), by: "あい", op: "addLine", line: line("beer", 800) };
     expect(foldCheck([add])).toBe(null);
