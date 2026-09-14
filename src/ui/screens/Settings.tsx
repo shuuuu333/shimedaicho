@@ -180,6 +180,9 @@ export function Settings() {
 
   const shop = <K extends keyof typeof S>(k: K, v: (typeof S)[K]) => update((LL) => { LL.shop[k] = v; });
 
+  /** バックの単価をまとめて直すか */
+  const [bulkBack, setBulkBack] = useState(false);
+
   /** お試しデータを入れた端末かどうか */
   const [isDemo, setIsDemo] = useState(() => { try { return localStorage.getItem(DEMO_FLAG) === "1"; } catch { return false; } });
   /** 中身が入っていない端末。お試しを勧めていいのはこの状態のときだけ */
@@ -329,8 +332,32 @@ export function Settings() {
 
       <Section id="pay" title="給料のルール" sub={`バック ${L.backItems.length}項目 ・ ${L.backItems.slice(0, 2).map((x) => x.name || "（名前なし）").join("・")}${L.backItems.length > 2 ? " ほか" : ""}`} {...sec("pay")}>
       <div className="card" id="set-backs">
-        <h2>バックの単価</h2><p className="sub">お店のルールをそのまま入れてください。日報の入力欄がここで決まります。</p>
-        {L.backItems.map((b, i) => (
+        <div className="cardhead">
+          <h2>バックの単価</h2>
+          <Seg label="バックの直し方" value={bulkBack ? "bulk" : "one"} onChange={(v) => setBulkBack(v === "bulk")}
+            items={[{ id: "one", label: "1つずつ" }, { id: "bulk", label: "単価だけ" }] as const} />
+        </div>
+        <p className="sub">
+          {bulkBack
+            ? "上から順に単価だけ直せます。計算の種類や上限を変えるときは「1つずつ」へ。"
+            : "お店のルールをそのまま入れてください。日報の入力欄がここで決まります。"}
+        </p>
+
+        {bulkBack && L.backItems.map((b, i) => (
+          <div key={b.id} className="bulkrow">
+            <span className="n">{b.name || "（名前なし）"}
+              <i>{b.type === "amount" ? "売上%" : "件数"}</i></span>
+            <NumberField decimal value={b.rate} aria-label={`${b.name || "項目"}の単価`}
+              onChange={(v) => update((LL) => { LL.backItems[i].rate = v ?? 0; })} />
+          </div>
+        ))}
+        {bulkBack && (
+          <div className="hint" style={{ marginTop: 10 }}>
+            ここで直るのは<b>在籍キャスト</b>の単価です。派遣の単価は「1つずつ」で直せます。
+          </div>
+        )}
+
+        {!bulkBack && L.backItems.map((b, i) => (
           <div key={b.id} className="itemcard">
             <div className="backrow" style={{ gap: 8, border: 0, padding: "0 0 8px" }}>
               <input className="inp" style={{ flex: 1, minWidth: 0, padding: "8px 9px" }} placeholder="項目名（例：ドリンク M）" value={b.name} autoFocus={!b.name} onChange={(e) => update((LL) => { LL.backItems[i].name = e.target.value; })} />

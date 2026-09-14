@@ -609,3 +609,17 @@ button.posbadge.manual:active{background:var(--surface)}
 .setuprow .s{display:block; font-size:12px; color:var(--ink-3); line-height:1.5; margin-top:1px}
 .setuprow .btn.sm{flex:none}
 .setuprow .chevi{flex:none; color:var(--ink-3)}
+
+/* 値段・単価をまとめて直すときの行。
+   名前は読むだけ、右に数字の欄。上から順に指で降りていける。
+   1 品ずつカードを開くと、12 品で 12 往復することになる */
+.bulkrow{display:flex; align-items:center; gap:12px; padding:7px 0; border-bottom:1px solid var(--line)}
+.bulkrow:last-of-type{border-bottom:0}
+.bulkrow .n{flex:1; min-width:0; font-size:15px; font-weight:500; line-height:1.35;
+  overflow:hidden; text-overflow:ellipsis}
+.bulkrow .n i{display:block; font-style:normal; font-size:11px; color:var(--ink-3); font-weight:400}
+/* 数字の欄は詰める。設定は入れ子のカードなので、行の幅が 275px しか無い。
+   132px も取ると「キャストドリンク S」のような名前が 2 行に折り返す */
+.bulkrow .numwrap{flex:none; width:104px}
+.bulkrow .numwrap .inp{padding-right:26px}
+.bulkrow .numwrap .clr{right:5px; width:20px; height:20px; font-size:12px}

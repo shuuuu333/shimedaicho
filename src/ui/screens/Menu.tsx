@@ -5,6 +5,7 @@ import { uid, yen } from "../../domain/format";
 import { NumberField } from "../components/NumberField";
 import { planLabel } from "../../domain/pos";
 import { Trash } from "../icons";
+import { Seg } from "../components/Seg";
 import type { MenuItem, SetPlan } from "../../domain/types";
 
 /** レジの設定（会計ルール・商品・席）。設定画面のカードとして並ぶ */
@@ -16,6 +17,8 @@ export function PosSettings() {
   const menu = L.menu ?? [];
   const seats = L.seats ?? [];
   const [openCat, setOpenCat] = useState<string | null>(null);
+  /** 値段だけをまとめて直すか。12 品を 1 つずつ開かせない */
+  const [bulk, setBulk] = useState(false);
 
   const setRule = (patch: Partial<typeof rule>) =>
     update((D) => { D.posRule = { ...(D.posRule ?? defaultPosRule()), ...patch }; });
@@ -127,8 +130,16 @@ export function PosSettings() {
       </div>
 
       <div className="card" id="set-menu">
-        <h2>商品</h2>
-        <p className="sub">「バック」を選んだ商品は、レジで売るときに誰の分かを聞かれ、その本数が日報のバックに入ります。</p>
+        <div className="cardhead">
+          <h2>商品</h2>
+          <Seg label="商品の直し方" value={bulk ? "bulk" : "one"} onChange={(v) => setBulk(v === "bulk")}
+            items={[{ id: "one", label: "1つずつ" }, { id: "bulk", label: "値段だけ" }] as const} />
+        </div>
+        <p className="sub">
+          {bulk
+            ? "上から順に値段だけ直せます。名前やバックの繋がりを変えるときは「1つずつ」へ。"
+            : "「バック」を選んだ商品は、レジで売るときに誰の分かを聞かれ、その本数が日報のバックに入ります。"}
+        </p>
         {noBack.length > 0 && (
           <div className="notice">
             <span className="ic" aria-hidden="true">!</span>
@@ -139,7 +150,20 @@ export function PosSettings() {
             </span>
           </div>
         )}
-        {cats.map((cat) => {
+        {bulk && cats.map((cat) => (
+          <div key={cat}>
+            <div className="sechead" style={{ margin: "14px 0 2px" }}><div className="t">{cat}</div><div className="l" /></div>
+            {menu.filter((m) => m.category === cat).map((m) => (
+              <div key={m.id} className="bulkrow">
+                <span className="n">{m.name || "（名前なし）"}</span>
+                <NumberField value={m.price} aria-label={`${m.name || "商品"}の値段`}
+                  onChange={(v) => setItem(m.id, { price: v ?? 0 })} />
+              </div>
+            ))}
+          </div>
+        ))}
+
+        {!bulk && cats.map((cat) => {
           const items = menu.filter((m) => m.category === cat);
           const on = openCat === cat;
           return (
