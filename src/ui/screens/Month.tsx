@@ -10,6 +10,7 @@ import { Notice } from "../components/Notice";
 import { ChevLeft, ChevRight, Plus } from "../icons";
 import { useSwipe } from "../useSwipe";
 import { Num } from "../components/Num";
+import { Seg } from "../components/Seg";
 import { csvFilename, monthCSV, offerFile } from "../../data/backup";
 import { forecastMonth, type Forecast } from "../../domain/forecast";
 import { arrivalsByHour, avgPerGroup, busiestHour } from "../../domain/arrivals";
@@ -37,10 +38,8 @@ function CashCard({ L, m }: { L: ReturnType<typeof useApp.getState>["ledger"]; m
     <div className="card">
       <div className="cardhead">
         <h2>現金の動き</h2>
-        <div className="seg" role="group" aria-label="期間">
-          <button type="button" aria-pressed={scope === "month"} onClick={() => setScope("month")}>今月</button>
-          <button type="button" aria-pressed={scope === "all"} onClick={() => setScope("all")}>累計</button>
-        </div>
+        <Seg label="期間" value={scope} onChange={setScope}
+          items={[{ id: "month", label: "今月" }, { id: "all", label: "累計" }] as const} />
       </div>
       <p className="sub">{scope === "month" ? `${Number(m.slice(5, 7))}月に入ってきた現金と、出ていった現金` : "起点の日からの積み上げ"}</p>
       {scope === "all" && <div className="lrow"><div className="g"><div className="t">起点の現金</div><div className="s">{L.shop.openingDate}</div></div><div className="a num">{jp(opening)}</div></div>}
@@ -79,11 +78,7 @@ function RankingCard({ L, m }: { L: ReturnType<typeof useApp.getState>["ledger"]
     <div className="card">
       <div className="cardhead">
         <h2>ランキング</h2>
-        <div className="seg" role="group" aria-label="ランキングの基準">
-          {METRICS.map((x) => (
-            <button key={x.id} type="button" aria-pressed={metric === x.id} onClick={() => setMetric(x.id)}>{x.label}</button>
-          ))}
-        </div>
+        <Seg label="ランキングの基準" value={metric} onChange={setMetric} items={METRICS} />
       </div>
       <p className="sub">キャスト別。{info.sub}{hide ? "。金額はオーナーだけが見られます。" : ""}</p>
       {rows.length ? rows.slice(0, 10).map((r, i) => {
@@ -127,12 +122,9 @@ function BreakdownCard({ a, L, m }: { a: ReturnType<typeof monthTotals>; L: Retu
     <div className="card">
       <div className="cardhead">
         <h2>売上の使われ方</h2>
-        <div className="seg" role="group" aria-label="内訳の種類">
-          <button type="button" aria-pressed={kind === "bar"} onClick={() => setKind("bar")}>棒</button>
-          <button type="button" aria-pressed={kind === "use"} onClick={() => setKind("use")}>円</button>
-          <button type="button" aria-pressed={kind === "cast"} onClick={() => setKind("cast")}>キャスト</button>
-          <button type="button" aria-pressed={kind === "dow"} onClick={() => setKind("dow")}>曜日</button>
-        </div>
+        <Seg label="内訳の種類" value={kind} onChange={setKind}
+          items={[{ id: "bar", label: "棒" }, { id: "use", label: "円" },
+                  { id: "cast", label: "キャスト" }, { id: "dow", label: "曜日" }] as const} />
       </div>
       <p className="sub">{sub}</p>
       {kind === "bar" && <CompositionChart a={a} />}
@@ -218,10 +210,9 @@ export function Month() {
   const L = useApp((s) => s.ledger);
   const defaultCalDay = (mm: string) => { const k = Object.keys(L.days).sort().filter((d) => d.startsWith(mm) && dayTotals(L, d).sales > 0); return k.length ? k[k.length - 1] : null; };
   const seg = (
-    <span className="seg" role="group" aria-label="月と年の切替">
-      <button type="button" aria-pressed={ui.monthView !== "year"} onClick={() => setUI({ monthView: "month" })}>月</button>
-      <button type="button" aria-pressed={ui.monthView === "year"} onClick={() => setUI({ monthView: "year" })}>年</button>
-    </span>
+    <Seg label="月と年の切替" value={ui.monthView === "year" ? "year" : "month"}
+      onChange={(v) => setUI({ monthView: v })}
+      items={[{ id: "month", label: "月" }, { id: "year", label: "年" }] as const} />
   );
   if (ui.monthView === "year") {
     return (
@@ -371,10 +362,8 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
       <div className="card">
         <div className="cardhead">
           <h2>日別の売上</h2>
-          <div className="seg" role="group" aria-label="表示切替">
-            <button type="button" aria-pressed={ui.monthMode !== "cal"} onClick={() => setMode("chart")}>グラフ</button>
-            <button type="button" aria-pressed={ui.monthMode === "cal"} onClick={() => setMode("cal")}>カレンダー</button>
-          </div>
+          <Seg label="表示切替" value={ui.monthMode === "cal" ? "cal" : "chart"} onChange={setMode}
+            items={[{ id: "chart", label: "グラフ" }, { id: "cal", label: "カレンダー" }] as const} />
         </div>
         <p className="sub" style={{ margin: "0 0 12px" }}>{ui.monthMode === "cal" ? "日付をタップすると収支が出ます。もう一度タップでその日の日報へ。" : "棒の高さが1日の売上。下が現金、上がカード。"}</p>
         {ui.monthMode === "cal"

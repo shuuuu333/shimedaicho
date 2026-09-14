@@ -13,6 +13,7 @@ import { InstallCard } from "../components/InstallCard";
 import { useCloud } from "../../state/cloud";
 import { uid, yen } from "../../domain/format";
 import { SETTING_GROUPS, searchSettings, type SettingItem } from "../../domain/settingsIndex";
+import { Seg } from "../components/Seg";
 import { backupFilename, backupJSON, csvFilename, monthCSV, offerFile, parseBackup } from "../../data/backup";
 import { LocalRepository } from "../../data/localRepository";
 import { LocalCheckRepository } from "../../data/checkRepo";
@@ -146,11 +147,10 @@ export function Settings() {
   const themeCard = (
     <div className="card" id="set-theme">
       <h2>見た目</h2><p className="sub">「端末に合わせる」にすると、スマホの設定が暗いときだけ暗くなります。</p>
-      <div className="seg wide" role="group" aria-label="見た目の切替">
-        <button type="button" aria-pressed={theme === "auto"} onClick={() => setTheme("auto")}><Phone />端末に合わせる</button>
-        <button type="button" aria-pressed={theme === "light"} onClick={() => setTheme("light")}><Sun />明るい</button>
-        <button type="button" aria-pressed={theme === "dark"} onClick={() => setTheme("dark")}><Moon />暗い</button>
-      </div>
+      <Seg wide label="見た目の切替" value={theme} onChange={setTheme}
+        items={[{ id: "auto", label: <><Phone />端末に合わせる</> },
+                { id: "light", label: <><Sun />明るい</> },
+                { id: "dark", label: <><Moon />暗い</> }] as const} />
     </div>
   );
 

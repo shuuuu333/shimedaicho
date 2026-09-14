@@ -124,13 +124,39 @@ main.slide-r{animation:slidein-r .2s cubic-bezier(.32,.72,0,1)}
 .mb.today{width:auto; padding:0 14px; font-size:13px; font-weight:600; color:var(--accent); background:var(--accent-soft)}
 
 /* 切替（セグメント） */
-.seg{display:flex; flex:none; background:var(--surface-2); border-radius:11px; padding:3px}
-.seg button{border:0; background:transparent; padding:0 14px; min-height:38px; font-size:12.5px; font-weight:500;
+/* 切替（セグメント）。下のタブと同じすりガラスで、レンズが指に付いてくる。
+   押しても移れる。升は等分なので、レンズの幅と位置が計算だけで決まる。 */
+.seg{position:relative; display:flex; flex:none; border-radius:12px; padding:3px; background:var(--seg-bg);
+  touch-action:pan-y; -webkit-user-select:none; user-select:none;
+  transition:box-shadow .22s ease}
+@supports (backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px)){
+  .seg{-webkit-backdrop-filter:blur(14px) saturate(170%); backdrop-filter:blur(14px) saturate(170%)}
+}
+.seg.held{box-shadow:0 3px 12px -3px rgba(16,24,40,.2)}
+/* 選んでいる所。指に付いてくるあいだは JS が transition を切って直に置く */
+.seglens{position:absolute; left:0; top:3px; bottom:3px; z-index:0;
+  border-radius:9px; background:var(--lens); transform-origin:center;
+  box-shadow:0 1px 0 0 var(--glass-rim) inset, 0 1px 4px -1px rgba(16,24,40,.18);
+  transition:transform .38s cubic-bezier(.34,1.36,.36,1),
+             background-color .2s ease, box-shadow .2s ease}
+.seglens.held{background:var(--lens-held); box-shadow:0 1px 0 0 var(--glass-rim) inset, 0 3px 10px -2px rgba(16,24,40,.26)}
+.seg button{position:relative; z-index:1; border:0; background:transparent; padding:0 14px;
+  min-height:38px; font-size:12.5px; font-weight:500;
   color:var(--ink-3); cursor:pointer; white-space:nowrap; border-radius:9px;
-  -webkit-tap-highlight-color:transparent}
-.seg button[aria-pressed="true"]{background:var(--surface); color:var(--ink); font-weight:600; box-shadow:var(--shadow)}
+  -webkit-tap-highlight-color:transparent; transition:color .2s ease}
+/* なぞって指が来た升。まだ決まっていなくても先に光って、行き先が見える */
+.seg button.on{color:var(--ink); font-weight:600}
 .seg.wide{width:100%}
 .seg.wide button{flex:1; display:flex; align-items:center; justify-content:center; gap:6px; height:40px; padding:0}
+
+/* 商品のカテゴリは数が多くて横に流れるので、レンズは付けない（掴む所と取り合う）。
+   見た目だけ同じすりガラスに寄せる */
+.seg.menuseg .seglens{display:none}
+.seg.menuseg button[aria-pressed="true"]{background:var(--lens); color:var(--ink); font-weight:600; box-shadow:var(--shadow)}
+
+@media (prefers-reduced-motion:reduce){
+  .seglens,.seg{transition:none}
+}
 
 /* ---------- 入力 ---------- */
 .field{display:block; margin-bottom:12px}

@@ -4,6 +4,7 @@ import { useCloud } from "../../state/cloud";
 import { useApp } from "../../state/store";
 import { BottomSheet } from "./BottomSheet";
 import { Notice } from "./Notice";
+import { Seg } from "./Seg";
 import { INVITE_MINUTES, type InviteRow } from "../../data/cloud";
 
 
@@ -79,10 +80,8 @@ export function InviteSheet({ mode, onClose }: { mode: InviteMode; onClose: () =
           </p>
 
           <label className="field"><span className="lbl">役割</span>
-            <div className="seg wide" role="group" aria-label="役割">
-              <button type="button" aria-pressed={role === "staff"} onClick={() => setRole("staff")}>スタッフ</button>
-              <button type="button" aria-pressed={role === "cast"} onClick={() => setRole("cast")}>キャスト</button>
-            </div>
+            <Seg wide label="役割" value={role} onChange={setRole}
+              items={[{ id: "staff", label: "スタッフ" }, { id: "cast", label: "キャスト" }] as const} />
           </label>
           <div className="hint" style={{ margin: "-6px 0 14px" }}>
             {role === "staff" ? "日報の入力とシフトが使えます。売上の集計と設定は見られません。" : "自分のシフトと給料だけが見られます。"}
