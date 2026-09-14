@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#F4F5F7"/>
+  <rect x="0" y="0" width="1200" height="8" fill="#2563EB"/>
+  <g font-family="Hiragino Sans, Hiragino Kaku Gothic ProN, sans-serif">
+    <text x="88" y="132" font-size="30" font-weight="600" fill="#2563EB">締め台帳</text>
+    <text x="88" y="258" font-size="76" font-weight="700" fill="#14171E">紙と電卓の締めを、</text>
+    <text x="88" y="356" font-size="76" font-weight="700" fill="#14171E">毎日 3 分に。</text>
+    <text x="88" y="436" font-size="32" fill="#5C6779">レジで打った会計が、そのまま日報と給料計算になります。</text>
+    <g transform="translate(88,476)">
+      <rect x="0" y="0" width="196" height="62" rx="16" fill="#FFFFFF" stroke="#E3E6EB"/>
+      <text x="98" y="40" font-size="26" font-weight="600" fill="#14171E" text-anchor="middle">無料・登録なし</text>
+      <rect x="216" y="0" width="238" height="62" rx="16" fill="#FFFFFF" stroke="#E3E6EB"/>
+      <text x="335" y="40" font-size="26" font-weight="600" fill="#14171E" text-anchor="middle">電波が無くても動く</text>
+      <rect x="486" y="0" width="268" height="62" rx="16" fill="#FFFFFF" stroke="#E3E6EB"/>
+      <text x="620" y="40" font-size="26" font-weight="600" fill="#14171E" text-anchor="middle">バック・日払い・ツケ</text>
+    </g>
+    <text x="88" y="596" font-size="26" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" fill="#8A93A3">shuuuu333.github.io/shimedaicho</text>
+  </g>
+</svg>
