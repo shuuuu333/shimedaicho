@@ -57,6 +57,11 @@ export interface Shop {
   dispatchGuarantee: number;
   openTime: string;
   closeTime: string;
+  /** インボイスの登録番号（T＋13桁）。領収書に刷る。
+   *  空なら刷らない。持っていない店に嘘の番号を出させないため */
+  invoiceNo?: string;
+  /** 領収書に刷る住所・電話（任意）。空の行は出さない */
+  address?: string;
   /** 締め（実査現金の入力）が終わったら、自動で LINE に送るか */
   lineAuto?: boolean;
   /** 営業中の LINE 通知の決まり */

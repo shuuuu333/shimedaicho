@@ -12,6 +12,7 @@ import { NumberField } from "../components/NumberField";
 import { TimeField } from "../components/TimeField";
 import { CheckView } from "./CheckView";
 import { LateEntrySheet } from "./LateEntry";
+import { Receipt } from "./Receipt";
 import { useWakeLock } from "../useWakeLock";
 import { useCloud } from "../../state/cloud";
 
@@ -345,6 +346,7 @@ function CheckDetail({ id, canUndo, onClose, onReopen, onRemove }: { id: string 
   const rule = L.posRule ?? defaultPosRule();
   const check = usePos((s) => s.checks.find((c) => c.id === id)) as Check | undefined;
   const [late, setLate] = useState(false);
+  const [receipt, setReceipt] = useState(false);
   if (!id || !check) return null;
 
   const seat = (L.seats ?? []).find((s) => s.id === check.seatId);
@@ -402,7 +404,11 @@ function CheckDetail({ id, canUndo, onClose, onReopen, onRemove }: { id: string 
       </ol>
       <div className="hint">取り消した行も消さずに残しています。あとから何があったか追えます。</div>
 
-      <button type="button" className="btn primary wide" style={{ marginTop: 12 }} onClick={() => setLate(true)}>
+      <button type="button" className="btn primary wide" style={{ marginTop: 12 }} onClick={() => setReceipt(true)}>
+        領収書を出す
+      </button>
+
+      <button type="button" className="btn wide" style={{ marginTop: 8 }} onClick={() => setLate(true)}>
         注文をあとから足す
       </button>
       <div className="hint">「戻す → 追加 → 会計」をしなくても、ここから足せます。</div>
@@ -427,6 +433,7 @@ function CheckDetail({ id, canUndo, onClose, onReopen, onRemove }: { id: string 
       )}
 
       {late && <LateAddSheet check={check} rule={rule} onClose={() => setLate(false)} onDone={onClose} />}
+      {receipt && <Receipt check={check} rule={rule} onClose={() => setReceipt(false)} />}
     </BottomSheet>
   );
 }

@@ -407,3 +407,54 @@ button.posbadge.manual:active{background:var(--surface)}
   border-radius:var(--r-tile); padding:12px 14px}
 .billnote b{display:block; margin-top:4px; color:var(--ink); font-size:16px}
 .billclose{margin-top:auto; margin-bottom:0; min-height:52px; font-size:16px}
+
+/* 領収書。画面では「これが紙になる」と分かる形で出し、
+   印刷ではこの 1 枚だけを紙に出す */
+.receipt{background:#FFFFFF; color:#14171E; border:1px solid var(--line-strong);
+  border-radius:var(--r-tile); padding:18px 16px; margin-top:14px}
+.receipt .rhead{position:relative; text-align:center; padding-bottom:10px}
+.receipt .rhead h1{font-size:21px; font-weight:700; letter-spacing:.22em; margin:0 0 8px}
+.receipt .rno{position:absolute; left:0; top:2px; font-size:10.5px; color:#5C6779}
+.receipt .rdate{position:absolute; right:0; top:2px; font-size:10.5px; color:#5C6779}
+.receipt .rto{display:flex; align-items:flex-end; gap:6px; margin:6px 0 14px}
+.receipt .rto .v{flex:1; min-width:0; border-bottom:1px solid #14171E; font-size:16px;
+  padding:0 4px 3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.receipt .rto .sama{flex:none; font-size:13px}
+.receipt .ramt{display:flex; align-items:baseline; gap:10px; border:1px solid #14171E;
+  border-radius:6px; padding:10px 12px}
+.receipt .ramt span{flex:none; font-size:13px}
+.receipt .ramt b{flex:1; text-align:right; font-size:26px; font-weight:700;
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+.receipt .rpurpose{font-size:13px; line-height:1.8; margin:12px 0 4px}
+.receipt .rpurpose u{text-underline-offset:3px}
+.receipt .rtax{font-size:11.5px; color:#5C6779; margin-bottom:14px}
+.receipt .rtax .note{display:block; margin-top:3px; font-size:10px; line-height:1.5}
+.receipt .rshop{border-top:1px solid var(--line); padding-top:10px; text-align:right}
+.receipt .rshop .nm{font-size:14px; font-weight:600}
+.receipt .rshop .ad{font-size:11px; color:#5C6779; margin-top:2px}
+.receipt .rdetail{margin-top:14px; border-top:1px dashed var(--line-strong); padding-top:10px}
+.receipt .rdetail .dh{font-size:11px; color:#5C6779; margin-bottom:5px}
+.receipt .drow{display:flex; gap:10px; font-size:12.5px; padding:3px 0}
+.receipt .drow span{flex:1; min-width:0}
+.receipt .drow b{flex:none; font-weight:500;
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums}
+.receipt .drow.tot{border-top:1px solid var(--line); margin-top:4px; padding-top:6px; font-weight:600}
+.receipt .rstamp{width:78px; height:78px; margin-top:12px; border:1px dashed #8A93A3;
+  border-radius:4px; display:flex; align-items:center; justify-content:center;
+  font-size:10.5px; color:#8A93A3}
+.warnhint{color:var(--warn)}
+
+/* 印刷。
+   アプリの画面は #root の中に全部入っている。紙に出すぶんだけを #root の外
+   （body 直下）に置き、印刷のときは #root ごと消す。
+   「この要素だけ隠す」を積み上げると、画面を足すたびに紙に混ざるため */
+.printarea{display:none}
+@media print{
+  body{background:#FFFFFF}
+  #root{display:none !important}
+  .printarea{display:block}
+  /* A4 に刷っても読める幅で止める。紙いっぱいに広げると金額が右端まで飛んで、
+     宛名と金額を一目で見られなくなる */
+  .printarea .receipt{border:0; border-radius:0; margin:0; padding:0;
+    max-width:110mm; page-break-inside:avoid; print-color-adjust:exact; -webkit-print-color-adjust:exact}
+}

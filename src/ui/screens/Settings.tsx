@@ -215,6 +215,11 @@ export function Settings() {
         </div>
         <div className="hint" style={{ margin: "-5px 0 11px" }}>日報で出勤にすると、この時刻が自動で入ります。遅刻・早退はその場のボタンで直せます。</div>
         <label className="field"><span className="lbl">派遣の基本日給（保証額）</span><NumberField value={S.dispatchGuarantee} onChange={(v) => shop("dispatchGuarantee", v ?? 0)} /></label>
+        <label className="field"><span className="lbl">住所・電話（領収書に刷る・任意）</span>
+          <input className="inp" value={S.address ?? ""} placeholder="書かなくても出せます" onChange={(e) => shop("address", e.target.value)} /></label>
+        <label className="field"><span className="lbl">インボイス登録番号（任意）</span>
+          <input className="inp" value={S.invoiceNo ?? ""} placeholder="T1234567890123" onChange={(e) => shop("invoiceNo", e.target.value.trim())} /></label>
+        <div className="hint" style={{ margin: "-5px 0 11px" }}>入れておくと領収書に刷られます。持っていない店は空のままで大丈夫です。</div>
         <label className="field"><span className="lbl">カード手数料（％）</span><NumberField decimal value={S.cardFeeRate} onChange={(v) => shop("cardFeeRate", v ?? 0)} /></label>
         <div className="hint">カード会社に取られる率です。カード売上からこの率を引いた額が「カード未回収」に積まれ、入金を記録すると消えます。</div>
         <label className="lrow" style={{ cursor: "pointer" }}>
