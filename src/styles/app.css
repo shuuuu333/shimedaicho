@@ -180,6 +180,17 @@
 .cal-cell.shiftcell.today .cd{text-decoration:underline; text-underline-offset:3px}
 .cal-cell.shiftcell.sel{box-shadow:0 0 0 2px var(--accent)}
 
+/* シフトを組んでいる途中で新しい子を足す欄 */
+.cchip.add{background:transparent; box-shadow:inset 0 0 0 1.5px var(--line-strong); color:var(--ink-3); font-weight:500}
+.cchip.add:active{background:var(--surface-2)}
+.addcast{display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+  background:var(--surface-2); border-radius:var(--r-tile); padding:12px; margin-bottom:14px}
+/* 名前・入れる・やめるを 1 行に収める。min-width を大きく取ると
+   「やめる」だけが次の行に落ちて、余白が空いて見える */
+.addcast .inp{flex:1; min-width:96px}
+.addcast .btn{flex:none}
+.addcast .hint{flex-basis:100%; margin:0}
+
 /* 予定の行。押すとその場で時刻を直せる */
 .planrow{border-bottom:1px solid var(--line)}
 .planrow:last-child{border-bottom:0}

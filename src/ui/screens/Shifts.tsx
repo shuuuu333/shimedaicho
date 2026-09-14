@@ -6,7 +6,7 @@ import { useCloud } from "../../state/cloud";
 import { payOf } from "../../domain/calc";
 import type { Ledger } from "../../domain/types";
 import { commonShifts, lateLabel, lateMinutes, planFor, planTimes, plannedIds, spanLabel, spanMinutes, whoOn } from "../../domain/plans";
-import { WD, addMinutes, dayLabel, daysInMonth, jp, shiftDay, todayISO } from "../../domain/format";
+import { WD, addMinutes, dayLabel, daysInMonth, jp, shiftDay, todayISO, uid, yen } from "../../domain/format";
 import { MonthBar } from "../components/MonthBar";
 import { TimeField } from "../components/TimeField";
 import { ChevDown, ChevRight } from "../icons";
@@ -18,6 +18,7 @@ export function Shifts() {
   const setUI = useApp((s) => s.setUI);
   const update = useApp((s) => s.update);
   const openDay = useApp((s) => s.openDay);
+  const showToast = useApp((s) => s.showToast);
   const role = useCloud((s) => s.role());
   const myCastId = useCloud((s) => s.myCastId());
   const m = ui.month;
@@ -26,6 +27,8 @@ export function Shifts() {
   /** 日を押したあと、その日のカードまで画面を送るための目印。
    *  カレンダーが画面いっぱいなので、押しても下のカードが見えないままだった */
   const [jump, setJump] = useState<string | null>(null);
+  /** 新しい子を入れている最中か */
+  const [adding, setAdding] = useState(false);
   const dayCard = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!jump || !dayCard.current) return;
@@ -56,6 +59,40 @@ export function Shifts() {
       if (!LL.plans[k].length) delete LL.plans[k];
       if (!Object.keys(LL.plans).length) delete LL.plans;
     });
+
+  /** シフトを組んでいる途中で新しい子を足す。
+   *
+   *  キャスト画面へ行って登録し、戻ってきて選び直す、をやらせない。
+   *  入れたその日の予定にもそのまま入れる（足したい理由がそれだから）。
+   *
+   *  同じ名前がもう居たら作らずにその子を使う。書き間違いではなく
+   *  「一覧で見落とした」のがふつうなので、同姓同名を 2 人作る方が事故になる。
+   *  辞めた子と同じ名前なら在籍に戻す（戻ってきた子は同じ人として数えたい）。 */
+  const addCast = (raw: string, k: string) => {
+    const name = raw.trim();
+    if (!name) return;
+    const hit = L.casts.find((c) => c.name.trim() === name);
+    if (hit) {
+      update((LL) => {
+        const c = LL.casts.find((x) => x.id === hit.id);
+        if (c && c.active === false) c.active = true;
+        if (!LL.plans) LL.plans = {};
+        const cur = LL.plans[k] ?? [];
+        if (!cur.some((p) => p.castId === hit.id)) LL.plans[k] = [...cur, { castId: hit.id }];
+      });
+      showToast(hit.active === false ? `${name} を在籍に戻して予定に入れました` : `${name} はもう居るので、その子を予定に入れました`);
+      setAdding(false);
+      return;
+    }
+    const id = uid();
+    update((LL) => {
+      LL.casts.push({ id, name, wage: null, active: true });
+      if (!LL.plans) LL.plans = {};
+      LL.plans[k] = [...(LL.plans[k] ?? []), { castId: id }];
+    });
+    showToast(`${name} を登録して予定に入れました`);
+    setAdding(false);
+  };
 
   /** 予定の時刻を直す。空文字を渡すと店の既定に戻る */
   const setPlanTime = (k: string, castId: string, key: "in" | "out", v: string) =>
@@ -132,8 +169,10 @@ export function Shifts() {
                 </button>
               );
             })}
+            <button type="button" className="cchip add" onClick={() => setAdding(true)}>＋ 新しい子</button>
           </div>
-          {!active.length && <div className="empty" style={{ padding: 14 }}>キャストが登録されていません</div>}
+          {adding && <AddCast onAdd={(nm) => addCast(nm, sel)} onCancel={() => setAdding(false)} wage={L.shop.defaultWage} />}
+          {!active.length && !adding && <div className="hint" style={{ marginTop: -6 }}>まだ誰も登録されていません。「＋ 新しい子」から足せます。</div>}
 
           {/* まだ誰も入れていない日だけ。押すと先週の同じ曜日がそのまま入る */}
           {selPlan.length === 0 && (L.plans?.[shiftDay(sel, -7)]?.length ?? 0) > 0 && (
@@ -196,6 +235,29 @@ export function Shifts() {
         </div>
       )}
     </>
+  );
+}
+
+/** 新しい子の名前を入れる欄。聞くのは名前だけ。
+ *
+ *  時給はここでは聞かない。シフトを組んでいる手を止めないため。
+ *  空欄なら店の基本時給になるので、決まっていなくても先に進める。 */
+function AddCast({ onAdd, onCancel, wage }: { onAdd: (name: string) => void; onCancel: () => void; wage: number }) {
+  const [name, setName] = useState("");
+  const ok = !!name.trim();
+  return (
+    <div className="addcast">
+      <input className="inp" value={name} autoFocus placeholder="源氏名" aria-label="新しい子の名前"
+        enterKeyHint="done"
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter" && ok) onAdd(name); if (e.key === "Escape") onCancel(); }} />
+      <button type="button" className="btn primary" disabled={!ok} onClick={() => onAdd(name)}>入れる</button>
+      <button type="button" className="btn" onClick={onCancel}>やめる</button>
+      <div className="hint">
+        時給は空のままなので、店の基本時給 {yen(wage)} で計算されます。
+        変えるときはキャストの画面で。
+      </div>
+    </div>
   );
 }
 
