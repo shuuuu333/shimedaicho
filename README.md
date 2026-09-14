@@ -4,7 +4,7 @@
 レジで打った会計が、そのまま日報と給料計算につながります。
 
 紹介ページ: https://shuuuu333.github.io/shimedaicho/lp/
-つくっている人: [X @KOJINKAIATU](https://x.com/KOJINKAIATU)
+つくっている人: [X @kojinkaihatu](https://x.com/kojinkaihatu)
 公開版: https://shuuuu333.github.io/shimedaicho/
 スマホでこの URL を開き、共有ボタン →「ホーム画面に追加」でアプリとして使えます。
 **中を見るだけなら、最初の画面の「お試しデータで中を見る」から。** 1 か月ぶんの記録が入った状態で開きます。
