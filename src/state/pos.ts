@@ -23,6 +23,16 @@ function whoAmI(): string {
 }
 const nowISO = (): string => new Date().toISOString();
 
+/** キャストが自分の卓で打っているときに止める操作。
+ *  ボタンを隠すだけでは決まりにならないので、押される側でも止める。
+ *  false を返したらその操作はしない（何が起きなかったのかは画面に出す） */
+function blockedForCast(what: string): boolean {
+  let blocked = false;
+  try { blocked = useCloud.getState().castOnRegister(); } catch { blocked = false; }
+  if (blocked) useApp.getState().showToast(`${what}は店の人にお願いしてください`);
+  return blocked;
+}
+
 /** 通知に出す席の名前 */
 function seatNameOf(c: Check): string {
   const L = useApp.getState().ledger;
@@ -348,6 +358,7 @@ export function createPosStore(repo: CheckRepository) {
       },
 
       async voidLine(id, lineId, reason) {
+        if (blockedForCast("注文の取消")) return;
         const before = get().checks.find((x) => x.id === id)?.lines.find((x) => x.id === lineId);
         if (!before || before.voided) return;
         await apply({
@@ -398,6 +409,7 @@ export function createPosStore(repo: CheckRepository) {
       },
 
       async setDiscount(id, name, amount) {
+        if (blockedForCast("値引き")) return;
         const b = base(id);
         const a = Math.max(0, Math.floor(amount));
         await apply({
@@ -474,6 +486,7 @@ export function createPosStore(repo: CheckRepository) {
       },
 
       async reopen(id) {
+        if (blockedForCast("会計のやり直し")) return;
         // 支払い方法が決まっていない状態に戻す（畳む側が cardFee・tabName も落とす）
         await apply({ ...base(id), op: "reopen", log: [{ act: "会計を戻す" }] });
         set({ activeId: id });
@@ -494,6 +507,7 @@ export function createPosStore(repo: CheckRepository) {
       },
 
       async removeCheck(id) {
+        if (blockedForCast("伝票を消すこと")) return;
         set({ activeId: null });
         await apply({ ...base(id), op: "remove", log: [{ act: "伝票を消す" }] });
       },

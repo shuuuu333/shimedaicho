@@ -267,3 +267,60 @@ export function cashSuggestions(total: number): number[] {
   }
   return [...out].sort((a, b) => a - b).slice(0, 4);
 }
+
+/** その伝票を会計した人。ログの「会計」が誰の手で押されたかを見る。
+ *  取り消して打ち直していれば、最後に押した人が残る（いま有効な会計だから） */
+export function paidBy(c: Check): string {
+  for (let i = c.log.length - 1; i >= 0; i--) {
+    const g = c.log[i];
+    if (g.act === "会計" || g.act === "あとから追加") return g.by || "";
+  }
+  return "";
+}
+
+export interface PaidByRow {
+  who: string;
+  count: number;
+  amount: number;
+  /** 取消と値引きの件数。合わないときに、まずどれを見返すかの手がかり */
+  voided: number;
+  discounted: number;
+}
+
+/** 「誰が会計したか」の一覧。回収の作業ではなく、合わないときの手がかり。
+ *  多い順に並べる（打った枚数が多い人ほど、見返す価値がある） */
+export function paidByRows(checks: Check[]): PaidByRow[] {
+  const m = new Map<string, PaidByRow>();
+  for (const c of checks) {
+    if (c.status !== "closed") continue;
+    const who = paidBy(c) || "（不明）";
+    const r = m.get(who) ?? { who, count: 0, amount: 0, voided: 0, discounted: 0 };
+    r.count += 1;
+    r.amount += paidTotal(c);
+    if (c.lines.some((l) => l.voided)) r.voided += 1;
+    if (c.discount && c.discount.amount > 0) r.discounted += 1;
+    m.set(who, r);
+  }
+  return [...m.values()].sort((a, b) => b.count - a.count || b.amount - a.amount);
+}
+
+export interface BillLine { name: string; price: number; qty: number; amount: number }
+
+/** お客様に見せる明細の行。同じ品は 1 行にまとめる。
+ *
+ *  まとめるのは見やすさのためだけではない。行ごとに分かれていると
+ *  「誰に何本ついたか」が並びから読めてしまう。誰が何本は店の内部情報で、
+ *  お客様の請求には関係がない（キャストの名前も出さない） */
+export function billLines(c: Check): BillLine[] {
+  const out: BillLine[] = [];
+  const at = new Map<string, BillLine>();
+  for (const l of activeLines(c)) {
+    const key = `${l.name} ${l.price}`;
+    const hit = at.get(key);
+    if (hit) { hit.qty += l.qty; hit.amount = Math.floor(hit.price * hit.qty); continue; }
+    const row: BillLine = { name: l.name, price: l.price, qty: l.qty, amount: lineAmount(l) };
+    at.set(key, row);
+    out.push(row);   // 打った順のまま。伝票と見比べられる
+  }
+  return out;
+}

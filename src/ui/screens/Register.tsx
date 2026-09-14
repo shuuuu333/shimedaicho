@@ -35,6 +35,8 @@ export function Register() {
   const openSeat = usePos((s) => s.openSeat);
   const reopen = usePos((s) => s.reopen);
   const removeCheck = usePos((s) => s.removeCheck);
+  // キャストが自分の卓で打っているときは、済んだ会計に手を入れさせない
+  const castOnly = useCloud((s) => s.castOnRegister());
 
   const [now, setNow] = useState(() => Date.now());
   const [entry, setEntry] = useState<{ seatId: string | null; name: string } | null>(null);
@@ -170,7 +172,7 @@ export function Register() {
         })}
       </div>
 
-      <CheckDetail id={detail} onClose={() => setDetail(null)}
+      <CheckDetail id={detail} canUndo={!castOnly} onClose={() => setDetail(null)}
         onReopen={(id) => { setDetail(null); void reopen(id); }}
         onRemove={(id) => {
           const c = checks.find((x) => x.id === id);
@@ -338,7 +340,7 @@ function PunchSheet({ date, castId, onClose }: { date: string; castId: string | 
 
 /** 会計済みの伝票をひらいて、明細と「誰が・いつ・何をしたか」を見る。
  *  取り消した行も理由つきで残っている（レジを人に任せるときの備え） */
-function CheckDetail({ id, onClose, onReopen, onRemove }: { id: string | null; onClose: () => void; onReopen: (id: string) => void; onRemove: (id: string) => void }) {
+function CheckDetail({ id, canUndo, onClose, onReopen, onRemove }: { id: string | null; canUndo: boolean; onClose: () => void; onReopen: (id: string) => void; onRemove: (id: string) => void }) {
   const L = useApp((s) => s.ledger);
   const rule = L.posRule ?? defaultPosRule();
   const check = usePos((s) => s.checks.find((c) => c.id === id)) as Check | undefined;
@@ -405,16 +407,24 @@ function CheckDetail({ id, onClose, onReopen, onRemove }: { id: string | null; o
       </button>
       <div className="hint">「戻す → 追加 → 会計」をしなくても、ここから足せます。</div>
 
-      <button type="button" className="btn wide" style={{ marginTop: 4 }} onClick={() => onReopen(check.id)}>
-        会計を取り消してやり直す
-      </button>
-      <button type="button" className="btn danger wide" style={{ marginTop: 8 }} onClick={() => onRemove(check.id)}>
-        この伝票を消す
-      </button>
-      <div className="hint">
-        消すと履歴ごと無くなり、日報の売上と本数からも引かれます。<b>元に戻せません。</b>
-        打ち間違いを直すだけなら「会計を取り消してやり直す」の方を使ってください。
-      </div>
+      {canUndo ? (
+        <>
+          <button type="button" className="btn wide" style={{ marginTop: 4 }} onClick={() => onReopen(check.id)}>
+            会計を取り消してやり直す
+          </button>
+          <button type="button" className="btn danger wide" style={{ marginTop: 8 }} onClick={() => onRemove(check.id)}>
+            この伝票を消す
+          </button>
+          <div className="hint">
+            消すと履歴ごと無くなり、日報の売上と本数からも引かれます。<b>元に戻せません。</b>
+            打ち間違いを直すだけなら「会計を取り消してやり直す」の方を使ってください。
+          </div>
+        </>
+      ) : (
+        <div className="hint" style={{ marginTop: 8 }}>
+          済んだ会計をやり直したり、伝票を消したりできるのは店の人だけです。
+        </div>
+      )}
 
       {late && <LateAddSheet check={check} rule={rule} onClose={() => setLate(false)} onDone={onClose} />}
     </BottomSheet>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { usePos } from "../../state/pos";
 import { cardTotalOf, cashSuggestions, changeDue, checkTotals } from "../../domain/pos";
 import { useApp } from "../../state/store";
+import { useCloud } from "../../state/cloud";
 import { yen } from "../../domain/format";
 import { BottomSheet } from "../components/BottomSheet";
 import { NumberField } from "../components/NumberField";
@@ -12,6 +13,7 @@ export function PayView({ check, rule, onClose }: { check: Check; rule: PosRule;
   const shopFeeRate = useApp((s) => s.ledger.shop.cardFeeRate);
   const pay = usePos((s) => s.pay);
   const setDiscount = usePos((s) => s.setDiscount);
+  const castOnly = useCloud((s) => s.castOnRegister());
   const [received, setReceived] = useState<number | null>(null);
   const [disc, setDisc] = useState(false);
   const [discAmount, setDiscAmount] = useState<number | null>(null);
@@ -57,7 +59,7 @@ export function PayView({ check, rule, onClose }: { check: Check; rule: PosRule;
         </div>
       )}
 
-      {!disc ? (
+      {castOnly ? null : !disc ? (
         <button type="button" className="btn wide" onClick={() => { setDisc(true); setDiscAmount(check.discount?.amount ?? null); }}>値引きする</button>
       ) : (
         <div className="card flat">

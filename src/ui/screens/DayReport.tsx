@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useApp } from "../../state/store";
 import type { Cast, Check, DayRecord, DispatchRow, Ledger, Shift } from "../../domain/types";
 import { defaultPosRule, emptyDay } from "../../domain/migrate";
-import { checkTotals, clock } from "../../domain/pos";
+import { checkTotals, clock, paidByRows } from "../../domain/pos";
 import { backRate, calcBacks, castWageAt, dayCashFlow, dayTotals, dispatchNames, dispatchPay, num, payOf, unpaidFor, whoLabel } from "../../domain/calc";
 import { WD, addMinutes, dayLabel, jp, shiftDay, shiftMonth, todayISO, uid, yen } from "../../domain/format";
 import { NumberField } from "../components/NumberField";
@@ -533,6 +533,8 @@ function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: strin
 
       {dayChecks.length > 0 && <SlipCard L={L} d={d} checks={dayChecks} edit={edit} />}
 
+      <PaidByCard checks={dayChecks} />
+
       {misses.length > 0 && (
         <div className="card">
           <h2>入れ忘れがないか</h2>
@@ -594,6 +596,39 @@ function CloseStep({ L, dk, d, edit, t, updateWithUndo }: { L: Ledger; dk: strin
 
       <SendLineCard L={L} dk={dk} d={d} />
     </>
+  );
+}
+
+
+/** 「誰が会計したか」の一覧（1-e）。
+ *
+ *  これは回収の作業ではない。現金が合わないときに、
+ *  どの会計から見返すかの手がかりとして出している。
+ *  だから金額の多い順ではなく、打った枚数の多い順に並べる。
+ *  取消と値引きの件数を添えてあるのは、そこが差の出やすいところだから。
+ *
+ *  1 人しか打っていない日は、並べても手がかりにならないので出さない。 */
+function PaidByCard({ checks }: { checks: Check[] }) {
+  const rows = useMemo(() => paidByRows(checks), [checks]);
+  if (rows.length < 2) return null;
+  return (
+    <div className="card">
+      <h2>誰が会計したか</h2>
+      <p className="sub">現金が合わないときに、どの会計を見返すかの手がかりです。</p>
+      {rows.map((r) => (
+        <div key={r.who} className="lrow">
+          <div className="g">
+            <div className="t">{r.who}</div>
+            <div className="s">
+              {r.count}枚
+              {r.voided > 0 ? ` ・ 取消のある伝票 ${r.voided}枚` : ""}
+              {r.discounted > 0 ? ` ・ 値引き ${r.discounted}枚` : ""}
+            </div>
+          </div>
+          <div className="a num">{yen(r.amount)}</div>
+        </div>
+      ))}
+    </div>
   );
 }
 

@@ -63,6 +63,7 @@ export interface CloudState {
   myCastId(): string | null;
   /** レジを打たせてよい人か。役割とは別の軸（オーナーが決める） */
   canRegister(): boolean;
+  castOnRegister(): boolean;
 }
 
 const LS_SHOP = "shimedaicho.shopId";
@@ -423,6 +424,13 @@ export const useCloud = create<CloudState>()((set, get) => {
       const r = get().role();
       if (r !== "cast") return true;   // オーナーとスタッフは元から打てる
       return !!get().me?.can_register;
+    },
+
+    /** キャストが自分の卓で打っている状態。
+     *  打てるけれど、取消・値引き・伝票の削除はできない。
+     *  「間違えたら店の人を呼ぶ」で足りるし、自分の売上を自分で消せる形は作らない */
+    castOnRegister() {
+      return get().role() === "cast" && get().canRegister();
     },
 
     role() {

@@ -580,3 +580,81 @@ describe("レジを日報に反映する", () => {
     expect(t.labor).toBe(11400);
   });
 });
+
+describe("お客様に見せる明細（1-e）", () => {
+  it("同じ品は 1 行にまとまる。誰に付いたかは並びに出さない", () => {
+    const c = check(2);
+    c.lines.push(P.lineFromMenu(menu("シャンパン", 3000, "d1"), T0, "cast1", 1));
+    c.lines.push(P.lineFromMenu(menu("シャンパン", 3000, "d1"), T0, "cast2", 2));
+    c.lines.push(P.lineFromMenu(menu("ビール", 800), T0, undefined, 1));
+
+    const rows = P.billLines(c);
+    expect(rows).toEqual([
+      { name: "シャンパン", price: 3000, qty: 3, amount: 9000 },
+      { name: "ビール", price: 800, qty: 1, amount: 800 },
+    ]);
+    // castId がどこにも残っていない＝画面に出しようがない
+    expect(JSON.stringify(rows)).not.toContain("cast");
+  });
+
+  it("同じ名前でも単価が違えば分ける（値段の違うボトルを混ぜない）", () => {
+    const c = check(1);
+    c.lines.push(P.lineFromMenu(menu("ボトル", 10000), T0, undefined, 1));
+    c.lines.push(P.lineFromMenu(menu("ボトル", 20000), T0, undefined, 1));
+    expect(P.billLines(c).map((r) => r.price)).toEqual([10000, 20000]);
+  });
+
+  it("取り消した行は出さない", () => {
+    const c = check(1);
+    c.lines.push(P.lineFromMenu(menu("ビール", 800), T0, undefined, 2));
+    c.lines[0].voided = { at: T0, by: "店長", reason: "打ち間違い" };
+    expect(P.billLines(c)).toEqual([]);
+  });
+
+  it("まとめた合計は、伝票の商品合計と一致する", () => {
+    const c = check(2);
+    c.lines.push(P.lineFromMenu(menu("ビール", 800), T0, "cast1", 3));
+    c.lines.push(P.lineFromMenu(menu("ビール", 800), T0, "cast2", 2));
+    c.lines.push(P.lineFromMenu(menu("ウーロン", 600), T0, undefined, 1));
+    const sum = P.billLines(c).reduce((s, r) => s + r.amount, 0);
+    expect(sum).toBe(P.checkTotals(c, RULE).itemAmount);
+  });
+});
+
+describe("誰が会計したか（1-e）", () => {
+  const paid = (by: string, amount: number, opts: { voided?: boolean; disc?: number } = {}): Check => {
+    const c = check(2);
+    c.status = "closed";
+    c.payments = [{ method: "cash", amount }];
+    c.log = [{ at: T0, by: "入れた人", act: "入店" }, { at: T0, by, act: "会計" }];
+    if (opts.voided) c.lines.push({ ...P.lineFromMenu(menu("ビール", 800), T0), voided: { at: T0, by, reason: "打ち間違い" } });
+    if (opts.disc) c.discount = { name: "値引き", amount: opts.disc };
+    return c;
+  };
+
+  it("会計を押した人ごとに、枚数と金額をまとめる", () => {
+    const rows = P.paidByRows([paid("あや", 12000), paid("店長", 8000), paid("あや", 5000)]);
+    expect(rows).toEqual([
+      { who: "あや", count: 2, amount: 17000, voided: 0, discounted: 0 },
+      { who: "店長", count: 1, amount: 8000, voided: 0, discounted: 0 },
+    ]);
+  });
+
+  it("取消と値引きのあった伝票の枚数を添える（差の出やすいところ）", () => {
+    const rows = P.paidByRows([paid("あや", 12000, { voided: true, disc: 500 })]);
+    expect(rows[0].voided).toBe(1);
+    expect(rows[0].discounted).toBe(1);
+  });
+
+  it("開いたままの伝票は数えない", () => {
+    const open = check(2);
+    expect(P.paidByRows([open])).toEqual([]);
+  });
+
+  it("打ち直したときは、最後に押した人が残る", () => {
+    const c = paid("あや", 12000);
+    c.log.push({ at: "2026-09-06T21:00:00.000Z", by: "店長", act: "会計を戻す" });
+    c.log.push({ at: "2026-09-06T21:01:00.000Z", by: "店長", act: "会計" });
+    expect(P.paidBy(c)).toBe("店長");
+  });
+});

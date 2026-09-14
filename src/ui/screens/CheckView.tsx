@@ -8,6 +8,8 @@ import { BottomSheet } from "../components/BottomSheet";
 import { NumberField } from "../components/NumberField";
 import { ChevLeft } from "../icons";
 import { PayView } from "./PayView";
+import { CustomerBill } from "./CustomerBill";
+import { useCloud } from "../../state/cloud";
 import { hhmm } from "./Register";
 import type { CheckLine, MenuItem } from "../../domain/types";
 
@@ -22,12 +24,15 @@ export function CheckView({ id }: { id: string }) {
   const setGuests = usePos((s) => s.setGuests);
   const setSetPlan = usePos((s) => s.setSetPlan);
   const removeCheck = usePos((s) => s.removeCheck);
+  // キャストが自分の卓で打っているときは、取消・値引き・伝票の削除を出さない
+  const castOnly = useCloud((s) => s.castOnRegister());
 
   const [now, setNow] = useState(() => Date.now());
   const [cat, setCat] = useState<string | null>(null);
   const [picking, setPicking] = useState<MenuItem | null>(null);
   const [lineSheet, setLineSheet] = useState<CheckLine | null>(null);
   const [paying, setPaying] = useState(false);
+  const [showing, setShowing] = useState(false);
   const [priceSheet, setPriceSheet] = useState(false);
 
   useEffect(() => {
@@ -153,7 +158,7 @@ export function CheckView({ id }: { id: string }) {
         </div>
       </div>
 
-      {lines.length === 0 && (
+      {lines.length === 0 && !castOnly && (
         <div className="card">
           <button type="button" className="btn danger wide" onClick={() => void removeCheck(check.id)}>
             この伝票をやめる
@@ -164,6 +169,7 @@ export function CheckView({ id }: { id: string }) {
 
       <div className="paybar">
         <span>合計 <b>{yen(t.total)}</b></span>
+        <button type="button" className="btn show" onClick={() => setShowing(true)}>お客様に見せる</button>
         <button type="button" className="btn primary" onClick={() => setPaying(true)}>会計へ</button>
       </div>
 
@@ -202,8 +208,9 @@ export function CheckView({ id }: { id: string }) {
         </div>
       </BottomSheet>
 
-      <LineSheet line={lineSheet} checkId={check.id} onClose={() => setLineSheet(null)} />
+      <LineSheet line={lineSheet} checkId={check.id} canVoid={!castOnly} onClose={() => setLineSheet(null)} />
       {paying && <PayView check={check} rule={rule} onClose={() => setPaying(false)} />}
+      {showing && <CustomerBill check={check} rule={rule} onClose={() => setShowing(false)} />}
       <div className="paybarspacer" />
     </div>
   );
@@ -214,7 +221,7 @@ export function CheckView({ id }: { id: string }) {
  *  自由入力も残してあるが、任意にした（理由を必須にしたまま手打ちさせると現場が止まる） */
 const VOID_REASONS = ["打ち間違い", "お客様都合", "出していない", "別の子に付け直す"];
 
-function LineSheet({ line, checkId, onClose }: { line: CheckLine | null; checkId: string; onClose: () => void }) {
+function LineSheet({ line, checkId, canVoid, onClose }: { line: CheckLine | null; checkId: string; canVoid: boolean; onClose: () => void }) {
   const setQty = usePos((s) => s.setQty);
   const voidLine = usePos((s) => s.voidLine);
   const [reason, setReason] = useState("");
@@ -236,6 +243,12 @@ function LineSheet({ line, checkId, onClose }: { line: CheckLine | null; checkId
         </span>
       </div>
 
+      {!canVoid ? (
+        <div className="hint" style={{ marginTop: 12 }}>
+          入れた注文を取り消すのは店の人だけです。間違えたときは呼んでください。
+        </div>
+      ) : (
+      <>
       <div className="cardhead" style={{ marginTop: 12 }}><h2>この行を取り消す</h2></div>
       <p className="sub">理由をタップすると、その場で取り消します。</p>
       <div className="chipgrid">
@@ -255,6 +268,8 @@ function LineSheet({ line, checkId, onClose }: { line: CheckLine | null; checkId
           onClick={() => kill(reason.trim())}>この理由で取り消す</button>
       </details>
       <div className="hint">取消は消さずに履歴として残ります。あとから誰が何を取り消したか追えます。</div>
+      </>
+      )}
     </BottomSheet>
   );
 }
