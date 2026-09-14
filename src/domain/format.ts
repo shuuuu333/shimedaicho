@@ -58,3 +58,25 @@ export function parseNum(s: string): number | null {
   const x = parseFloat(t);
   return Number.isFinite(x) ? x : null;
 }
+
+/** 桁区切りを入れ直したあとに、カーソルを戻す位置。
+ *
+ *  カンマを入れると文字数が変わるので、「何文字目」で覚えておくとずれる。
+ *  「左から何桁目の数字の後ろか」で覚えておいて、整形後の文字列で
+ *  その桁を数え直す。 */
+export function caretAfterDigits(s: string, digits: number): number {
+  if (digits <= 0) return 0;
+  let seen = 0;
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] >= "0" && s[i] <= "9") {
+      seen += 1;
+      if (seen === digits) return i + 1;
+    }
+  }
+  return s.length;
+}
+
+/** 文字列の先頭から n 文字目までに数字が何個あるか。カーソルの位置を桁で覚えるため */
+export function digitsBefore(s: string, caret: number): number {
+  return (s.slice(0, caret).match(/\d/g) ?? []).length;
+}

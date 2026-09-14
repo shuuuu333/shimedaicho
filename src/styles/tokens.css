@@ -15,6 +15,11 @@
   --grid:#EDEFF3; --axis:#D5DAE2;
   --shadow:0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.08);
   --shadow-lg:0 4px 6px -2px rgba(16,24,40,.05), 0 12px 16px -4px rgba(16,24,40,.10);
+  /* 金額の書体。等幅（IBM Plex Mono）をやめた。
+     あの書体は ¥ の横棒が 1 本で潰れて見え、桁区切りのカンマが
+     数字 1 文字ぶんの枠に入るので、数字のあいだに点が浮いて見えていた。
+     本文の書体でも数字の幅はそろっているので、表の桁は今までどおり並ぶ。 */
+  --font-num:"IBM Plex Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
   --r-card:16px; --r-tile:14px; --r-btn:14px; --r-chip:999px;
   --gutter:16px;
 }
