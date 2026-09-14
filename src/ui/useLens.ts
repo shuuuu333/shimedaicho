@@ -63,11 +63,27 @@ export function useLens(count: number, index: number, onPick: (i: number) => voi
     el.style.transform = `translate3d(${x}px,0,0) scaleX(${stretch})`;
   }, []);
 
-  /** 選んでいる升にぴたりと合わせる */
+  /** 最後に置いた場所と、そのときの升。同じ所へ置き直さないために覚えておく */
+  const placed = useRef<Slot | null>(null);
+  const placedAt = useRef(-1);
+
+  /** 選んでいる升にぴたりと合わせる。
+   *
+   *  ばねで動かすのは「選び直したとき」だけ。升を測り直しただけのときは
+   *  そのまま置く。タブを移ると中身が入れ替わる途中で一瞬だけ違う幅が測れて
+   *  （70.2 → 77 → 70.2）、レンズがその間違った場所へ向かって走り出し、
+   *  行き過ぎが 0.5% のはずが 10% まで膨らんでいた。
+   *  並びが動いただけなら、動いて見せる意味は無い。 */
   useEffect(() => {
     if (drag.current) return;
     const s = slots.current[index];
-    if (s) put(s.x, s.w, 1, true);
+    if (!s) return;
+    const p = placed.current;
+    if (p && Math.abs(p.x - s.x) < 0.5 && Math.abs(p.w - s.w) < 0.5) return;
+    const moved = placedAt.current !== index;
+    placed.current = { ...s };
+    placedAt.current = index;
+    put(s.x, s.w, 1, moved);
   }, [index, ready, put]);
 
   /** 指の位置から、どの升か。升をまたぐたびにレンズの幅も変わる */
@@ -95,6 +111,7 @@ export function useLens(count: number, index: number, onPick: (i: number) => voi
     drag.current = { id: e.pointerId, x: e.clientX, t: performance.now() };
     const { i, x, w } = at(e.clientX);
     setHeld(true); setAim(i); put(x, w);
+    placed.current = null;          // 指で動かしたら、置いた場所は当てにならない
   };
 
   const move = (e: React.PointerEvent) => {
@@ -116,14 +133,14 @@ export function useLens(count: number, index: number, onPick: (i: number) => voi
     const { i } = at(e.clientX);
     setAim(null);
     const s = slots.current[i];
-    if (s) put(s.x, s.w, 1, true);
+    if (s) { placed.current = { ...s }; placedAt.current = i; put(s.x, s.w, 1, true); }
     if (i !== index) onPick(i);
   };
 
   const cancel = () => {
     drag.current = null; setHeld(false); setAim(null);
     const s = slots.current[index];
-    if (s) put(s.x, s.w, 1, true);
+    if (s) { placed.current = { ...s }; placedAt.current = index; put(s.x, s.w, 1, true); }
   };
 
   // 升の数が減ったとき、はみ出した狙いを捨てる
