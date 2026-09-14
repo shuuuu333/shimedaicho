@@ -43,6 +43,10 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,woff2}"],
+        // 紹介ページ（/lp/）はアプリではない。除けておかないと、
+        // 一度アプリを入れた端末では Service Worker が
+        // どの行き先にもアプリの index.html を返してしまう
+        navigateFallbackDenylist: [/\/lp\//],
         // フォントは Google の CDN にある。店内の電波が悪いと字が出ないので、
         // 一度読めたぶんを端末に持っておく。
         // （フォント本体を同梱しない理由: IBM Plex Sans JP は日本語ぶんだけで

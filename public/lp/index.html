@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>締め台帳 — 夜の店の締めを、毎日3分で</title>
+<meta name="description" content="レジで打った会計が、そのまま日報と給料計算になります。バック・日払い・ツケ・派遣まで、夜の店の勘定に合わせて作りました。無料・登録なし・電波が無くても動きます。" />
+<meta property="og:title" content="締め台帳 — 夜の店の締めを、毎日3分で" />
+<meta property="og:description" content="レジで打った会計が、そのまま日報と給料計算になります。無料・登録なし・電波が無くても動きます。" />
+<meta property="og:type" content="website" />
+<link rel="icon" href="../icon.svg" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+JP:wght@400;500;600;700&display=swap" />
+<style>
+:root{
+  color-scheme: light;
+  --bg:#F4F5F7; --surface:#FFFFFF; --surface-2:#F0F2F5;
+  --ink:#14171E; --ink-2:#5C6779; --ink-3:#8A93A3;
+  --line:#E3E6EB; --line-strong:#D5DAE2;
+  --accent:#2563EB; --accent-ink:#fff; --accent-soft:#E8EFFD;
+  --good:#0E9F6E; --crit:#D92D20;
+  --shadow:0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.08);
+  --r:16px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    color-scheme: dark;
+    --bg:#0B0D11; --surface:#14171E; --surface-2:#1B1F28;
+    --ink:#fff; --ink-2:#9AA5B8; --ink-3:#626C7D;
+    --line:#232833; --line-strong:#2C323E;
+    --accent:#4C9AFF; --accent-ink:#0B0D11; --accent-soft:#152238;
+    --good:#3DBE8B; --crit:#FF5A52;
+    --shadow:none;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
+  font-size:17px; line-height:1.7; -webkit-font-smoothing:antialiased;
+  font-variant-numeric:tabular-nums}
+.wrap{max-width:720px; margin:0 auto; padding:0 20px}
+section{padding:56px 0; border-top:1px solid var(--line)}
+section:first-of-type{border-top:0}
+/* 見出しの最後の 1 文字だけが次の行に落ちるのを防ぐ */
+h1,h2{text-wrap:balance}
+h1{font-size:28px; line-height:1.45; font-weight:700; letter-spacing:-.01em; margin:0 0 16px}
+h2{font-size:22px; font-weight:700; margin:0 0 8px; letter-spacing:-.01em}
+h3{font-size:17px; font-weight:600; margin:0 0 4px}
+p{margin:0 0 16px; color:var(--ink-2)}
+p.lead{font-size:17px; color:var(--ink-2)}
+b{color:var(--ink); font-weight:600}
+a{color:var(--accent)}
+.hero{padding:64px 0 48px; text-align:center}
+.hero .eyebrow{font-size:13px; font-weight:600; color:var(--accent); letter-spacing:.06em; margin-bottom:12px}
+.hero h1{font-size:clamp(26px,7.2vw,36px)}
+.cta{display:flex; flex-wrap:wrap; gap:12px; justify-content:center; margin-top:28px}
+.btn{display:inline-flex; align-items:center; justify-content:center; gap:8px;
+  min-height:54px; padding:0 26px; border-radius:15px; font-size:16px; font-weight:600;
+  text-decoration:none; background:var(--surface-2); color:var(--ink-2); border:0}
+.btn.primary{background:var(--accent); color:var(--accent-ink)}
+.note{font-size:13px; color:var(--ink-3); margin-top:14px}
+
+/* 数字で言う */
+.nums{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:36px}
+.num{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:18px 12px; box-shadow:var(--shadow)}
+.num b{display:block; font-size:28px; font-weight:700; letter-spacing:-.02em; line-height:1.2}
+.num span{font-size:12px; color:var(--ink-3)}
+
+.cards{display:grid; gap:12px; margin-top:24px}
+.card{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:20px; box-shadow:var(--shadow)}
+.card p{margin:0; font-size:15px}
+.card h3{display:flex; align-items:center; gap:9px}
+.dot{width:9px; height:9px; border-radius:3px; flex:none; background:var(--accent)}
+.dot.g{background:var(--good)} .dot.r{background:var(--crit)} .dot.y{background:#B4700E}
+
+/* 画面の中身をそのまま見せる */
+.shot{background:var(--surface); border:1px solid var(--line); border-radius:var(--r);
+  padding:18px 20px; box-shadow:var(--shadow); margin-top:20px}
+.shot .k{font-size:12px; color:var(--ink-3)}
+.shot .v{font-size:34px; font-weight:700; letter-spacing:-.02em; line-height:1.25}
+.shot .row{display:flex; align-items:baseline; gap:10px; padding:11px 0; border-bottom:1px solid var(--line); font-size:15px}
+.shot .row:last-child{border-bottom:0}
+.shot .row .g{flex:1; min-width:0}
+.shot .row .s{display:block; font-size:12px; color:var(--ink-3); line-height:1.5}
+.shot .row .a{flex:none; font-weight:600; color:var(--warn,#B4700E)}
+
+ul.plain{margin:0; padding-left:1.2em; color:var(--ink-2); font-size:15px}
+ul.plain li{margin-bottom:6px}
+
+details{background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:16px 20px; margin-bottom:10px; box-shadow:var(--shadow)}
+details summary{cursor:pointer; font-weight:600; font-size:16px}
+details p{margin:10px 0 0; font-size:15px}
+
+footer{padding:40px 0 64px; color:var(--ink-3); font-size:13px; border-top:1px solid var(--line); text-align:center}
+footer a{color:var(--ink-2)}
+</style>
+</head>
+<body>
+
+<header class="wrap hero">
+  <div class="eyebrow">締め台帳</div>
+  <h1>紙と電卓の締め、<br />毎日どれくらいかかっていますか。</h1>
+  <p class="lead" style="text-wrap:pretty">
+    レジで打った会計が、そのまま<b>日報</b>と<b>給料計算</b>になります。
+    バック・日払い・ツケ・派遣まで、夜の店の勘定に合わせて作りました。
+  </p>
+  <div class="cta">
+    <a class="btn primary" href="../">中を見てみる</a>
+    <a class="btn" href="#what">何ができるのか</a>
+  </div>
+  <div class="note">無料・登録なし。開いた画面で「お試しデータで中を見る」を押すと、1か月ぶんの記録が入った状態で試せます。</div>
+
+  <div class="nums">
+    <div class="num"><b>3分</b><span>1日の締め</span></div>
+    <div class="num"><b>3</b><span>タップで会計</span></div>
+    <div class="num"><b>¥0</b><span>ずっと無料</span></div>
+  </div>
+</header>
+
+<section class="wrap" id="what">
+  <h2>何ができるのか</h2>
+  <p>紙の伝票と電卓でやっていたことを、そのまま 1 本にまとめています。</p>
+
+  <div class="cards">
+    <div class="card">
+      <h3><i class="dot"></i>レジ</h3>
+      <p>席をタップして入店、商品をタップ、会計。現金・カード・<b>ツケ</b>に対応します。延長、人数の変更、テーブルチャージ、消費税。お通しは人数ぶん自動で入ります。お客様に見せる明細と、<b>領収書</b>（宛名・但し書き・登録番号）も出せます。</p>
+    </div>
+    <div class="card">
+      <h3><i class="dot g"></i>給料</h3>
+      <p>ドリンク・指名・同伴・ボトルのバックを、キャストごとの単価で計算します。時給は月ごとに変えられ、<b>過去の月は当時の時給のまま</b>です。日払いした額と未払いを分けて持つので、月末に「誰にいくら残っているか」がすぐ出ます。</p>
+    </div>
+    <div class="card">
+      <h3><i class="dot y"></i>締め</h3>
+      <p>売上・出勤・派遣・経費・締めの 5 手順。レジで打ったぶんは<b>最初から入っています</b>。手で直した欄は、あとからレジが上書きしません。</p>
+    </div>
+    <div class="card">
+      <h3><i class="dot r"></i>合わないときに教えてくれる</h3>
+      <p>ただ記録するだけではありません。現金が合わないとき、<b>差の向きと台帳の中身から原因の候補</b>を出します。入れ忘れ（入店中のまま・本数 0・紙の枚数ずれ）も締めで指摘します。</p>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>「なぜ儲からないのか」まで出します</h2>
+  <p>先月との差を、客数・客単価・時給ぶん・バック・派遣・経費に分けて、効き目の大きい順に並べます。実際にこう出ます。</p>
+
+  <div class="shot">
+    <div class="k">今月の営業利益</div>
+    <div class="v">¥120,250</div>
+    <div style="margin-top:18px">
+      <div class="row">
+        <span class="g">木曜の人件費率が 70%（ほかの曜日は 46%）
+          <span class="s">木曜は 2 日で売上 ¥156,500、人件費 ¥109,950。ほかの曜日と同じ率にできれば ¥38,047 残ります。</span></span>
+        <span class="a">¥38,047</span>
+      </div>
+      <div class="row">
+        <span class="g">カード手数料の率が 5％ と高めです
+          <span class="s">3％台の決済会社に替えると月 ¥9,640 ほど変わります。</span></span>
+        <span class="a">¥9,640</span>
+      </div>
+    </div>
+  </div>
+  <p style="margin-top:16px; font-size:14px; color:var(--ink-3)">
+    ほかに、月末の着地予測（曜日別に伸ばします）、お客様が何時に入っているかのグラフ、キャスト別の売上。
+  </p>
+</section>
+
+<section class="wrap">
+  <h2>スタッフとキャストにも渡せます</h2>
+  <div class="cards">
+    <div class="card">
+      <h3>見える範囲が役割で変わる</h3>
+      <p>スタッフには日報とシフト。キャストには<b>自分のぶんだけ</b>。店の台帳は見せません。QR コードで招待します。</p>
+    </div>
+    <div class="card">
+      <h3>キャスト本人の画面</h3>
+      <p>今月かせいだ額、先月の同じ日との差、次のシフト、「ドリンク 1本 +700」まで。<b>ランキングは出しません</b>（下位の子が見て辞めるからです）。</p>
+    </div>
+    <div class="card">
+      <h3>2 台で同じ席を触っても壊れない</h3>
+      <p>伝票は操作の履歴として積みます。片方が圏外でも、つながったときに送られます。</p>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>数字が合うこと</h2>
+  <p>締めのアプリは、数字が合わなければ使われません。だから正しさを先に固定して、そのうえで速くしました。</p>
+  <ul class="plain">
+    <li>給料と締めの計算は、<b>ランダムに作った状態 300 件</b>で作り直す前のコードと同じ結果になることを毎回確かめています</li>
+    <li>金額は整数のまま扱います（小数の誤差が出ません）</li>
+    <li>取消は行を消さずに理由を残すので、<b>あとから誰が何を取り消したか追えます</b></li>
+    <li>作りは全部公開しています</li>
+  </ul>
+</section>
+
+<section class="wrap">
+  <h2>よくある質問</h2>
+
+  <details>
+    <summary>本当に無料ですか</summary>
+    <p>はい。広告もありません。1 店舗の締めを自分で楽にするために作ったものを、そのまま公開しています。</p>
+  </details>
+  <details>
+    <summary>アプリストアには無いのですか</summary>
+    <p>ありません。スマホでこのページを開き、共有ボタン →「ホーム画面に追加」でアプリと同じように使えます。審査が無いぶん、直してほしい所をすぐ直せます。</p>
+  </details>
+  <details>
+    <summary>電波が悪い店でも動きますか</summary>
+    <p>動きます。データは端末の中に保存され、通信は必要ありません。複数人で共有するときだけ、つながったタイミングで同期します。</p>
+  </details>
+  <details>
+    <summary>入れたデータはどこに行きますか</summary>
+    <p>登録せずに使うぶんには、<b>その端末の中だけ</b>です。共有を使うときに限り、あなたのアカウントのデータとして保存されます。中身を勝手に見ることはありません。</p>
+  </details>
+  <details>
+    <summary>うちの店のやり方と違うのですが</summary>
+    <p>セット料金・時間・商品・席・バックの単価・消費税のかけ方は、店ごとに設定できます。40 分セットのような時間も作れます。足りないものがあれば教えてください。</p>
+  </details>
+  <details>
+    <summary>今使っている紙をすぐやめないといけませんか</summary>
+    <p>いいえ。紙と併用する前提の作りになっています。閉店後に紙から写す専用の画面があり、紙の枚数とレジの枚数がずれていたら締めで教えます。</p>
+  </details>
+</section>
+
+<section class="wrap" style="text-align:center">
+  <h2>まず中を見てください</h2>
+  <p>1 か月ぶんの記録が入った状態で試せます。消せばまっさらに戻ります。</p>
+  <div class="cta">
+    <a class="btn primary" href="../">締め台帳をひらく</a>
+  </div>
+</section>
+
+<footer class="wrap">
+  締め台帳 ・ <a href="https://github.com/shuuuu333/shimedaicho">ソースコード</a><br />
+  夜の店の締めを、毎日3分で。
+</footer>
+
+</body>
+</html>
