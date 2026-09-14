@@ -15,6 +15,8 @@
 
 /* 日付バー */
 .datebar{display:flex; align-items:center; gap:10px; margin-bottom:12px}
+/* 帯は払って送れる。指の当たる所を広く取り、横は自分で見る */
+.datebar,.monthbar{touch-action:pan-y; -webkit-user-select:none; user-select:none}
 .datebar .mid{flex:1; min-width:0; text-align:center;
   display:flex; flex-direction:column; align-items:center; gap:7px}
 .todaybtn{border:0; background:var(--accent-soft); color:var(--accent); border-radius:var(--r-chip);

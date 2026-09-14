@@ -29,6 +29,14 @@ input,select,textarea{font:inherit; color:inherit}
 .brand b{font-weight:700; font-size:15.5px; letter-spacing:.01em; white-space:nowrap}
 .brand span{font-size:11px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 main{padding:0 var(--gutter)}
+/* 指で払ってタブを移る。離したら元に戻るか、隣の画面が同じ向きから入ってくる。
+   指に付いてくるあいだは滑らかさより追従を優先するので、移り変わりを付けない */
+main.swiping{transition:none}
+main:not(.swiping){transition:transform .18s cubic-bezier(.32,.72,0,1)}
+@keyframes slidein-l{from{transform:translateX(34px);opacity:.55}to{transform:none;opacity:1}}
+@keyframes slidein-r{from{transform:translateX(-34px);opacity:.55}to{transform:none;opacity:1}}
+main.slide-l{animation:slidein-l .2s cubic-bezier(.32,.72,0,1)}
+main.slide-r{animation:slidein-r .2s cubic-bezier(.32,.72,0,1)}
 .view{display:none} .view.on{display:block}
 
 /* 保存チップ */
@@ -99,7 +107,9 @@ main{padding:0 var(--gutter)}
 .swatch{width:8px;height:8px;border-radius:2px;flex:none;display:inline-block}
 
 /* ---------- 見出しの月・日付 ---------- */
-.titlebar{display:flex; align-items:flex-end; gap:10px; padding:2px 0 14px}
+/* 見出しの帯は払って月を送れる。横は自分で見る */
+.titlebar{display:flex; align-items:flex-end; gap:10px; padding:2px 0 14px;
+  touch-action:pan-y; -webkit-user-select:none; user-select:none}
 .mstep{display:flex; flex:none; background:var(--surface-2); border-radius:12px; overflow:hidden}
 .mstep button{width:44px; height:44px; display:grid; place-items:center; border:0; background:transparent;
   color:var(--ink-2); cursor:pointer; -webkit-tap-highlight-color:transparent}

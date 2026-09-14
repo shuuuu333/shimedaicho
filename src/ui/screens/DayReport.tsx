@@ -19,6 +19,7 @@ import { dayReportText } from "../../domain/report";
 import { lateLabel, lateMinutes, planTimes } from "../../domain/plans";
 import { detectMisses, diagnoseCash } from "../../domain/diagnose";
 import { countSent } from "../../state/notify";
+import { useSwipe } from "../useSwipe";
 
 const STEPS = ["売上", "出勤", "派遣", "経費", "締め"];
 
@@ -92,13 +93,15 @@ export function DayReport() {
   const go = (s: number) => { setUI({ step: s, sheet: null }); window.scrollTo(0, 0); };
   const edit = (mut: (dd: DayRecord, L: Ledger) => void) => editDay(dk, mut);
   const line = useLineReport(dk);
+  // 日付の帯を払って前後の日へ。矢印を狙わなくても送れる
+  const dateSwipe = useSwipe({ stop: true, onCommit: (dir) => openDay(shiftDay(dk, dir), ui.step) });
 
   return (
     <>
       {/* 送りの矢印は左右の端に固定する。「今日へ戻る」を同じ行に並べると
           右の矢印だけ内側に寄って、左右が揃わなくなる（スマホだと目立つ）。
           戻る導線は日付の下に置いた。今日を見ているあいだは出ない */}
-      <div className="datebar">
+      <div className="datebar" {...dateSwipe.bind}>
         <button type="button" className="mb" aria-label="前の日" onClick={() => openDay(shiftDay(dk, -1), 0)}><ChevLeft size={17} /></button>
         <div className="mid">
           <label className="pick">

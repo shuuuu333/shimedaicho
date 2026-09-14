@@ -8,6 +8,7 @@ import { ArrivalChart, C, Calendar, CompositionChart, DailyChart, PALETTE, PieCh
 import { MonthBar } from "../components/MonthBar";
 import { Notice } from "../components/Notice";
 import { ChevLeft, ChevRight, Plus } from "../icons";
+import { useSwipe } from "../useSwipe";
 import { csvFilename, monthCSV, offerFile } from "../../data/backup";
 import { forecastMonth, type Forecast } from "../../domain/forecast";
 import { arrivalsByHour, avgPerGroup, busiestHour } from "../../domain/arrivals";
@@ -260,6 +261,7 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
   const todayDone = !!L.days[today];
 
   const setMonth = (mm: string) => setUI({ month: mm, calDay: defaultCalDay(mm), castDetail: null });
+  const monthSwipe = useSwipe({ stop: true, onCommit: (dir) => setMonth(shiftMonth(m, dir)) });
   const setMode = (mode: "chart" | "cal") => {
     try { localStorage.setItem("shimedaicho.mode", mode); } catch { /* ignore */ }
     setUI({ monthMode: mode, calDay: mode === "cal" && (!ui.calDay || !ui.calDay.startsWith(m)) ? defaultCalDay(m) : ui.calDay });
@@ -273,7 +275,8 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
 
   return (
     <>
-      <div className="titlebar">
+      {/* 月の見出しを払うと前後の月へ。矢印を狙わなくても送れる */}
+      <div className="titlebar" {...monthSwipe.bind}>
         <div>
           <div className="y">{m.slice(0, 4)}</div>
           <div className="m">{Number(m.slice(5, 7))}月</div>

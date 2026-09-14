@@ -8,6 +8,7 @@ import { PinPad } from "./ui/components/PinPad";
 import { JoinSheet } from "./ui/components/JoinSheet";
 import { hasPin, isUnlocked } from "./data/pin";
 import { ChevLeft, IcoCast, IcoDay, IcoMonth, IcoReg, IcoSet, IcoShift } from "./ui/icons";
+import { useSwipe } from "./ui/useSwipe";
 import { Register } from "./ui/screens/Register";
 import { Month } from "./ui/screens/Month";
 import { DayReport } from "./ui/screens/DayReport";
@@ -92,6 +93,27 @@ export default function App() {
   void unlockedAt;
   const back = () => { setUI({ tab: tabs[0].id, setFocus: null, sheet: null }); window.scrollTo(0, 0); };
 
+  // 指で払って隣のタブへ。ボタンを狙わなくても移れる。
+  // 設定は別の階層なので、ここでは外す（隣に何も無い）
+  const idx = tabs.findIndex((t) => t.id === tab);
+  const goTab = (i: number) => {
+    const t = tabs[i];
+    if (!t) return;
+    setUI({ tab: t.id, setFocus: null, sheet: null });
+    window.scrollTo(0, 0);
+    setSlide(i > idx ? 1 : -1);
+  };
+  /** 入ってきた向き。切り替えた直後だけ、その向きから滑り込ませる */
+  const [slide, setSlide] = useState<0 | 1 | -1>(0);
+  useEffect(() => { if (!slide) return; const t = setTimeout(() => setSlide(0), 220); return () => clearTimeout(t); }, [slide]);
+
+  const swipe = useSwipe({
+    enabled: !onSettings && !locked && loaded,
+    follow: true,
+    atEnd: (dir) => (dir === 1 ? idx >= tabs.length - 1 : idx <= 0),
+    onCommit: (dir) => goTab(idx + dir),
+  });
+
   return (
     <div className={`app ${onSettings ? "setpage" : ""}`}>
       <header className="topbar">
@@ -111,7 +133,9 @@ export default function App() {
           </button>
         )}
       </header>
-      <main>
+      <main {...swipe.bind}
+        className={swipe.dragging ? "swiping" : slide ? (slide > 0 ? "slide-l" : "slide-r") : ""}
+        style={{ ...swipe.bind.style, transform: swipe.dx ? `translateX(${swipe.dx}px)` : undefined }}>
         {!loaded ? <div className="empty">読み込み中…</div>
           : locked
             ? <PinPad title="暗証番号を入れてください"
