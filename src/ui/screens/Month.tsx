@@ -11,6 +11,7 @@ import { ChevLeft, ChevRight, Plus } from "../icons";
 import { useSwipe } from "../useSwipe";
 import { Num } from "../components/Num";
 import { Seg } from "../components/Seg";
+import { SetupCard } from "../components/SetupCard";
 import { csvFilename, monthCSV, offerFile } from "../../data/backup";
 import { forecastMonth, type Forecast } from "../../domain/forecast";
 import { arrivalsByHour, avgPerGroup, busiestHour } from "../../domain/arrivals";
@@ -287,6 +288,8 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
           あとは<b>日報</b>を毎日つけるだけで、ここが埋まります。
         </Notice>
       )}
+
+      <SetupCard />
 
       {isCur && (!todayDone || missing.length > 0) && (
         <div className="todo">

@@ -594,3 +594,18 @@ button.posbadge.manual:active{background:var(--surface)}
   .menubtn:active,.mb:active,.todaybtn:active{transform:none}
   .sheet,.sheetwrap,.planedit{animation:none}
 }
+
+/* はじめの設定。あと何を直せば自分の店の数字になるかを出す */
+.setupcard .pill.warn{flex:none}
+.setupbar{height:4px; border-radius:2px; background:var(--surface-3); overflow:hidden; margin:2px 0 6px}
+.setupbar i{display:block; height:100%; border-radius:2px; background:var(--accent);
+  transition:width .3s var(--ease)}
+.setuprow{display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid var(--line)}
+.setuprow:last-of-type{border-bottom:0}
+.setuprow .g{flex:1; min-width:0; border:0; background:transparent; padding:0; text-align:left;
+  font:inherit; color:inherit; cursor:pointer}
+.setuprow .g:active{opacity:.6}
+.setuprow .t{display:block; font-size:15px; font-weight:600; line-height:1.35}
+.setuprow .s{display:block; font-size:12px; color:var(--ink-3); line-height:1.5; margin-top:1px}
+.setuprow .btn.sm{flex:none}
+.setuprow .chevi{flex:none; color:var(--ink-3)}
