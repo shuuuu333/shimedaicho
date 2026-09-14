@@ -3,7 +3,7 @@ import { useApp } from "../../state/store";
 import { NumberField } from "../components/NumberField";
 import { TimeField } from "../components/TimeField";
 import { DateField } from "../components/DateField";
-import { Moon, Phone, Sun, Trash } from "../icons";
+import { ChevRight, Moon, Phone, Sun, Trash } from "../icons";
 import { CloudCard } from "../components/CloudCard";
 import { LineCard } from "../components/LineCard";
 import { PinCard } from "../components/PinCard";
@@ -12,6 +12,7 @@ import { defaultPosRule } from "../../domain/migrate";
 import { InstallCard } from "../components/InstallCard";
 import { useCloud } from "../../state/cloud";
 import { uid, yen } from "../../domain/format";
+import { SETTING_GROUPS, searchSettings, type SettingItem } from "../../domain/settingsIndex";
 import { backupFilename, backupJSON, csvFilename, monthCSV, offerFile, parseBackup } from "../../data/backup";
 import { LocalRepository } from "../../data/localRepository";
 import { LocalCheckRepository } from "../../data/checkRepo";
@@ -28,17 +29,65 @@ const GROUP_OF: Record<string, string> = {
   theme: "app", version: "app",
 };
 
-/** 設定のまとまり。開くまで中身を描かないので、画面が短くなるだけでなく軽くもなる */
+/** 設定を探す欄。iPhone の設定と同じで、打った言葉に当たる項目を出して、
+ *  押すとそのまとまりを開いてそこまで送る。
+ *
+ *  見出しをそのまま探しても見つからない。「手数料」を直したい人は
+ *  「カード」でも「％」でも探す。言い換えは settingsIndex.ts に並べてある。 */
+function SettingsSearch({ onPick }: { onPick: (it: SettingItem) => void }) {
+  const [q, setQ] = useState("");
+  const hits = searchSettings(q);
+  const typed = q.trim().length > 0;
+  return (
+    <div className="setsearch">
+      <div className="setsearchbox">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.4-3.4" />
+        </svg>
+        <input className="inp" type="search" value={q} placeholder="設定を探す（手数料・バック・LINE …）"
+          aria-label="設定を探す" enterKeyHint="search"
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Escape") setQ(""); if (e.key === "Enter" && hits[0]) { onPick(hits[0]); setQ(""); e.currentTarget.blur(); } }} />
+        {typed && <button type="button" className="clr" aria-label="消す" onClick={() => setQ("")}>×</button>}
+      </div>
+
+      {typed && (
+        <div className="card setsearchres">
+          {hits.length ? hits.map((it) => (
+            <button key={it.anchor} type="button" className="lrow" onClick={() => { onPick(it); setQ(""); }}>
+              <div className="g">
+                <div className="t">{it.title}</div>
+                <div className="s">{it.sub}</div>
+              </div>
+              <div className="a grp">{SETTING_GROUPS[it.group]}<ChevRight size={14} /></div>
+            </button>
+          )) : (
+            <div className="empty" style={{ padding: 18 }}>
+              「{q.trim()}」に当たる設定はありません。別の言い方で探してみてください。
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 設定のまとまり。開くまで中身を描かないので、画面が短くなるだけでなく軽くもなる。
+ *
+ *  余白はカードではなく中の行に付ける。前は閉じているときだけカードの padding を
+ *  0 にしていたので、見出しがカードの縁から 1px の所に出ていた。
+ *  見出しの行はカードいっぱいに広げる（押せる幅が端まで届く）。 */
 function Section({ id, title, sub, open, onToggle, children }: {
   id: string; title: string; sub: string; open: boolean; onToggle: () => void; children: ReactNode;
 }) {
   return (
-    <div className="card" id={"setgrp-" + id} style={{ padding: open ? undefined : "0" }}>
-      <button type="button" className="lrow" aria-expanded={open} style={{ width: "100%", borderBottom: open ? undefined : 0 }} onClick={onToggle}>
-        <div className="g"><div className="t">{title}</div><div className="s">{sub}</div></div>
-        <div className="a" style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink-3)" }}>{open ? "閉じる" : "開く"}</div>
+    <div className="card setgrp" id={"setgrp-" + id}>
+      <button type="button" className="setgrphead" aria-expanded={open} onClick={onToggle}>
+        <span className="g"><span className="t">{title}</span><span className="s">{sub}</span></span>
+        <span className="a">{open ? "閉じる" : "開く"}</span>
       </button>
-      {open && <div style={{ paddingTop: 4 }}>{children}</div>}
+      {open && <div className="setgrpbody">{children}</div>}
     </div>
   );
 }
@@ -198,6 +247,8 @@ export function Settings() {
 
   return (
     <>
+      <SettingsSearch onPick={(it) => { setOpenSec(it.group); setPendingFocus(it.anchor); }} />
+
       <Section id="shop" title="お店のこと" sub={`${S.name || "店名なし"} ・ 時給 ${yen(S.defaultWage)} ・ カード手数料 ${S.cardFeeRate}%`} {...sec("shop")}>
       <div className="card" id="set-shop">
         <h2>店舗</h2>
