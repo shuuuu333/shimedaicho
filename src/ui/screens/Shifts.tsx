@@ -1,16 +1,15 @@
 /** シフト。予定（オーナーが入れる）と実績（日報の出勤）を同じカレンダーで見せる。
  *  キャストとしてログインしている人には、自分のぶんだけ出す。 */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useApp } from "../../state/store";
 import { useCloud } from "../../state/cloud";
 import { payOf } from "../../domain/calc";
 import type { Ledger } from "../../domain/types";
-import { lateLabel, lateMinutes, planFor, planTimes, plannedIds } from "../../domain/plans";
-import { WD, addMinutes, dayLabel, daysInMonth, jp, todayISO } from "../../domain/format";
+import { commonShifts, lateLabel, lateMinutes, planFor, planTimes, plannedIds, spanLabel, spanMinutes, whoOn } from "../../domain/plans";
+import { WD, addMinutes, dayLabel, daysInMonth, jp, shiftDay, todayISO } from "../../domain/format";
 import { MonthBar } from "../components/MonthBar";
-import { BottomSheet } from "../components/BottomSheet";
 import { TimeField } from "../components/TimeField";
-import { ChevRight } from "../icons";
+import { ChevDown, ChevRight } from "../icons";
 import { CastHome, CastNotLinked } from "./CastHome";
 
 export function Shifts() {
@@ -24,6 +23,15 @@ export function Shifts() {
   const m = ui.month;
   /** 予定の時刻を直しているキャスト */
   const [editing, setEditing] = useState<string | null>(null);
+  /** 日を押したあと、その日のカードまで画面を送るための目印。
+   *  カレンダーが画面いっぱいなので、押しても下のカードが見えないままだった */
+  const [jump, setJump] = useState<string | null>(null);
+  const dayCard = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!jump || !dayCard.current) return;
+    dayCard.current.scrollIntoView({ block: "start", behavior: "smooth" });
+    setJump(null);
+  }, [jump]);
 
   /** キャストとしてログインしているなら、その本人 */
   const me = useMemo(() => {
@@ -77,6 +85,23 @@ export function Shifts() {
   const selWorked = sel ? workedOf(sel) : [];
   const totalPlanned = Object.keys(L.plans ?? {}).filter((k) => k.startsWith(m)).length;
 
+  /** 先週の同じ曜日をそのまま写す。月ぶんを組むときは同じ並びの繰り返しになるので、
+   *  1 人ずつ選び直すのは写経になる。まだ誰も入れていない日にだけ出す（消さないため） */
+  const copyLastWeek = (k: string) => {
+    const src = L.plans?.[shiftDay(k, -7)];
+    if (!src?.length) return;
+    update((LL) => {
+      if (!LL.plans) LL.plans = {};
+      LL.plans[k] = src.map((p) => ({ ...p }));
+    });
+  };
+
+  /** これから予定が入っている日。日をタップする前から「誰が入るのか」が見えるように */
+  const upcoming = useMemo(() => {
+    const keys = Object.keys(L.plans ?? {}).filter((k) => k >= today).sort().slice(0, 7);
+    return keys.map((k) => ({ k, ...whoOn(L, k) })).filter((x) => x.total > 0);
+  }, [L, today]);
+
   return (
     <>
       <MonthBar month={m} onChange={(mm) => setUI({ month: mm, calDay: null })} right={<>予定<b>{totalPlanned}日</b></>} />
@@ -84,51 +109,52 @@ export function Shifts() {
       <div className="card">
         <h2>シフト</h2><p className="sub">日をタップして、その日に入る子を選びます。塗りつぶしが出勤した日です。</p>
         <CalGrid m={m} dim={dim} lead={lead} today={today} sel={sel}
-          onPick={(k) => setUI({ calDay: sel === k ? null : k })}
-          cell={(k) => ({ planned: planOf(k).length > 0, worked: workedOf(k).length > 0, n: workedOf(k).length || planOf(k).length })} />
+          /* 日を変えたら開いていた時刻の欄は閉じる。前の日で開いていた子が
+             そのまま開いた状態で出てくると、どの日を直しているのか分からなくなる */
+          onPick={(k) => { setUI({ calDay: sel === k ? null : k }); setEditing(null); if (sel !== k) setJump(k); }}
+          cell={(k) => ({ planned: planOf(k).length > 0, worked: workedOf(k).length > 0, ...whoOn(L, k) })} />
       </div>
 
       {sel ? (
-        <div className="card">
+        <div className="card" ref={dayCard}>
           <div className="cardhead">
             <h2>{dayLabel(sel)}</h2>
             <button type="button" className="btn sm" onClick={() => openDay(sel, 1)}>日報を開く<ChevRight size={14} /></button>
           </div>
-          <p className="sub">タップで予定に入れる／外す。入れたあと下の行をタップすると、何時から何時までかを決められます。</p>
+          <p className="sub">名前をタップで予定に入れる／外す。時刻は下の行を開いて直します。</p>
           <div className="chipgrid">
             {active.map((c) => {
               const on = selPlan.includes(c.id);
               const worked = selWorked.includes(c.id);
               return (
                 <button key={c.id} type="button" className={`cchip ${on ? "on" : ""}`} aria-pressed={on} onClick={() => togglePlan(sel, c.id)}>
-                  {on ? "✓ " : ""}{c.name || "（名前なし）"}{worked ? <span style={{ fontSize: 10, opacity: 0.75, marginLeft: 4 }}>出勤済み</span> : null}
+                  {on ? "✓ " : ""}{c.name || "（名前なし）"}{worked ? <span className="chiptime">出勤済み</span> : null}
                 </button>
               );
             })}
           </div>
           {!active.length && <div className="empty" style={{ padding: 14 }}>キャストが登録されていません</div>}
+
+          {/* まだ誰も入れていない日だけ。押すと先週の同じ曜日がそのまま入る */}
+          {selPlan.length === 0 && (L.plans?.[shiftDay(sel, -7)]?.length ?? 0) > 0 && (
+            <button type="button" className="btn wide" style={{ marginTop: 4 }} onClick={() => copyLastWeek(sel)}>
+              先週の{WD[new Date(sel + "T00:00:00").getDay()]}曜と同じにする（{L.plans![shiftDay(sel, -7)].length}人）
+            </button>
+          )}
+
           {selPlan.length > 0 && (
             <>
-              <div className="sechead" style={{ marginTop: 4 }}><div className="t">この日の予定</div><div className="l" /><div className="n">{selPlan.length}人</div></div>
-              {selPlan.map((cid) => {
-                const c = L.casts.find((x) => x.id === cid);
-                const row = planFor(L, sel, cid);
-                const t = planTimes(L, sel, cid)!;
-                const sh = L.days[sel]?.shifts?.[cid];
-                const late = sh?.on ? lateLabel(lateMinutes(t.in, sh.in)) : "";
-                return (
-                  <button key={cid} type="button" className="lrow" onClick={() => setEditing(cid)}>
-                    <div className="g"><div className="t">{c?.name || "（削除済み）"}</div>
-                      <div className="s">
-                        {row?.in || row?.out ? "" : "店の既定の時刻"}
-                        {late ? <>{row?.in || row?.out ? "" : " ・ "}<span style={{ color: "var(--warn)" }}>{late}</span></> : null}
-                      </div></div>
-                    <div className="a num">{t.in}-{t.out}</div>
-                  </button>
-                );
-              })}
+              <div className="sechead" style={{ marginTop: 4 }}><div className="t">この日の予定</div><div className="l" />
+                <div className="n">{selPlan.length}人 ・ 計 {spanLabel(selPlan.reduce((s, cid) => s + spanMinutes(planTimes(L, sel, cid)!), 0))}</div></div>
+              {selPlan.map((cid) => (
+                <PlanRow key={cid} L={L} dk={sel} castId={cid}
+                  open={editing === cid} onToggle={() => setEditing(editing === cid ? null : cid)}
+                  onTime={(key, v) => setPlanTime(sel, cid, key, v)}
+                  onRemove={() => { togglePlan(sel, cid); setEditing(null); }} />
+              ))}
             </>
           )}
+
           {selWorked.length > 0 && (
             <>
               <div className="sechead" style={{ marginTop: 4 }}><div className="t">この日の出勤</div><div className="l" /></div>
@@ -154,62 +180,109 @@ export function Shifts() {
           )}
         </div>
       ) : (
-        <div className="card"><div className="empty">日をタップすると、その日のシフトを決められます</div></div>
-      )}
-
-      {sel && editing && selPlan.includes(editing) && (
-        <PlanSheet L={L} dk={sel} castId={editing}
-          onTime={(key, v) => setPlanTime(sel, editing, key, v)}
-          onRemove={() => { togglePlan(sel, editing); setEditing(null); }}
-          onClose={() => setEditing(null)} />
+        /* 日を選ぶ前から「いつ誰が入るのか」が読めるようにする。
+           前はここが「日をタップすると…」の空箱で、1 日ずつ開かないと分からなかった */
+        <div className="card">
+          <h2>これからの予定</h2><p className="sub">行をタップすると、その日のシフトを直せます。</p>
+          {upcoming.length ? upcoming.map((u) => (
+            <button key={u.k} type="button" className="lrow" onClick={() => setUI({ calDay: u.k })}>
+              <div className="g">
+                <div className="t">{dayLabel(u.k)}{u.k === today ? " ・ 今日" : ""}</div>
+                <div className="s">{u.names.join("・")}</div>
+              </div>
+              <div className="a num">{u.total}人</div>
+            </button>
+          )) : <div className="empty">先の予定はまだありません。日をタップして決められます。</div>}
+        </div>
       )}
     </>
   );
 }
 
-/** 予定の時刻を決めるシート。日報の出勤シートと同じ TimeField を使う */
-function PlanSheet({ L, dk, castId, onTime, onRemove, onClose }: {
-  L: Ledger; dk: string; castId: string;
-  onTime: (key: "in" | "out", v: string) => void;
-  onRemove: () => void;
-  onClose: () => void;
+/** 予定 1 人ぶんの行。押すとその場で時刻を直せる。
+ *
+ *  前はシートを開いていたが、5 人ぶん直すのにシートを 5 回開け閉めすることになる。
+ *  その場で開けば、上から順に見ながら直せる。 */
+function PlanRow({ L, dk, castId, open, onToggle, onTime, onRemove }: {
+  L: Ledger; dk: string; castId: string; open: boolean; onToggle: () => void;
+  onTime: (key: "in" | "out", v: string) => void; onRemove: () => void;
 }) {
   const c = L.casts.find((x) => x.id === castId);
   const row = planFor(L, dk, castId);
   const t = planTimes(L, dk, castId);
   if (!t) return null;
   const isDefault = !row?.in && !row?.out;
+  const sh = L.days[dk]?.shifts?.[castId];
+  const late = sh?.on ? lateLabel(lateMinutes(t.in, sh.in)) : "";
+  const presets = commonShifts(L);
+  const def = { in: L.shop.openTime, out: L.shop.closeTime };
+
+  /** 店の既定と同じ時刻を選んだら、時刻を書かずに空にしておく。
+   *  そうしておくと、店の開店時刻を変えたときにこの予定も一緒に動く */
+  const pick = (p: { in: string; out: string }) => {
+    const same = p.in === def.in && p.out === def.out;
+    onTime("in", same ? "" : p.in);
+    onTime("out", same ? "" : p.out);
+  };
+
   return (
-    <BottomSheet open title={`${c?.name || "（名前なし）"} ・ ${dayLabel(dk)} の予定`} onClose={onClose}
-      footer={<><span className="sum">予定 <b>{t.in}-{t.out}</b></span>
-        <button type="button" className="btn sm danger" onClick={onRemove}>予定から外す</button></>}>
-      <div className="row2">
-        <label className="field" style={{ margin: 0 }}><span className="lbl">出勤</span>
-          <TimeField value={t.in} ariaLabel="予定の出勤時刻" onChange={(v) => onTime("in", v)} /></label>
-        <label className="field" style={{ margin: 0 }}><span className="lbl">退勤</span>
-          <TimeField value={t.out} ariaLabel="予定の退勤時刻" onChange={(v) => onTime("out", v)} /></label>
-      </div>
-      <div className="quick" style={{ marginTop: 8 }}>
-        <button type="button" className="btn" onClick={() => onTime("in", addMinutes(t.in, -60))}>出勤 −60分</button>
-        <button type="button" className="btn" onClick={() => onTime("in", addMinutes(t.in, 60))}>+60分</button>
-        <button type="button" className="btn" onClick={() => onTime("out", addMinutes(t.out, -60))}>退勤 −60分</button>
-        <button type="button" className="btn" onClick={() => onTime("out", addMinutes(t.out, 60))}>+60分</button>
-        {!isDefault && <button type="button" className="btn" onClick={() => { onTime("in", ""); onTime("out", ""); }}>店の既定に戻す</button>}
-      </div>
-      <div className="hint">
-        {isDefault
-          ? `いまは店の既定（${L.shop.openTime}-${L.shop.closeTime}）です。時刻を決めると、この日だけその時刻になります。`
-          : "日報で出勤をONにすると、この時刻が最初に入ります。レジで打刻したときは、実際の時刻で上書きされます。"}
-      </div>
-    </BottomSheet>
+    <div className={`planrow ${open ? "open" : ""}`}>
+      <button type="button" className="lrow" onClick={onToggle} aria-expanded={open}>
+        <div className="g">
+          <div className="t">{c?.name || "（削除済み）"}</div>
+          <div className="s">
+            {spanLabel(spanMinutes(t))}
+            {isDefault ? " ・ 店の既定" : ""}
+            {late ? <> ・ <span style={{ color: "var(--warn)" }}>{late}</span></> : null}
+          </div>
+        </div>
+        <span className="timepill num">{t.in}-{t.out}</span>
+        <ChevDown className={`chevi ${open ? "up" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="planedit">
+          <div className="lbl">よく使う</div>
+          <div className="quick">
+            {presets.map((p) => (
+              <button key={`${p.in}-${p.out}`} type="button" className="btn"
+                aria-pressed={t.in === p.in && t.out === p.out} onClick={() => pick(p)}>
+                {p.in}-{p.out}
+              </button>
+            ))}
+          </div>
+          {/* ＋−は直す時刻のすぐ隣に置く。離して並べると、どちらを動かす
+              ボタンなのか押すまで分からない */}
+          <TimeStep label="出勤" value={t.in} onChange={(v) => onTime("in", v)} />
+          <TimeStep label="退勤" value={t.out} onChange={(v) => onTime("out", v)} />
+          <div className="btnrow" style={{ marginTop: 10, alignItems: "center" }}>
+            {!isDefault && <button type="button" className="btn sm" onClick={() => { onTime("in", ""); onTime("out", ""); }}>店の既定に戻す</button>}
+            <button type="button" className="btn sm danger" onClick={onRemove}>予定から外す</button>
+            <span className="hint" style={{ margin: "0 0 0 auto" }}>{spanLabel(spanMinutes(t))}</span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
-/** 予定と実績を出す月カレンダー */
+/** 時刻 1 つぶん。「−30 ｜ 21:00 ｜ +30」。数字を押すと端末のピッカーが出る */
+function TimeStep({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="tstep">
+      <span className="k">{label}</span>
+      <button type="button" className="sbtn" aria-label={`${label}を30分早める`} onClick={() => onChange(addMinutes(value, -30))}>−30分</button>
+      <TimeField value={value} ariaLabel={`${label}の時刻`} onChange={onChange} />
+      <button type="button" className="sbtn" aria-label={`${label}を30分遅らせる`} onClick={() => onChange(addMinutes(value, 30))}>+30分</button>
+    </div>
+  );
+}
+
+/** 予定と実績を出す月カレンダー。誰が入るのかを升の中に出す */
 function CalGrid({ m, dim, lead, today, sel, onPick, cell }: {
   m: string; dim: number; lead: number; today: string; sel: string | null;
   onPick: (k: string) => void;
-  cell: (k: string) => { planned: boolean; worked: boolean; n?: number };
+  cell: (k: string) => { planned: boolean; worked: boolean; names: string[]; total: number };
 }) {
   return (
     <>
@@ -225,9 +298,16 @@ function CalGrid({ m, dim, lead, today, sel, onPick, cell }: {
             <button key={k} type="button" onClick={() => onPick(k)}
               className={`cal-cell shiftcell ${dow === 0 || dow === 6 ? "wk" : ""} ${cls} ${sel === k ? "sel" : ""} ${k === today ? "today" : ""}`}
               aria-pressed={sel === k}
-              aria-label={`${Number(m.slice(5, 7))}月${d}日 ${st.worked ? "出勤" : st.planned ? "予定あり" : "なし"}`}>
+              aria-label={`${Number(m.slice(5, 7))}月${d}日 ${st.total ? `${st.total}人 ${st.names.join("、")}` : "なし"}`}>
               <span className="cd">{d}</span>
-              {st.n ? <span className="cn num">{st.n}</span> : null}
+              {/* 名前の頭 1 文字を出す。数字だけだと「何人か」は分かっても
+                  「誰か」が分からず、結局 1 日ずつ開くことになる */}
+              {st.total > 0 && (
+                <span className="cwho" aria-hidden="true">
+                  {st.names.slice(0, 2).map((n) => n[0]).join("")}
+                  {st.total > 2 ? <i>+{st.total - 2}</i> : null}
+                </span>
+              )}
             </button>
           );
         })}

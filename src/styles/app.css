@@ -180,6 +180,43 @@
 .cal-cell.shiftcell.today .cd{text-decoration:underline; text-underline-offset:3px}
 .cal-cell.shiftcell.sel{box-shadow:0 0 0 2px var(--accent)}
 
+/* 予定の行。押すとその場で時刻を直せる */
+.planrow{border-bottom:1px solid var(--line)}
+.planrow:last-child{border-bottom:0}
+.planrow>.lrow{width:100%; border-bottom:0}
+.planrow.open{background:var(--surface-2); border-radius:var(--r-tile); margin:2px -10px; padding:0 10px}
+.planrow .timepill{flex:none; background:var(--surface-2); border-radius:var(--r-chip); padding:5px 11px;
+  font-size:13.5px; font-weight:600; color:var(--ink)}
+.planrow.open .timepill{background:var(--surface); color:var(--accent)}
+.planrow .chevi{flex:none; color:var(--ink-3); transition:transform .15s ease}
+.planrow .chevi.up{transform:rotate(180deg)}
+.planedit{padding:2px 0 12px}
+/* よく使う時間帯。3 つを 1 行に収めたいので、ふつうのボタンより詰める */
+.planedit .quick{margin:4px 0 12px; gap:6px}
+.planedit .quick .btn{min-height:40px; padding:0 8px; font-size:12px; border-radius:11px;
+  font-family:"IBM Plex Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums; letter-spacing:-.02em}
+.planedit .quick .btn[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent)}
+
+/* 「−30分 ｜ 21:00 ｜ +30分」。増減は直す時刻のすぐ隣に置く。
+   離して並べると、どちらの時刻を動かすボタンなのか押すまで分からない */
+.tstep{display:flex; align-items:center; gap:8px; margin-bottom:8px}
+.tstep .k{flex:none; width:34px; font-size:12px; color:var(--ink-2); font-weight:500}
+.tstep .sbtn{flex:none; border:0; background:var(--surface-3); color:var(--ink-2); border-radius:11px;
+  min-height:44px; padding:0 11px; font-size:12.5px; font-weight:600; cursor:pointer;
+  -webkit-tap-highlight-color:transparent; white-space:nowrap}
+.tstep .sbtn:active{opacity:.7}
+.tstep .timefield{flex:1; min-width:0; justify-content:center}
+.tstep .timefield .tv{flex:none; text-align:center}
+
+/* カレンダーの升。誰が入るのかを名前の頭 1 文字で出す */
+.cal-cell.shiftcell{min-height:54px; gap:2px}
+.cal-cell.shiftcell .cwho{font-size:10px; font-weight:600; color:var(--ink-2); line-height:1.15;
+  display:flex; align-items:baseline; justify-content:center; gap:1px; max-width:100%; overflow:hidden}
+.cal-cell.shiftcell .cwho i{font-style:normal; font-size:8.5px; color:var(--ink-3); font-weight:500}
+.cal-cell.shiftcell.planned .cwho{color:var(--accent)}
+.cal-cell.shiftcell.planned .cwho i{color:var(--accent)}
+.cal-cell.shiftcell.worked .cwho,.cal-cell.shiftcell.worked .cwho i{color:var(--accent-ink); opacity:.9}
+
 /* ランキング */
 .rankrow{display:flex; align-items:center; gap:11px; padding:9px 0; border-bottom:1px solid var(--line)}
 .rankrow:last-child{border-bottom:0}

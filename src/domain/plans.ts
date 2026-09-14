@@ -42,3 +42,52 @@ export function lateLabel(min: number | null, tolerance = 5): string {
 export function planRange(t: { in: string; out: string } | null): string {
   return t ? `${t.in}-${t.out}` : "";
 }
+
+/** 勤務の長さ（分）。日付をまたぐ店なので、退勤が出勤より小さければ翌日とみなす */
+export function spanMinutes(t: { in: string; out: string }): number {
+  const a = minutesOf(t.in), b = minutesOf(t.out);
+  if (a == null || b == null) return 0;
+  return b > a ? b - a : b + 1440 - a;
+}
+
+/** 「5時間」「5時間30分」。0 は空文字（無いものを書かない） */
+export function spanLabel(min: number): string {
+  if (min <= 0) return "";
+  const h = Math.floor(min / 60), m = min % 60;
+  return m === 0 ? `${h}時間` : h === 0 ? `${m}分` : `${h}時間${m}分`;
+}
+
+export interface ShiftPattern { in: string; out: string; used: number }
+
+/** その店がよく使っている出退勤の組み合わせ。
+ *
+ *  決め打ちの候補を並べても、店によって時間帯が違うので当たらない。
+ *  すでに入れた予定から多い順に拾えば、その店のパターンがそのまま出る。
+ *  店の既定（開店-閉店）は必ず先頭に入れる。まだ予定が 1 件も無い店でも
+ *  1 タップで決められるように。 */
+export function commonShifts(L: Ledger, limit = 4): ShiftPattern[] {
+  const count = new Map<string, ShiftPattern>();
+  const bump = (i: string, o: string) => {
+    const k = `${i}-${o}`;
+    const hit = count.get(k);
+    if (hit) hit.used += 1;
+    else count.set(k, { in: i, out: o, used: 1 });
+  };
+  const def = { in: L.shop.openTime, out: L.shop.closeTime };
+  for (const rows of Object.values(L.plans ?? {})) {
+    for (const p of rows) bump(p.in || def.in, p.out || def.out);
+  }
+  const rest = [...count.values()]
+    .filter((p) => !(p.in === def.in && p.out === def.out))
+    .sort((a, b) => b.used - a.used || a.in.localeCompare(b.in));
+  return [{ ...def, used: count.get(`${def.in}-${def.out}`)?.used ?? 0 }, ...rest].slice(0, limit);
+}
+
+/** その日に入っている子の名前。カレンダーの升に出すぶんだけ返す。
+ *  実績があれば実績、無ければ予定を見る（「この日は誰が入るのか」が知りたいので） */
+export function whoOn(L: Ledger, date: string): { names: string[]; total: number } {
+  const worked = Object.keys(L.days[date]?.shifts ?? {}).filter((cid) => L.days[date].shifts[cid]?.on);
+  const ids = worked.length ? worked : plannedIds(L, date);
+  const names = ids.map((cid) => L.casts.find((c) => c.id === cid)?.name ?? "").filter(Boolean);
+  return { names, total: ids.length };
+}
