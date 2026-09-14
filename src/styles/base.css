@@ -29,10 +29,8 @@ input,select,textarea{font:inherit; color:inherit}
 .brand b{font-weight:700; font-size:15.5px; letter-spacing:.01em; white-space:nowrap}
 .brand span{font-size:11px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 main{padding:0 var(--gutter)}
-/* 指で払ってタブを移る。離したら元に戻るか、隣の画面が同じ向きから入ってくる。
-   指に付いてくるあいだは滑らかさより追従を優先するので、移り変わりを付けない */
-main.swiping{transition:none}
-main:not(.swiping){transition:transform .18s cubic-bezier(.32,.72,0,1)}
+/* タブが変わったとき、隣の画面が同じ向きから滑り込んでくる。
+   本文を払って移るのはやめたので、指に付いてくる必要はもう無い */
 @keyframes slidein-l{from{transform:translateX(34px);opacity:.55}to{transform:none;opacity:1}}
 @keyframes slidein-r{from{transform:translateX(-34px);opacity:.55}to{transform:none;opacity:1}}
 main.slide-l{animation:slidein-l .2s cubic-bezier(.32,.72,0,1)}
@@ -288,11 +286,21 @@ nav.tabs .glass{
 nav.tabs .in{position:relative; display:grid; grid-auto-flow:column; grid-auto-columns:1fr;
   width:100%; touch-action:pan-y; -webkit-user-select:none; user-select:none}
 
-/* 選んでいる所を示すレンズ。ばねで動いて、少し行き過ぎてから収まる */
+/* 指に付いてくるレンズ。升の真ん中では止まらず、離した所でいちばん近い升へ収まる。
+   なぞっているあいだは JS が transition を切って直に置く（指から遅れないため）。 */
 nav.tabs .lens{position:absolute; left:0; top:5px; bottom:5px; z-index:0;
-  border-radius:19px; background:var(--lens);
+  border-radius:19px; background:var(--lens); transform-origin:center;
   box-shadow:0 1px 0 0 var(--glass-rim) inset, 0 1px 6px -1px rgba(16,24,40,.18);
-  transition:transform .42s cubic-bezier(.34,1.36,.36,1)}
+  transition:transform .42s cubic-bezier(.34,1.36,.36,1),
+             box-shadow .2s ease, background-color .2s ease, top .2s ease, bottom .2s ease}
+/* 触った瞬間に一回り育って、指の下にいることを返す */
+nav.tabs .lens.held{top:3px; bottom:3px; background:var(--lens-held);
+  box-shadow:0 1px 0 0 var(--glass-rim) inset, 0 4px 14px -2px rgba(16,24,40,.28)}
+/* 帯そのものも、触っているあいだだけ少し持ち上がる */
+nav.tabs .glass{transition:box-shadow .22s ease, transform .22s ease}
+nav.tabs .glass.held{transform:translateY(-1px);
+  box-shadow:0 1px 0 0 var(--glass-rim) inset, 0 -1px 0 0 var(--glass-rim-b) inset,
+             0 16px 40px -10px rgba(16,24,40,.3), 0 3px 10px -2px rgba(16,24,40,.16)}
 
 nav.tabs button{position:relative; z-index:1; background:none; border:0;
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
@@ -306,7 +314,8 @@ nav.tabs button.on svg{transform:translateY(-1px) scale(1.06)}
 nav.tabs button:active svg{transform:scale(.92)}
 
 @media (prefers-reduced-motion:reduce){
-  nav.tabs .lens,nav.tabs button svg{transition:none}
+  nav.tabs .lens,nav.tabs button svg,nav.tabs .glass{transition:none}
+  nav.tabs .glass.held{transform:none}
 }
 
 /* 帯が浮いたぶん、本文の下に空きを足す */

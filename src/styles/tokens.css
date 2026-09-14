@@ -19,7 +19,7 @@
      --glass-blur はぼかしの上に重ねる薄い膜、--glass-rim はふちの明かり */
   --glass:rgba(255,255,255,.94); --glass-blur:rgba(255,255,255,.72);
   --glass-rim:rgba(255,255,255,.9); --glass-rim-b:rgba(16,24,40,.06);
-  --lens:rgba(255,255,255,.92);
+  --lens:rgba(255,255,255,.92); --lens-held:rgba(255,255,255,1);
   /* 金額の書体。等幅（IBM Plex Mono）をやめた。
      あの書体は ¥ の横棒が 1 本で潰れて見え、桁区切りのカンマが
      数字 1 文字ぶんの枠に入るので、数字のあいだに点が浮いて見えていた。
@@ -47,7 +47,7 @@
     --shadow-lg:0 8px 24px -12px rgba(0,0,0,.8);
     --glass:rgba(26,30,38,.94); --glass-blur:rgba(26,30,38,.66);
     --glass-rim:rgba(255,255,255,.10); --glass-rim-b:rgba(0,0,0,.35);
-    --lens:rgba(255,255,255,.10);
+    --lens:rgba(255,255,255,.10); --lens-held:rgba(255,255,255,.17); --lens-held:rgba(255,255,255,.17);
   }
 }
 :root[data-theme="dark"]{
@@ -64,5 +64,5 @@
   --shadow-lg:0 8px 24px -12px rgba(0,0,0,.8);
   --glass:rgba(26,30,38,.94); --glass-blur:rgba(26,30,38,.66);
   --glass-rim:rgba(255,255,255,.10); --glass-rim-b:rgba(0,0,0,.35);
-  --lens:rgba(255,255,255,.10);
+  --lens:rgba(255,255,255,.10); --lens-held:rgba(255,255,255,.17);
 }

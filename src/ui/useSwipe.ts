@@ -1,4 +1,7 @@
-/** 横スワイプ。タブの行き来と、日付・月の送りに使う。
+/** 横スワイプ。日付と月の帯を送るのに使う。
+ *
+ *  本文を払ってページを移るのは、表・カテゴリ・カレンダーと取り合いになって
+ *  誤って切り替わるのでやめた。ページの行き来は下のガラスの帯に一本化してある。
  *
  *  レジは接客中に触るので、指が滑っただけで画面が変わると事故になる。
  *  だから「やらない条件」を先に決めてある:
@@ -10,7 +13,7 @@
  *  - 指が 2 本のときは何もしない（拡大の操作）
  *  - 入力欄の上から始まった指も無視する（文字の選択ができなくなる）
  */
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 
 /** この距離を超えたら「送る」。半分より小さいと、ただの揺れで動いてしまう */
 const COMMIT_PX = 64;
@@ -59,22 +62,16 @@ export interface SwipeOpts {
   /** dir = 1 … 左へ払った（次へ）／ dir = -1 … 右へ払った（前へ） */
   onCommit: (dir: 1 | -1) => void;
   enabled?: boolean;
-  /** 指に付いてくる量を返したいとき。false なら dx は always 0 */
-  follow?: boolean;
-  /** 端まで来ていて、それ以上進めない向き（付いてくる量を減らして「行き止まり」を伝える） */
-  atEnd?: (dir: 1 | -1) => boolean;
   /** 外側のスワイプに渡さない。
    *  日付や月の帯はタブの切り替え（main）の中にあるので、止めておかないと
    *  帯を払ったつもりでタブまで動く。内側が受け取ったらそこで終わりにする */
   stop?: boolean;
 }
 
-export function useSwipe({ onCommit, enabled = true, follow = false, atEnd, stop = false }: SwipeOpts) {
-  const [dx, setDx] = useState(0);
-  const [dragging, setDragging] = useState(false);
+export function useSwipe({ onCommit, enabled = true, stop = false }: SwipeOpts) {
   const st = useRef<{ id: number; x: number; y: number; t: number; axis: "" | "x" | "y" } | null>(null);
 
-  const reset = useCallback(() => { st.current = null; setDx(0); setDragging(false); }, []);
+  const reset = useCallback(() => { st.current = null; }, []);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     if (!enabled || e.pointerType === "mouse" && e.button !== 0) return;
@@ -94,14 +91,9 @@ export function useSwipe({ onCommit, enabled = true, follow = false, atEnd, stop
       if (!swipeAxis(ddx, ddy)) return;
       // 縦の方が大きければ、ページのスクロールとして手を引く
       s.axis = swipeAxis(ddx, ddy);
-      if (s.axis === "y") { st.current = null; return; }
-      setDragging(true);
+      if (s.axis === "y") st.current = null;
     }
-    if (!follow) return;
-    const dir: 1 | -1 = ddx < 0 ? 1 : -1;
-    // 行き止まりの向きは重くする。動かないのではなく「これ以上ない」と分かる
-    setDx(atEnd?.(dir) ? ddx * 0.22 : ddx);
-  }, [follow, atEnd, stop]);
+  }, [stop]);
 
   const onPointerUp = useCallback((e: React.PointerEvent) => {
     const s = st.current;
@@ -109,13 +101,12 @@ export function useSwipe({ onCommit, enabled = true, follow = false, atEnd, stop
     if (stop) e.stopPropagation();
     const ddx = e.clientX - s.x;
     const dir: 1 | -1 = ddx < 0 ? 1 : -1;
-    const go = s.axis === "x" && shouldCommit(ddx, performance.now() - s.t) && !atEnd?.(dir);
+    const go = s.axis === "x" && shouldCommit(ddx, performance.now() - s.t);
     reset();
     if (go) onCommit(dir);
-  }, [onCommit, atEnd, reset, stop]);
+  }, [onCommit, reset, stop]);
 
   return {
-    dx, dragging,
     bind: {
       onPointerDown, onPointerMove, onPointerUp,
       onPointerCancel: reset,

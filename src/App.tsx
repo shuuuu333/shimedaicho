@@ -8,7 +8,6 @@ import { PinPad } from "./ui/components/PinPad";
 import { JoinSheet } from "./ui/components/JoinSheet";
 import { hasPin, isUnlocked } from "./data/pin";
 import { ChevLeft, IcoCast, IcoDay, IcoMonth, IcoReg, IcoSet, IcoShift } from "./ui/icons";
-import { useSwipe } from "./ui/useSwipe";
 import { TabBar } from "./ui/components/TabBar";
 import { Register } from "./ui/screens/Register";
 import { Month } from "./ui/screens/Month";
@@ -108,12 +107,6 @@ export default function App() {
   const [slide, setSlide] = useState<0 | 1 | -1>(0);
   useEffect(() => { if (!slide) return; const t = setTimeout(() => setSlide(0), 220); return () => clearTimeout(t); }, [slide]);
 
-  const swipe = useSwipe({
-    enabled: !onSettings && !locked && loaded,
-    follow: true,
-    atEnd: (dir) => (dir === 1 ? idx >= tabs.length - 1 : idx <= 0),
-    onCommit: (dir) => goTab(idx + dir),
-  });
 
   return (
     <div className={`app ${onSettings ? "setpage" : ""}`}>
@@ -134,9 +127,9 @@ export default function App() {
           </button>
         )}
       </header>
-      <main {...swipe.bind}
-        className={swipe.dragging ? "swiping" : slide ? (slide > 0 ? "slide-l" : "slide-r") : ""}
-        style={{ ...swipe.bind.style, transform: swipe.dx ? `translateX(${swipe.dx}px)` : undefined }}>
+      {/* 本文を払ってページを移るのはやめた。表・カテゴリ・カレンダーと
+          取り合いになって誤って切り替わる。ページの行き来は下のガラスの帯に一本化する */}
+      <main className={slide ? (slide > 0 ? "slide-l" : "slide-r") : ""}>
         {!loaded ? <div className="empty">読み込み中…</div>
           : locked
             ? <PinPad title="暗証番号を入れてください"
