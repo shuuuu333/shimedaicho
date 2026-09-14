@@ -15,6 +15,7 @@ import { todayISO, uid, yen } from "../../domain/format";
 import { SETTING_GROUPS, searchSettings, type SettingItem } from "../../domain/settingsIndex";
 import { Seg } from "../components/Seg";
 import { DEMO_FLAG, demoLedger } from "../../domain/demo";
+import { FORM_URL, hasFeedbackForm } from "../../domain/feedback";
 import { backupFilename, backupJSON, csvFilename, monthCSV, offerFile, parseBackup } from "../../data/backup";
 import { LocalRepository } from "../../data/localRepository";
 import { LocalCheckRepository } from "../../data/checkRepo";
@@ -455,6 +456,23 @@ export function Settings() {
       </div>
 
       </Section>
+
+      {hasFeedbackForm() && (
+        <div className="card">
+          <h2>こうしてほしいを送る</h2>
+          <p className="sub">
+            使っていて困ったこと、こうだったらいいのに、を送れます。1 店舗で使うために作ったものなので、
+            ほかのお店のやり方は分かりません。教えてもらえると直せます。
+          </p>
+          <a className="btn wide" href={FORM_URL} target="_blank" rel="noopener noreferrer"
+            style={{ textDecoration: "none" }}>
+            意見を送る<ChevRight size={14} />
+          </a>
+          <div className="hint">
+            Google フォームが開きます。版を聞かれたら <b>v{__APP_VERSION__}</b> と書いてください。
+          </div>
+        </div>
+      )}
 
       <Section id="app" title="アプリのこと" sub="見た目・ホーム画面に追加・使い方・版" {...sec("app")}>
       {themeCard}

@@ -232,6 +232,21 @@ footer a{color:var(--ink-2)}
   </div>
 </section>
 
+<!-- ===========================================================
+     意見を送る口。フォームを作ったら、ここでやることは 2 つ:
+       1. 下の <section> から hidden を消す
+       2. href="REPLACE_WITH_FORM_URL" を回答用の URL に差し替える
+     アプリ側は src/domain/feedback.ts の FORM_URL にも同じ URL を貼る。
+     2 か所あるのは、このページが素の HTML で TypeScript を読めないため。
+     =========================================================== -->
+<section class="wrap" id="feedback" hidden style="text-align:center">
+  <h2>使ってみて、どうでしたか</h2>
+  <p>困ったこと、こうだったらいいのに、を送れます。1 店舗で使うために作ったものなので、ほかのお店のやり方は分かりません。教えてもらえると直せます。</p>
+  <div class="cta">
+    <a class="btn" href="REPLACE_WITH_FORM_URL" target="_blank" rel="noopener noreferrer">意見を送る</a>
+  </div>
+</section>
+
 <footer class="wrap">
   締め台帳 ・ <a href="https://github.com/shuuuu333/shimedaicho">ソースコード</a><br />
   夜の店の締めを、毎日3分で。
