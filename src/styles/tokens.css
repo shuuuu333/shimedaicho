@@ -15,11 +15,13 @@
   --grid:#EDEFF3; --axis:#D5DAE2;
   --shadow:0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.08);
   --shadow-lg:0 4px 6px -2px rgba(16,24,40,.05), 0 12px 16px -4px rgba(16,24,40,.10);
-  /* すりガラス。--glass はぼかしが効かない端末用の下地、
-     --glass-blur はぼかしの上に重ねる薄い膜、--glass-rim はふちの明かり */
-  --glass:rgba(255,255,255,.94); --glass-blur:rgba(255,255,255,.72);
+  /* すりガラス。--glass はぼかしが効かない端末用の下地（読めることを優先して濃い）、
+     --glass-blur はぼかしの上に重ねる膜、--glass-rim はふちの明かり。
+     膜が濃いとぼかしが見えず、ただの白い帯になる。後ろが透けるぎりぎりまで薄くする */
+  --glass:rgba(255,255,255,.94); --glass-blur:rgba(255,255,255,.62);
   --glass-rim:rgba(255,255,255,.9); --glass-rim-b:rgba(16,24,40,.06);
-  --lens:rgba(255,255,255,.92); --lens-held:rgba(255,255,255,1); --seg-bg:rgba(233,236,241,.8);
+  --lens:rgba(255,255,255,.92); --lens-held:rgba(255,255,255,1); --seg-bg:rgba(233,236,241,.7);
+  --glass-sheen:rgba(255,255,255,.5);
   /* 金額の書体。等幅（IBM Plex Mono）をやめた。
      あの書体は ¥ の横棒が 1 本で潰れて見え、桁区切りのカンマが
      数字 1 文字ぶんの枠に入るので、数字のあいだに点が浮いて見えていた。
@@ -45,9 +47,9 @@
     --grid:#1A1E26; --axis:#2C323E;
     --shadow:none;
     --shadow-lg:0 8px 24px -12px rgba(0,0,0,.8);
-    --glass:rgba(26,30,38,.94); --glass-blur:rgba(26,30,38,.66);
+    --glass:rgba(26,30,38,.94); --glass-blur:rgba(22,26,33,.60);
     --glass-rim:rgba(255,255,255,.10); --glass-rim-b:rgba(0,0,0,.35);
-    --lens:rgba(255,255,255,.10); --lens-held:rgba(255,255,255,.17); --seg-bg:rgba(27,31,40,.8); --lens-held:rgba(255,255,255,.17);
+    --lens:rgba(255,255,255,.10); --lens-held:rgba(255,255,255,.17); --seg-bg:rgba(27,31,40,.7); --glass-sheen:rgba(255,255,255,.07);
   }
 }
 :root[data-theme="dark"]{
@@ -62,7 +64,7 @@
   --grid:#1A1E26; --axis:#2C323E;
   --shadow:none;
   --shadow-lg:0 8px 24px -12px rgba(0,0,0,.8);
-  --glass:rgba(26,30,38,.94); --glass-blur:rgba(26,30,38,.66);
+  --glass:rgba(26,30,38,.94); --glass-blur:rgba(22,26,33,.60);
   --glass-rim:rgba(255,255,255,.10); --glass-rim-b:rgba(0,0,0,.35);
-  --lens:rgba(255,255,255,.10); --lens-held:rgba(255,255,255,.17); --seg-bg:rgba(27,31,40,.8);
+  --lens:rgba(255,255,255,.10); --lens-held:rgba(255,255,255,.17); --seg-bg:rgba(27,31,40,.7); --glass-sheen:rgba(255,255,255,.07);
 }

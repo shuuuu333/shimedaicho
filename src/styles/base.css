@@ -305,10 +305,14 @@ nav.tabs .glass{
              0 10px 30px -8px rgba(16,24,40,.22), 0 2px 8px -2px rgba(16,24,40,.12)}
 @supports (backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px)){
   nav.tabs .glass{
-    -webkit-backdrop-filter:blur(22px) saturate(180%);
-    backdrop-filter:blur(22px) saturate(180%);
+    -webkit-backdrop-filter:blur(30px) saturate(190%);
+    backdrop-filter:blur(30px) saturate(190%);
     background:var(--glass-blur)}
 }
+/* 上ぶちの映り込み。浮いているものの厚みは、影よりも縁の明かりで出る */
+nav.tabs .glass::before{content:""; position:absolute; inset:0; border-radius:inherit;
+  pointer-events:none; z-index:2;
+  background:linear-gradient(180deg, var(--glass-sheen) 0%, transparent 42%)}
 nav.tabs .in{position:relative; display:grid; grid-auto-flow:column; grid-auto-columns:1fr;
   width:100%; touch-action:pan-y; -webkit-user-select:none; user-select:none}
 
@@ -328,9 +332,12 @@ nav.tabs .glass.held{transform:translateY(-1px);
   box-shadow:0 1px 0 0 var(--glass-rim) inset, 0 -1px 0 0 var(--glass-rim-b) inset,
              0 16px 40px -10px rgba(16,24,40,.3), 0 3px 10px -2px rgba(16,24,40,.16)}
 
+/* 選んでいない方の字も、薄いままだと後ろの色に負ける。
+   帯は透けているので、真下に濃い色（青いボタン・赤い警告）が来ることがある。
+   1 段濃くして太らせ、どんな中身の上でも読めるようにしてある */
 nav.tabs button{position:relative; z-index:1; background:none; border:0;
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
-  height:54px; color:var(--ink-3); cursor:pointer; font-size:10.5px; font-weight:500;
+  height:54px; color:var(--ink-2); cursor:pointer; font-size:10.5px; font-weight:600;
   -webkit-tap-highlight-color:transparent;
   transition:color .2s ease}
 nav.tabs button svg{width:22px; height:22px; transition:transform .42s cubic-bezier(.34,1.36,.36,1)}
