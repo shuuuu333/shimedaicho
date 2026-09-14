@@ -8,12 +8,13 @@ import { CloudCard } from "../components/CloudCard";
 import { LineCard } from "../components/LineCard";
 import { PinCard } from "../components/PinCard";
 import { PosSettings } from "./Menu";
-import { defaultPosRule } from "../../domain/migrate";
+import { defaultLedger, defaultPosRule } from "../../domain/migrate";
 import { InstallCard } from "../components/InstallCard";
 import { useCloud } from "../../state/cloud";
-import { uid, yen } from "../../domain/format";
+import { todayISO, uid, yen } from "../../domain/format";
 import { SETTING_GROUPS, searchSettings, type SettingItem } from "../../domain/settingsIndex";
 import { Seg } from "../components/Seg";
+import { DEMO_FLAG, demoLedger } from "../../domain/demo";
 import { backupFilename, backupJSON, csvFilename, monthCSV, offerFile, parseBackup } from "../../data/backup";
 import { LocalRepository } from "../../data/localRepository";
 import { LocalCheckRepository } from "../../data/checkRepo";
@@ -178,6 +179,26 @@ export function Settings() {
   const sec = (key: string) => ({ open: openSec === key, onToggle: () => setOpenSec(openSec === key ? null : key) });
 
   const shop = <K extends keyof typeof S>(k: K, v: (typeof S)[K]) => update((LL) => { LL.shop[k] = v; });
+
+  /** お試しデータを入れた端末かどうか */
+  const [isDemo, setIsDemo] = useState(() => { try { return localStorage.getItem(DEMO_FLAG) === "1"; } catch { return false; } });
+  /** 中身が入っていない端末。お試しを勧めていいのはこの状態のときだけ */
+  const blank = Object.keys(L.days).length === 0 && L.casts.length === 0;
+  const putDemo = () => {
+    if (!blank && !window.confirm("いま入っている記録を、お試しデータで置き換えます。よろしいですか？")) return;
+    update((LL) => { Object.assign(LL, demoLedger(todayISO())); });
+    try { localStorage.setItem(DEMO_FLAG, "1"); } catch { /* ignore */ }
+    setIsDemo(true);
+    showToast("お試しデータを入れました");
+  };
+  const clearDemo = () => {
+    if (!window.confirm("お試しデータを全部消して、まっさらな状態にします。よろしいですか？")) return;
+    const fresh = defaultLedger();
+    update((LL) => { Object.assign(LL, fresh); });
+    try { localStorage.removeItem(DEMO_FLAG); } catch { /* ignore */ }
+    setIsDemo(false);
+    showToast("まっさらにしました");
+  };
   const exportJson = async () => {
     try {
       // レジの伝票は台帳の外にあるので、書き出すときに一緒に包む
@@ -248,6 +269,29 @@ export function Settings() {
   return (
     <>
       <SettingsSearch onPick={(it) => { setOpenSec(it.group); setPendingFocus(it.anchor); }} />
+
+      {/* まだ何も入っていない端末に、中を見てもらうための入口。
+          「今月」は記録が無いと全部 ¥0 の白い画面になり、
+          何ができるアプリなのかが分からないため */}
+      {!isDemo && blank && (
+        <div className="card">
+          <h2>まず中を見てみる</h2>
+          <p className="sub">1 か月ぶんの記録が入った状態になります。売上のグラフや、現金が合わないときの画面まで見られます。</p>
+          <button type="button" className="btn wide" onClick={putDemo}>お試しデータを入れる</button>
+          <div className="hint">本物の記録ではありません。ここからいつでも消せます。</div>
+        </div>
+      )}
+
+      {/* お試しデータを入れた端末にだけ出す。入れっぱなしで本物の記録と
+          混ざるのがいちばん困るので、出口を分かる所に置いておく */}
+      {isDemo && (
+        <div className="card">
+          <h2>お試しデータが入っています</h2>
+          <p className="sub">本物の記録ではありません。このまま使い始めず、消してから入力してください。</p>
+          <button type="button" className="btn danger wide" onClick={clearDemo}>お試しデータを消して、まっさらにする</button>
+        </div>
+      )}
+
 
       <Section id="shop" title="お店のこと" sub={`${S.name || "店名なし"} ・ 時給 ${yen(S.defaultWage)} ・ カード手数料 ${S.cardFeeRate}%`} {...sec("shop")}>
       <div className="card" id="set-shop">

@@ -5,6 +5,7 @@
 
 公開版: https://shuuuu333.github.io/shimedaicho/
 スマホでこの URL を開き、共有ボタン →「ホーム画面に追加」でアプリとして使えます。
+**中を見るだけなら、最初の画面の「お試しデータで中を見る」から。** 1 か月ぶんの記録が入った状態で開きます。
 
 ---
 
@@ -108,7 +109,7 @@ supabase/     テーブルと RLS
 ```bash
 npm install
 npm run dev      # 開発
-npm test         # 254 件
+npm test         # 261 件
 npx tsc -b
 npm run build
 ```

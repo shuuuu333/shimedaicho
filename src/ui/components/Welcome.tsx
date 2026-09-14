@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { useCloud } from "../../state/cloud";
+import { useApp } from "../../state/store";
+import { demoLedger, DEMO_FLAG } from "../../domain/demo";
+import { todayISO } from "../../domain/format";
 import { LoginForm } from "./LoginForm";
 
 const LS_KEY = "shimedaicho.welcomed";
@@ -14,7 +17,22 @@ export function Welcome() {
   const [open, setOpen] = useState(() => !seen());
   const [mode, setMode] = useState<"choose" | "login">("choose");
 
+  const update = useApp((s) => s.update);
+  const showToast = useApp((s) => s.showToast);
   const close = () => { markSeen(); setOpen(false); };
+
+  /** お試しデータで中を見る。
+   *  はじめて来た人には「今月」が全部 ¥0 の白い画面に見えるので、
+   *  触ってから決めてもらえるように 1 か月ぶんを入れる。
+   *  すでに何か入っている端末では出さない（上書きしない） */
+  const tryDemo = () => {
+    const d = demoLedger(todayISO());
+    update((L) => { Object.assign(L, d); });
+    try { localStorage.setItem(DEMO_FLAG, "1"); } catch { /* ignore */ }
+    markSeen();
+    setOpen(false);
+    showToast("お試しデータを入れました。設定 → データ から消せます");
+  };
   if (!open || !configured || session) return null;
 
   return (
@@ -40,6 +58,11 @@ export function Welcome() {
                 ログインせずに始める
               </button>
               <p className="whint">この端末の中だけに保存します。あとから設定の「クラウド同期」でログインできます。</p>
+
+              <button type="button" className="btn wide" style={{ minHeight: 46, marginTop: 14 }} onClick={tryDemo}>
+                お試しデータで中を見る
+              </button>
+              <p className="whint">1 か月ぶんの記録が入った状態で開きます。設定 → データ からいつでも消せます。</p>
             </>
           ) : (
             <>
