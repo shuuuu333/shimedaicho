@@ -20,6 +20,7 @@ import { lateLabel, lateMinutes, planTimes } from "../../domain/plans";
 import { detectMisses, diagnoseCash } from "../../domain/diagnose";
 import { countSent } from "../../state/notify";
 import { useSwipe } from "../useSwipe";
+import { Num } from "../components/Num";
 
 const STEPS = ["売上", "出勤", "派遣", "経費", "締め"];
 
@@ -123,9 +124,9 @@ export function DayReport() {
       </div>
 
       <div className="daysum" aria-live="polite">
-        <div><div className="k">売上</div><div className="v">{jp(t.sales)}</div></div>
-        <div><div className="k">人件費</div><div className="v">{jp(t.labor)}</div></div>
-        <div><div className="k">差引</div><div className={`v ${t.profit < 0 ? "neg" : ""}`} style={t.profit >= 0 ? { color: "var(--good)" } : undefined}>{jp(t.profit)}</div></div>
+        <div><div className="k">売上</div><div className="v"><Num value={t.sales} format={jp} /></div></div>
+        <div><div className="k">人件費</div><div className="v"><Num value={t.labor} format={jp} /></div></div>
+        <div><div className="k">差引</div><div className={`v ${t.profit < 0 ? "neg" : ""}`} style={t.profit >= 0 ? { color: "var(--good)" } : undefined}><Num value={t.profit} format={jp} /></div></div>
       </div>
 
       {step === 0 && <SalesStep dk={dk} d={d} edit={edit} t={t} />}

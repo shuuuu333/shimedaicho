@@ -22,7 +22,7 @@ input,select,textarea{font:inherit; color:inherit}
 
 /* ---------- 骨組み ---------- */
 .app{max-width:430px; margin:0 auto; min-height:100dvh; background:var(--bg);
-  padding:0 0 calc(84px + env(safe-area-inset-bottom)); position:relative}
+  position:relative}
 .topbar{position:sticky; top:0; z-index:30; background:var(--bg);
   padding:calc(14px + env(safe-area-inset-top)) var(--gutter) 10px; display:flex; align-items:center; gap:10px}
 .brand{display:flex; align-items:baseline; gap:8px; min-width:0}
@@ -265,15 +265,52 @@ tfoot td{font-weight:600; border-top:1px solid var(--line-strong); border-bottom
 .cdhead .num.neg{color:var(--crit)}
 
 /* ---------- 下のタブ ---------- */
+/* ---------- 下のタブ（すりガラス） ----------
+   後ろの内容をぼかして透かす。浮かせてあるので、スクロールした中身が
+   帯の下をくぐって見える。ふちの細い明かりと落ち影で厚みを出す。
+
+   backdrop-filter が効かない端末では、すりガラスをやめて
+   ふつうの面に落ちる（読めなくなるより、平らな方がまし）。 */
 nav.tabs{position:fixed; left:0; right:0; bottom:0; z-index:40;
-  background:var(--surface); border-top:1px solid var(--line);
-  padding:6px 0 max(10px,env(safe-area-inset-bottom)); display:flex; justify-content:center}
-/* タブは役割で 2〜5 個に増減する。数を書くとずれるので、並んだぶんを等分する */
-nav.tabs .in{display:grid; grid-auto-flow:column; grid-auto-columns:1fr; width:100%; max-width:430px}
-nav.tabs button{background:none;border:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-  height:52px; color:var(--ink-3); cursor:pointer; font-size:10.5px; font-weight:500}
-nav.tabs button[aria-current="page"]{color:var(--accent); font-weight:600}
-nav.tabs svg{width:22px;height:22px}
+  padding:0 12px max(10px,env(safe-area-inset-bottom)); display:flex; justify-content:center;
+  pointer-events:none}
+nav.tabs .glass{
+  pointer-events:auto; width:100%; max-width:406px; border-radius:26px; overflow:hidden;
+  background:var(--glass); position:relative;
+  box-shadow:0 1px 0 0 var(--glass-rim) inset, 0 -1px 0 0 var(--glass-rim-b) inset,
+             0 10px 30px -8px rgba(16,24,40,.22), 0 2px 8px -2px rgba(16,24,40,.12)}
+@supports (backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px)){
+  nav.tabs .glass{
+    -webkit-backdrop-filter:blur(22px) saturate(180%);
+    backdrop-filter:blur(22px) saturate(180%);
+    background:var(--glass-blur)}
+}
+nav.tabs .in{position:relative; display:grid; grid-auto-flow:column; grid-auto-columns:1fr;
+  width:100%; touch-action:pan-y; -webkit-user-select:none; user-select:none}
+
+/* 選んでいる所を示すレンズ。ばねで動いて、少し行き過ぎてから収まる */
+nav.tabs .lens{position:absolute; left:0; top:5px; bottom:5px; z-index:0;
+  border-radius:19px; background:var(--lens);
+  box-shadow:0 1px 0 0 var(--glass-rim) inset, 0 1px 6px -1px rgba(16,24,40,.18);
+  transition:transform .42s cubic-bezier(.34,1.36,.36,1)}
+
+nav.tabs button{position:relative; z-index:1; background:none; border:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
+  height:54px; color:var(--ink-3); cursor:pointer; font-size:10.5px; font-weight:500;
+  -webkit-tap-highlight-color:transparent;
+  transition:color .2s ease}
+nav.tabs button svg{width:22px; height:22px; transition:transform .42s cubic-bezier(.34,1.36,.36,1)}
+/* なぞって指が来た所。まだ移っていなくても、先に光って行き先が見える */
+nav.tabs button.on{color:var(--accent); font-weight:600}
+nav.tabs button.on svg{transform:translateY(-1px) scale(1.06)}
+nav.tabs button:active svg{transform:scale(.92)}
+
+@media (prefers-reduced-motion:reduce){
+  nav.tabs .lens,nav.tabs button svg{transition:none}
+}
+
+/* 帯が浮いたぶん、本文の下に空きを足す */
+.app{padding-bottom:calc(92px + env(safe-area-inset-bottom))}
 
 /* ---------- 補助 ---------- */
 .pill{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;

@@ -9,6 +9,7 @@ import { MonthBar } from "../components/MonthBar";
 import { Notice } from "../components/Notice";
 import { ChevLeft, ChevRight, Plus } from "../icons";
 import { useSwipe } from "../useSwipe";
+import { Num } from "../components/Num";
 import { csvFilename, monthCSV, offerFile } from "../../data/backup";
 import { forecastMonth, type Forecast } from "../../domain/forecast";
 import { arrivalsByHour, avgPerGroup, busiestHour } from "../../domain/arrivals";
@@ -171,7 +172,7 @@ function YearView() {
     <>
       <div className="hero">
         <div className="label"><span className="eyebrow">{year}年の営業利益</span></div>
-        <div className={`big num ${y.profit < 0 ? "neg" : ""}`}>{yen(y.profit)}</div>
+        <div className={`big num ${y.profit < 0 ? "neg" : ""}`}><Num value={y.profit} /></div>
         <div className="meta">売上 {yen(y.sales)} − 人件費 {yen(y.laborAll)} − 経費 {yen(y.costAll)}</div>
         <div className="heroSplit cols3">
           <div><div className="k">人件費率</div><div className="v">{laborRate.toFixed(1)}<span style={{ fontSize: 13 }}>%</span></div></div>
@@ -320,7 +321,7 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
             </span>
           )}
         </div>
-        <div className={`big num ${a.profit < 0 ? "neg" : ""}`}>{yen(a.profit)}</div>
+        <div className={`big num ${a.profit < 0 ? "neg" : ""}`}><Num value={a.profit} /></div>
         {a.sales > 0 ? (
           <>
             <div className="mixbar">
@@ -352,11 +353,11 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
 
       <div className="tiles">
         <button type="button" className="tile link" onClick={() => { setUI({ tab: "cast" }); window.scrollTo(0, 0); }}>
-          <div className="k">未払いの給料<ChevRight size={13} className="chevt" /></div><div className="v">{yen(a.unpaid)}</div>
+          <div className="k">未払いの給料<ChevRight size={13} className="chevt" /></div><div className="v"><Num value={a.unpaid} /></div>
           <div className="n">{owedCount > 0 ? `${owedCount}名分` : "未払いなし"}</div>
         </button>
         <button type="button" className="tile link" onClick={() => goSet("cash")}>
-          <div className="k">今月の現金<ChevRight size={13} className="chevt" /></div><div className="v">{yen(mCash.net)}</div>
+          <div className="k">今月の現金<ChevRight size={13} className="chevt" /></div><div className="v"><Num value={mCash.net} /></div>
           <div className="n">売上 {yenShort(mCash.cash)} − 出金 {yenShort(mCash.expCash + mCash.paidCash + mCash.bankDeposit)}</div>
         </button>
         <button type="button" className="tile link" onClick={() => goSet("shop")}>

@@ -9,6 +9,7 @@ import { JoinSheet } from "./ui/components/JoinSheet";
 import { hasPin, isUnlocked } from "./data/pin";
 import { ChevLeft, IcoCast, IcoDay, IcoMonth, IcoReg, IcoSet, IcoShift } from "./ui/icons";
 import { useSwipe } from "./ui/useSwipe";
+import { TabBar } from "./ui/components/TabBar";
 import { Register } from "./ui/screens/Register";
 import { Month } from "./ui/screens/Month";
 import { DayReport } from "./ui/screens/DayReport";
@@ -145,16 +146,8 @@ export default function App() {
             : <Screen />}
       </main>
       {!onSettings && (
-        <nav className="tabs" aria-label="画面切替">
-          <div className="in" style={{ gridTemplateColumns: `repeat(${tabs.length},1fr)` }}>
-            {tabs.map(({ id, label, Icon }) => (
-              <button key={id} type="button" aria-current={tab === id ? "page" : undefined}
-                onClick={() => { setUI({ tab: id, setFocus: null, sheet: null }); window.scrollTo(0, 0); }}>
-                <Icon />{label}
-              </button>
-            ))}
-          </div>
-        </nav>
+        <TabBar tabs={tabs} current={tab}
+          onPick={(id) => { goTab(tabs.findIndex((t) => t.id === id)); }} />
       )}
       <JoinSheet token={joinToken} onClose={() => setJoinToken(null)} />
       <Welcome />
