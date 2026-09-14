@@ -18,9 +18,9 @@
  *
  *  3 つめと 4 つめが効く。「毎日使っている店の声」と「見ただけの人の声」は
  *  重みが違うし、業態によって当たり前が変わる。 */
-export const FORM_URL = "";
+export const FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScblVZKsEVFjy1EZDFuqTV8NxesqddmPbVqiQhi1RKWuJTKgw/viewform";
 
 // 紹介ページ（public/lp/index.html）にも同じ URL を貼る場所がある。
-// あちらは素の HTML なので、この定数を読めない。"REPLACE_WITH_FORM_URL" を探せば見つかる。
+// あちらは素の HTML なので、この定数を読めない。id="feedback" の節にある。直すときは両方そろえる。
 
 export const hasFeedbackForm = (): boolean => FORM_URL.trim().length > 0;
