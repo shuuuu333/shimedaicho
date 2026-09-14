@@ -109,10 +109,6 @@ main{padding:0 var(--gutter)}
 .titlebar .m{font-size:30px; font-weight:700; letter-spacing:-.01em; line-height:1.1}
 .titlebar .sp{margin-left:auto; font-size:11.5px; color:var(--ink-3)}
 .monthbar{display:flex; align-items:center; gap:10px; margin-bottom:12px}
-.monthbar .mb{background:var(--surface-2); border:0; border-radius:12px;
-  width:44px;height:44px;display:grid;place-items:center;cursor:pointer;color:var(--ink-2);
-  -webkit-tap-highlight-color:transparent}
-.monthbar .mb:active{background:var(--surface-3)}
 .monthbar .lbl{font-weight:700; font-size:21px; letter-spacing:-.01em}
 .monthbar .sp{margin-left:auto; font-size:11.5px; color:var(--ink-3); text-align:right}
 .monthbar .sp b{display:block; font-size:19px; font-weight:600; color:var(--ink);
@@ -153,6 +149,29 @@ main{padding:0 var(--gutter)}
 .btn.wide{width:100%}
 .btn.sm{min-height:40px; padding:0 14px; font-size:13px; border-radius:11px}
 .btnrow{display:flex; gap:8px; flex-wrap:wrap}
+
+/* 「今日の日報をつける」と「未入力の日」。
+   ここは月の画面で一番押される場所なので、カードの中ではなく上に置いてある。
+   チップは素のボタンのままだったので、見た目が付いていなかった */
+.todo{margin-bottom:14px}
+.chips{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:10px}
+.chiplbl{flex:none; font-size:11.5px; font-weight:500; color:var(--ink-3)}
+.chip{display:inline-flex; align-items:center; justify-content:center;
+  background:var(--surface); border:1px solid var(--line-strong); border-radius:var(--r-chip);
+  padding:0 13px; min-height:36px; font-size:12.5px; font-weight:500; color:var(--ink-2);
+  cursor:pointer; white-space:nowrap; -webkit-tap-highlight-color:transparent}
+.chip:active{background:var(--surface-2)}
+.btn.chip{border:0; background:var(--surface-2); min-height:44px; font-size:14.5px; color:var(--ink-2)}
+.btn.chip[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent)}
+
+/* 日付・月の送り。丸ボタンで 44px。
+   前は .monthbar の中だけに書いてあったので、日報の日付送りが素のボタンのまま
+   画面の端に貼り付いていた。置き場所で見た目が変わるのはおかしいので、
+   .mb そのものの決まりにする */
+.mb{background:var(--surface-2); border:0; border-radius:13px;
+  width:44px; height:44px; flex:none; display:grid; place-items:center; cursor:pointer;
+  color:var(--ink-2); -webkit-tap-highlight-color:transparent}
+.mb:active{background:var(--surface-3)}
 
 /* ---------- 行 ---------- */
 .lrow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
@@ -224,7 +243,13 @@ tfoot td{font-weight:600; border-top:1px solid var(--line-strong); border-bottom
 .cal-cell.sel{box-shadow:0 0 0 2px var(--accent) inset}
 .cal-cell:not(.has) .cd{opacity:.6}
 .caldetail{margin-top:14px; padding-top:12px; border-top:1px solid var(--line)}
-.cdhead{display:flex; align-items:baseline; gap:10px; margin-bottom:6px}
+/* 収支の見出しはそのまま「日報を開く」ボタン。下までスクロールして
+   ボタンを探さなくていいように、一番上に置いてある */
+.cdhead{display:flex; align-items:baseline; gap:10px; margin-bottom:6px;
+  width:100%; border:0; background:transparent; padding:6px 0; font:inherit; color:inherit;
+  cursor:pointer; text-align:left; -webkit-tap-highlight-color:transparent}
+.cdhead:active{opacity:.6}
+.cdhead .chevi{align-self:center; color:var(--ink-3); flex:none}
 .cdhead b{font-size:14.5px}
 .cdhead .num{margin-left:auto; font-size:20px; font-weight:600}
 .cdhead .num.neg{color:var(--crit)}
@@ -233,7 +258,8 @@ tfoot td{font-weight:600; border-top:1px solid var(--line-strong); border-bottom
 nav.tabs{position:fixed; left:0; right:0; bottom:0; z-index:40;
   background:var(--surface); border-top:1px solid var(--line);
   padding:6px 0 max(10px,env(safe-area-inset-bottom)); display:flex; justify-content:center}
-nav.tabs .in{display:grid; grid-template-columns:repeat(4,1fr); width:100%; max-width:430px}
+/* タブは役割で 2〜5 個に増減する。数を書くとずれるので、並んだぶんを等分する */
+nav.tabs .in{display:grid; grid-auto-flow:column; grid-auto-columns:1fr; width:100%; max-width:430px}
 nav.tabs button{background:none;border:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
   height:52px; color:var(--ink-3); cursor:pointer; font-size:10.5px; font-weight:500}
 nav.tabs button[aria-current="page"]{color:var(--accent); font-weight:600}

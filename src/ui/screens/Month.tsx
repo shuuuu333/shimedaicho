@@ -233,6 +233,11 @@ export function Month() {
 }
 
 function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: string) => string | null }) {
+  /** 「もう一度タップで日報へ」の 1 回目をここで持つ。
+   *  選んだ日（ui.calDay）は画面を離れても残るので、それを条件にすると
+   *  戻ってきた 1 回目のタップでいきなり日報へ飛んでしまう。
+   *  この画面を開いているあいだに押したかどうかだけを見る */
+  const [armed, setArmed] = useState<string | null>(null);
   const L = useApp((s) => s.ledger);
   const ui = useApp((s) => s.ui);
   const setUI = useApp((s) => s.setUI);
@@ -367,19 +372,30 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
             <button type="button" aria-pressed={ui.monthMode === "cal"} onClick={() => setMode("cal")}>カレンダー</button>
           </div>
         </div>
-        <p className="sub" style={{ margin: "0 0 12px" }}>{ui.monthMode === "cal" ? "日付をタップすると、下にその日の収支が出ます" : "棒の高さが1日の売上。下が現金、上がカード。"}</p>
+        <p className="sub" style={{ margin: "0 0 12px" }}>{ui.monthMode === "cal" ? "日付をタップすると収支が出ます。もう一度タップでその日の日報へ。" : "棒の高さが1日の売上。下が現金、上がカード。"}</p>
         {ui.monthMode === "cal"
-          ? <Calendar month={m} series={a.series} selected={ui.calDay} onPick={(k) => setUI({ calDay: ui.calDay === k ? null : k })} />
+          ? <Calendar month={m} series={a.series} selected={ui.calDay}
+              /* 1 回目は下に収支を出すだけ。同じ日をもう一度押したら日報へ飛ぶ。
+                 「見る」と「直しに行く」を 1 本の指の動きでつなげる（ボタンを探して
+                 下までスクロールする手間が、毎日ぶん積み上がるため） */
+              onPick={(k) => { if (armed === k) { openDay(k, 0); return; } setArmed(k); setUI({ calDay: k }); }} />
           : <DailyChart month={m} series={a.series} />}
         {ui.monthMode === "cal" && (calT ? (
           <div className="caldetail">
-            <div className="cdhead"><b>{dayLabel(calT.date)}</b><span className={`num ${calT.profit < 0 ? "neg" : ""}`}>{yen(calT.profit)}</span></div>
+            <button type="button" className="cdhead" onClick={() => openDay(calT.date, 0)}>
+              <b>{dayLabel(calT.date)}</b>
+              <span className={`num ${calT.profit < 0 ? "neg" : ""}`}>{yen(calT.profit)}</span>
+              <ChevRight className="chevi" />
+            </button>
             <div className="lrow"><div className="g"><div className="t">売上</div><div className="s">現金 {jp(calT.cash)} ・ カード {jp(calT.card)}{calT.guests ? ` ・ ${calT.guests}名` : ""}</div></div><div className="a num">{yen(calT.sales)}</div></div>
             <div className="lrow"><div className="g"><div className="t">人件費</div><div className="s">在籍 {jp(calT.laborR)} ・ 派遣 {jp(calT.laborD)}{calT.paidLump ? ` ・ まとめ ${jp(calT.paidLump)}` : ""}</div></div><div className="a num">−{yen(calT.labor)}</div></div>
             <div className="lrow"><div className="g"><div className="t">経費</div><div className="s">うち現金 {jp(calT.expCash)}</div></div><div className="a num">−{yen(calT.exp)}</div></div>
             <div className="lrow"><div className="g"><div className="t">カード手数料</div><div className="s">{L.shop.cardFeeRate}%</div></div><div className="a num">−{yen(calT.fee)}</div></div>
             <div className="lrow total"><div className="g"><div className="t">差引</div><div className="s">日払い {jp(calT.paidCash)} ／ 未払い {jp(calT.unpaid)}</div></div><div className={`a num ${calT.profit < 0 ? "neg" : ""}`}>{yen(calT.profit)}</div></div>
-            <div className="btnrow" style={{ marginTop: 12 }}><button type="button" className="btn sm" onClick={() => openDay(calT.date, 0)}>この日の日報を開く</button></div>
+            <div className="btnrow" style={{ marginTop: 12 }}>
+              <button type="button" className="btn sm" onClick={() => openDay(calT.date, 0)}>この日の日報を開く</button>
+              <button type="button" className="btn sm" onClick={() => openDay(calT.date, 4)}>締めへ</button>
+            </div>
           </div>
         ) : <div className="empty" style={{ padding: "20px 12px" }}>日付をタップすると、その日の収支が出ます</div>)}
       </div>

@@ -237,10 +237,6 @@ export interface PosRule {
   taxOnSet: boolean;
   taxOnExtend: boolean;
   taxOnItems: boolean;
-  /** カード払いのとき、カード手数料をお客様に上乗せして請求するか。
-   *  率は Shop.cardFeeRate（カード会社に取られる率）をそのまま使う。
-   *  false（既定）なら今までどおり店がかぶる */
-  cardFeeOnGuest?: boolean;
   /** 残り何分でアラートを出すか */
   alertBeforeMin: number;
   /** 時間が来たら確認なしで延長を足すか */

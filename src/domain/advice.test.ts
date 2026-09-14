@@ -141,13 +141,16 @@ describe("打ち手の提案", () => {
     expect(a.title).toContain("人件費率");
   });
 
-  it("カード手数料を店がかぶっていれば知らせる。請求する設定なら出さない", () => {
+  it("カード手数料の率が高ければ、決済会社を替える話として知らせる", () => {
     const days = { "2026-09-01": day({ cardSales: 200000, guests: 10 }) };
-    expect(adviceFor(led(days), "2026-09").some((x) => x.id === "cardFee")).toBe(true);
+    const hi = led(days); hi.shop.cardFeeRate = 5;
+    const a = adviceFor(hi, "2026-09").find((x) => x.id === "cardFee")!;
+    expect(a.title).toContain("5％");
+    expect(a.impact).toBeGreaterThan(0);
 
-    const paid = led(days);
-    paid.posRule!.cardFeeOnGuest = true;
-    expect(adviceFor(paid, "2026-09").some((x) => x.id === "cardFee")).toBe(false);
+    // すでに 3％台なら、下げしろが無いので言わない
+    const lo = led(days); lo.shop.cardFeeRate = 3.2;
+    expect(adviceFor(lo, "2026-09").some((x) => x.id === "cardFee")).toBe(false);
   });
 
   it("未回収のツケを知らせる", () => {

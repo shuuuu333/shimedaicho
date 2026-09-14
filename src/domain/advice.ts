@@ -232,15 +232,20 @@ export function adviceFor(L: Ledger, m: string): Advice[] {
     }
   }
 
-  // ⑥ カード手数料を店がかぶっている
-  const rule = L.posRule;
-  if (a.fee >= 3000 && !rule?.cardFeeOnGuest) {
-    out.push({
-      id: "cardFee",
-      title: `カード手数料を ${yen(a.fee)} 店がかぶっています`,
-      body: `設定の「この手数料をお客様に請求する」を入にすると、そのぶんが利益に戻ります。カード会計のときだけ請求に乗ります。`,
-      impact: Math.round(a.fee), kind: "profit",
-    });
+  // ⑥ カード手数料の率が高い
+  //    もらう・もらわないの打ち手は無くなった（レジが必ずお客様に請求する）。
+  //    残るのは「率そのものを下げる」＝決済会社を替える話なので、そう書く
+  const feeRate = L.shop.cardFeeRate ?? 0;
+  if (a.fee >= 5000 && feeRate >= 4) {
+    const save = Math.round((a.fee * (feeRate - 3)) / feeRate);
+    if (save > 0) {
+      out.push({
+        id: "cardFee",
+        title: `カード手数料の率が ${feeRate}％ と高めです`,
+        body: `今月 ${yen(a.fee)} 取られています。3％台の決済会社に替えると月 ${yen(save)} ほど変わります。お客様への請求は率のぶんだけ下がります。`,
+        impact: save, kind: "profit",
+      });
+    }
   }
 
   // ⑦ 回収していないツケ

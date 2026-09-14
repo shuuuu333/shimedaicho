@@ -276,16 +276,16 @@ describe("紙に書いてある時刻から日時を作る", () => {
 });
 
 describe("カード手数料をお客様に請求する", () => {
-  const onGuest: PosRule = { ...RULE, cardFeeOnGuest: true };
+  const onGuest: PosRule = RULE;   // 入切の設定は無い。いつもお客様に請求する
 
-  it("設定が切のうちは、カードでも現金と同じ額", () => {
+  it("率が 0 なら、カードでも現金と同じ額（もらわない店はこれ）", () => {
     const c = check(2, 3000);   // 2名 × ¥3,000 ＝ ¥6,000（税は全部 false）
     expect(P.checkTotals(c, RULE).total).toBe(6000);
-    expect(P.cardTotalOf(c, RULE, 5)).toBe(6000);
+    expect(P.cardTotalOf(c, RULE, 0)).toBe(6000);
     expect(P.checkTotals(c, RULE).cardFee).toBe(0);
   });
 
-  it("入にすると、カードのときだけ上乗せされる", () => {
+  it("カードのときだけ上乗せされる", () => {
     const c = check(2, 3000);
     expect(P.cardTotalOf(c, onGuest, 5)).toBe(6300);      // ＋5%
     expect(P.checkTotals(c, onGuest).total).toBe(6000);   // 伝票そのものは変わらない

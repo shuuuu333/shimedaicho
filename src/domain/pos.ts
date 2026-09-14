@@ -169,15 +169,20 @@ export function checkTotals(c: Check, rule: PosRule): CheckTotals {
 }
 
 /** カード払いのときにお客様からもらう手数料を、伝票に書き込む。
- *  現金のときと、設定で「店がかぶる」にしているときは欄そのものを消す。
+ *  現金のときは欄そのものを消す。
+ *
+ *  入切の設定は持たない。夜の店はカード手数料をお客様からもらうのが当たり前で、
+ *  切りにできる形にしておくと「どっちだったか」を毎回思い出すことになる。
+ *  もらわない店は率を 0 にすれば同じことになる。
  *
  *  率は Shop.cardFeeRate（カード会社に取られる率）を使いまわす。設定を 2 つに
  *  分けると、どちらを直したのか分からなくなるため。
- *  店側の控除（dayTotals.fee・カード未回収）はどちらの設定でも今までどおり効く。
- *  カード会社は誰が負担を決めたかに関わらず取っていくので、そこは事実として変わらない。 */
+ *  店側の控除（dayTotals.fee・カード未回収）は今までどおり効く。
+ *  カード会社は誰が負担したかに関わらず取っていくので、そこは事実として変わらない。
+ *  お客様からもらったぶんが売上に乗るので、差し引きで手取りが現金と同じくらいになる。 */
 export function applyCardFee(c: Check, rule: PosRule, shopFeeRate: number, method: "cash" | "card"): void {
   delete c.cardFee;
-  if (method !== "card" || !rule.cardFeeOnGuest) return;
+  if (method !== "card") return;
   const rate = Number.isFinite(shopFeeRate) ? shopFeeRate : 0;
   if (rate <= 0) return;
   // ここでは cardFee を消してあるので、checkTotals は素の請求額を返す

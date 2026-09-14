@@ -221,22 +221,12 @@ export function Settings() {
           <input className="inp" value={S.invoiceNo ?? ""} placeholder="T1234567890123" onChange={(e) => shop("invoiceNo", e.target.value.trim())} /></label>
         <div className="hint" style={{ margin: "-5px 0 11px" }}>入れておくと領収書に刷られます。持っていない店は空のままで大丈夫です。</div>
         <label className="field"><span className="lbl">カード手数料（％）</span><NumberField decimal value={S.cardFeeRate} onChange={(v) => shop("cardFeeRate", v ?? 0)} /></label>
-        <div className="hint">カード会社に取られる率です。カード売上からこの率を引いた額が「カード未回収」に積まれ、入金を記録すると消えます。</div>
-        <label className="lrow" style={{ cursor: "pointer" }}>
-          <div className="g">
-            <div className="t">この手数料をお客様に請求する</div>
-            <div className="s">
-              {rule.cardFeeOnGuest
-                ? `レジでカードを選ぶと、ご請求に ＋${S.cardFeeRate}％ が乗ります`
-                : "いまは店がかぶっています（ご請求は現金と同じ額）"}
-            </div>
-          </div>
-          <input type="checkbox" checked={!!rule.cardFeeOnGuest}
-            onChange={(e) => update((D) => { (D.posRule ??= defaultPosRule()).cardFeeOnGuest = e.target.checked || undefined; })} />
-        </label>
         <div className="hint">
-          お客様に請求しても、カード会社に取られるぶんは変わらないので、上の控除はどちらの設定でも効きます。
-          お客様からもらったぶんが売上に乗るので、手取りが現金と同じくらいになります。
+          {S.cardFeeRate > 0
+            ? <>レジでカードを選ぶと、ご請求に <b>＋{S.cardFeeRate}％</b> が自動で乗ります。
+                同じ率がカード会社にも取られるので、差し引きで手取りが現金と同じくらいになります。</>
+            : <>いまは 0％ なので、カードでも現金と同じ額をご請求します。</>}
+          {" "}手数料をもらわない店は 0 のままにしてください。
         </div>
       </div>
 

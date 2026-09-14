@@ -95,15 +95,20 @@ export function DayReport() {
 
   return (
     <>
+      {/* 送りの矢印は左右の端に固定する。「今日へ戻る」を同じ行に並べると
+          右の矢印だけ内側に寄って、左右が揃わなくなる（スマホだと目立つ）。
+          戻る導線は日付の下に置いた。今日を見ているあいだは出ない */}
       <div className="datebar">
         <button type="button" className="mb" aria-label="前の日" onClick={() => openDay(shiftDay(dk, -1), 0)}><ChevLeft size={17} /></button>
-        <label className="mid pick">
-          <span className="d">{Number(dk.slice(5, 7))}月{Number(dk.slice(8, 10))}日（{WD[new Date(dk + "T00:00:00").getDay()]}）</span>
-          <span className="s">{isToday ? "今日" : dk}</span>
-          <input type="date" value={dk} aria-label="日付" onChange={(e) => openDay(e.target.value || todayISO(), 0)} />
-        </label>
+        <div className="mid">
+          <label className="pick">
+            <span className="d">{Number(dk.slice(5, 7))}月{Number(dk.slice(8, 10))}日（{WD[new Date(dk + "T00:00:00").getDay()]}）</span>
+            <span className="s">{isToday ? "今日" : dk}</span>
+            <input type="date" value={dk} aria-label="日付" onChange={(e) => openDay(e.target.value || todayISO(), 0)} />
+          </label>
+          {!isToday && <button type="button" className="todaybtn" onClick={() => openDay(todayISO(), 0)}>今日へ戻る</button>}
+        </div>
         <button type="button" className="mb" aria-label="次の日" onClick={() => openDay(shiftDay(dk, 1), 0)}><ChevRight size={17} /></button>
-        {!isToday && <button type="button" className="mb today" onClick={() => openDay(todayISO(), 0)}>今日</button>}
       </div>
 
       <div className="steps" role="tablist" aria-label="締めの手順">
