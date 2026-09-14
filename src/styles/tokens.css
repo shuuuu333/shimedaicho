@@ -25,6 +25,10 @@
      数字 1 文字ぶんの枠に入るので、数字のあいだに点が浮いて見えていた。
      本文の書体でも数字の幅はそろっているので、表の桁は今までどおり並ぶ。 */
   --font-num:"IBM Plex Sans JP","Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
+  /* 画面の下に貼り付ける帯（会計バー・日報の「次へ」）の位置。
+     浮いているタブの帯（高さ 54px、下に max(10px, セーフエリア)）の上に、
+     10px だけ空けて置く。数字を 2 か所に書くとどちらかを直し忘れる */
+  --dock:calc(64px + max(10px, env(safe-area-inset-bottom)));
   --r-card:16px; --r-tile:14px; --r-btn:14px; --r-chip:999px;
   --gutter:16px;
 }

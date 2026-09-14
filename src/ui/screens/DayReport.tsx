@@ -21,6 +21,7 @@ import { detectMisses, diagnoseCash } from "../../domain/diagnose";
 import { countSent } from "../../state/notify";
 import { useSwipe } from "../useSwipe";
 import { Num } from "../components/Num";
+import { Docked } from "../components/Docked";
 
 const STEPS = ["売上", "出勤", "派遣", "経費", "締め"];
 
@@ -136,7 +137,7 @@ export function DayReport() {
       {step === 4 && <CloseStep L={L} dk={dk} d={d} edit={edit} t={t} updateWithUndo={updateWithUndo} />}
 
       <div className="wizspacer" />
-      <div className="wizfoot">
+      <Docked><div className="wizfoot">
         {step > 0 && <button type="button" className="btn" onClick={() => go(step - 1)}>戻る</button>}
         {step < 4
           ? <button type="button" className="btn primary" onClick={() => go(step + 1)}>次へ：{STEPS[step + 1]}</button>
@@ -146,7 +147,7 @@ export function DayReport() {
               setUI({ tab: "month", month: dk.slice(0, 7), sheet: null });
               window.scrollTo(0, 0);
             }}>締め完了・今月を見る</button>}
-      </div>
+      </div></Docked>
 
       {ui.sheet?.kind === "cast" && <CastSheet L={L} dk={dk} d={d} castId={ui.sheet.id} edit={edit} onClose={() => setUI({ sheet: null })} />}
       {ui.sheet?.kind === "disp" && <DispSheet L={L} d={d} rowId={ui.sheet.id} edit={edit} onClose={() => setUI({ sheet: null })} />}

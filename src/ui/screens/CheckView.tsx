@@ -9,6 +9,7 @@ import { NumberField } from "../components/NumberField";
 import { ChevLeft } from "../icons";
 import { PayView } from "./PayView";
 import { CustomerBill } from "./CustomerBill";
+import { Docked } from "../components/Docked";
 import { useCloud } from "../../state/cloud";
 import { hhmm } from "./Register";
 import type { CheckLine, MenuItem } from "../../domain/types";
@@ -167,11 +168,11 @@ export function CheckView({ id }: { id: string }) {
         </div>
       )}
 
-      <div className="paybar">
+      <Docked><div className="paybar">
         <span>合計 <b>{yen(t.total)}</b></span>
         <button type="button" className="btn show" onClick={() => setShowing(true)}>お客様に見せる</button>
         <button type="button" className="btn primary" onClick={() => setPaying(true)}>会計へ</button>
-      </div>
+      </div></Docked>
 
       {/* 1タップ目の商品に対して、誰の分かを選ぶ */}
       <BottomSheet open={!!picking} title={`${picking?.name ?? ""} は誰の分？`} onClose={() => setPicking(null)}>

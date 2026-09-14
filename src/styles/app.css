@@ -51,14 +51,14 @@
 /* 次へ／戻るは、下のタブのすぐ上に固定する。
    sticky だと、ステップを切り替えて中身の高さが変わったときに
    画面のまん中に浮いて見えることがあったため。 */
-.wizfoot{position:fixed; left:0; right:0; bottom:calc(66px + env(safe-area-inset-bottom));
+.wizfoot{position:fixed; left:0; right:0; bottom:var(--dock);
   z-index:35; display:flex; gap:9px; width:100%; max-width:430px; margin:0 auto;
   padding:10px var(--gutter) 12px; background:var(--bg); border-top:1px solid var(--line)}
 .wizfoot .btn{min-height:52px; font-size:15.5px; border-radius:var(--r-btn)}
 .wizfoot .btn.primary{flex:1}
 .wizfoot .btn.back{width:88px; flex:none}
 /* 固定した分だけ、中身の下に余白をあける */
-.wizspacer{height:78px}
+.wizspacer{height:88px}
 
 /* キャストのチップ */
 .chipgrid{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px}
@@ -352,7 +352,7 @@
 .chipgrid .chip{min-height:46px}
 
 /* 会計バー。下タブのすぐ上に固定する（日報の wizfoot と同じ考え方） */
-.paybar{position:fixed; left:0; right:0; bottom:calc(66px + env(safe-area-inset-bottom)); z-index:5;
+.paybar{position:fixed; left:0; right:0; bottom:var(--dock); z-index:5;
   display:flex; align-items:center; gap:12px; padding:10px var(--gutter);
   background:var(--surface); border-top:1px solid var(--line-strong)}
 .paybar>span{flex:1; font-size:13px; color:var(--ink-2)}
@@ -362,7 +362,7 @@
 /* 「お客様に見せる」は会計ボタンの隣に置く。折り返すと 2 行になって背が変わるので、
    幅は中身なり・改行なしにしてある */
 .paybar .btn.show{min-width:0; white-space:nowrap; padding:0 12px; font-size:13px}
-.paybarspacer{height:8px}
+.paybarspacer{height:76px}
 
 .cashrow{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; margin:10px 0}
 .cashrow .btn{padding:0 6px; font-size:12.5px}
