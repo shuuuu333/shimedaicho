@@ -355,7 +355,7 @@ function DispatchStep({ L, d, dk, edit, t, openSheet, updateWithUndo }: { L: Led
           <div key={row.id}>
           <div className="wrow" style={{ padding: "6px 6px 6px 12px", marginBottom: 6 }}>
             <button type="button" className="g" style={{ all: "unset", flex: 1, minWidth: 0, cursor: "pointer", display: "block" }} onClick={() => openSheet(row.id)}>
-              <span className="t" style={{ display: "block" }}><span className="tag" style={{ fontSize: 10, color: "var(--accent)", marginRight: 6 }}>派遣</span>{(row.name || "").trim() || <span className="warn">名前を入れる</span>}</span>
+              <span className="t" style={{ display: "block" }}><span className="tag" style={{ fontSize: 11, color: "var(--accent)", marginRight: 6 }}>派遣</span>{(row.name || "").trim() || <span className="warn">名前を入れる</span>}</span>
               <span className="s" style={{ display: "block" }}>日給 {jp(p.guarantee)}{p.backTotal ? ` ・ バック ${jp(p.backTotal)}` : ""}{p.paid ? ` ・ 日払い ${jp(p.paid)}` : ""}</span>
             </button>
             <span className="a num" onClick={() => openSheet(row.id)}>{yen(p.gross)}</span>

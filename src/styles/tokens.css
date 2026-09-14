@@ -15,6 +15,14 @@
   --grid:#EDEFF3; --axis:#D5DAE2;
   --shadow:0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.08);
   --shadow-lg:0 4px 6px -2px rgba(16,24,40,.05), 0 12px 16px -4px rgba(16,24,40,.10);
+  /* 文字の大きさ。iOS の Dynamic Type（既定の Large）と同じ段にしてある。
+     Caption2 11 / Caption1 12 / Footnote 13 / Subhead 15 / Callout 16 /
+     Body 17 / Title3 20 / Title2 22 / Title1 28 / LargeTitle 34。
+     以前は 8.5〜40px で 24 種類あり、半端な段が混ざっていた。
+     Apple は Caption2 に 11pt の下限を置いている。それより小さい字は使わない */
+  --t-c2:11px; --t-c1:12px; --t-foot:13px; --t-sub:15px; --t-call:16px;
+  --t-body:17px; --t-t3:20px; --t-t2:22px; --t-t1:28px; --t-large:34px;
+
   /* 動きの曲線。SwiftUI のばねをそのまま解いて点にしたもの。
      ・--spring-touch … interactiveSpring()（response 0.15 / damping 0.86）
        指で動かしたものが収まるときの動き。0.211 秒で、ほんの少し行き過ぎる

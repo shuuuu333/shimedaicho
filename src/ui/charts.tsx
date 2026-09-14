@@ -440,8 +440,8 @@ export function CastCumChart({ month, days, prevDays }: {
       {days.length > 0 && (
         <circle cx={x(days[days.length - 1].day)} cy={y(days[days.length - 1].cum)} r="3.4" fill={C.rest} />
       )}
-      <text x={padL} y={H - 2} className="ct" style={{ fontSize: 9.5 }}>1日</text>
-      <text x={W - padL} y={H - 2} textAnchor="end" className="ct" style={{ fontSize: 9.5 }}>{dim}日</text>
+      <text x={padL} y={H - 2} className="ct" style={{ fontSize: 11 }}>1日</text>
+      <text x={W - padL} y={H - 2} textAnchor="end" className="ct" style={{ fontSize: 11 }}>{dim}日</text>
     </svg>
   );
 }

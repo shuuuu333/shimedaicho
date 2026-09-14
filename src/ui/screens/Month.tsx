@@ -291,7 +291,7 @@ function MonthView({ seg, defaultCalDay }: { seg: ReactNode; defaultCalDay: (m: 
       {isCur && (!todayDone || missing.length > 0) && (
         <div className="todo">
           {!todayDone && (
-            <button type="button" className="btn primary wide" style={{ minHeight: 52, fontSize: 15.5 }} onClick={() => openDay(today, 0)}>
+            <button type="button" className="btn primary wide" style={{ minHeight: 52, fontSize: 15 }} onClick={() => openDay(today, 0)}>
               <Plus size={18} />今日の日報をつける
             </button>
           )}

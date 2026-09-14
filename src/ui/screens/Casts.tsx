@@ -162,7 +162,7 @@ export function Casts() {
             <button type="button" className="btn sm" style={{ minWidth: 104, justifyContent: "space-between" }}
               aria-label={`${c.name || "キャスト"}の時給を変える`} onClick={() => setWageFor(c.id)}>
               <span className="num" style={{ fontWeight: 600, color: "var(--ink)" }}>{jp(castWageAt(c, L.shop, m))}</span>
-              <span style={{ fontSize: 10.5, color: "var(--ink-3)" }}>
+              <span style={{ fontSize: 11, color: "var(--ink-3)" }}>
                 {(() => {
                   const w = [...(c.wages ?? [])].sort((a, b) => a.from.localeCompare(b.from));
                   const cur = [...w].reverse().find((x) => x.from <= m);

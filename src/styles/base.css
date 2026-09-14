@@ -26,7 +26,7 @@ input,select,textarea{font:inherit; color:inherit}
 .topbar{position:sticky; top:0; z-index:30; background:var(--bg);
   padding:calc(14px + env(safe-area-inset-top)) var(--gutter) 10px; display:flex; align-items:center; gap:10px}
 .brand{display:flex; align-items:baseline; gap:8px; min-width:0}
-.brand b{font-weight:700; font-size:15.5px; letter-spacing:.01em; white-space:nowrap}
+.brand b{font-weight:700; font-size:15px; letter-spacing:.01em; white-space:nowrap}
 .brand span{font-size:11px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 main{padding:0 var(--gutter)}
 /* タブが変わったとき、隣の画面が同じ向きから滑り込んでくる。
@@ -55,11 +55,11 @@ main.slide-r{animation:slidein-r .2s cubic-bezier(.32,.72,0,1)}
 /* ---------- 面 ---------- */
 .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card);
   padding:16px; margin-bottom:12px; box-shadow:var(--shadow)}
-.card>h2{margin:0 0 2px; font-size:13.5px; font-weight:600; letter-spacing:.01em; color:var(--ink)}
-.card>h2+.sub{margin:0 0 14px; font-size:11.5px; color:var(--ink-3); line-height:1.45}
+.card>h2{margin:0 0 2px; font-size:13px; font-weight:600; letter-spacing:.01em; color:var(--ink)}
+.card>h2+.sub{margin:0 0 14px; font-size:12px; color:var(--ink-3); line-height:1.45}
 .cardhead{display:flex; align-items:center; gap:10px; margin-bottom:10px}
-.cardhead h2{margin:0; flex:1; min-width:0; font-size:13.5px; font-weight:600; color:var(--ink)}
-.cardhead+.sub{margin:0 0 12px; font-size:11.5px; color:var(--ink-3)}
+.cardhead h2{margin:0; flex:1; min-width:0; font-size:13px; font-weight:600; color:var(--ink)}
+.cardhead+.sub{margin:0 0 12px; font-size:12px; color:var(--ink-3)}
 .eyebrow{font-size:12px; color:var(--ink-2); font-weight:600}
 
 /* 見出し行（セクション） */
@@ -93,7 +93,7 @@ main.slide-r{animation:slidein-r .2s cubic-bezier(.32,.72,0,1)}
 /* ---------- タイル ---------- */
 .tiles{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:12px}
 .tile{background:var(--surface); border:1px solid var(--line); border-radius:var(--r-tile); padding:12px 14px; box-shadow:var(--shadow)}
-.tile .k{font-size:11.5px; color:var(--ink-2); font-weight:500; display:flex; align-items:center; gap:6px; min-width:0}
+.tile .k{font-size:12px; color:var(--ink-2); font-weight:500; display:flex; align-items:center; gap:6px; min-width:0}
 .tile .v{font-size:20px; overflow-wrap:anywhere; font-weight:600; margin-top:2px;
   font-family:var(--font-num); font-variant-numeric:tabular-nums; letter-spacing:-.02em}
 .tile .n{font-size:11px; color:var(--ink-3); overflow-wrap:anywhere}
@@ -114,12 +114,12 @@ main.slide-r{animation:slidein-r .2s cubic-bezier(.32,.72,0,1)}
 .mstep button:active{background:var(--surface-3)}
 .mstep button+button{box-shadow:inset 1px 0 0 var(--line)}
 .titlebar .y{font-family:var(--font-num); font-size:12px; color:var(--ink-3); font-weight:500}
-.titlebar .m{font-size:30px; font-weight:700; letter-spacing:-.01em; line-height:1.1}
-.titlebar .sp{margin-left:auto; font-size:11.5px; color:var(--ink-3)}
+.titlebar .m{font-size:28px; font-weight:700; letter-spacing:-.01em; line-height:1.1}
+.titlebar .sp{margin-left:auto; font-size:12px; color:var(--ink-3)}
 .monthbar{display:flex; align-items:center; gap:10px; margin-bottom:12px}
-.monthbar .lbl{font-weight:700; font-size:21px; letter-spacing:-.01em}
-.monthbar .sp{margin-left:auto; font-size:11.5px; color:var(--ink-3); text-align:right}
-.monthbar .sp b{display:block; font-size:19px; font-weight:600; color:var(--ink);
+.monthbar .lbl{font-weight:700; font-size:22px; letter-spacing:-.01em}
+.monthbar .sp{margin-left:auto; font-size:12px; color:var(--ink-3); text-align:right}
+.monthbar .sp b{display:block; font-size:20px; font-weight:600; color:var(--ink);
   font-family:var(--font-num)}
 .mb.today{width:auto; padding:0 14px; font-size:13px; font-weight:600; color:var(--accent); background:var(--accent-soft)}
 
@@ -141,7 +141,7 @@ main.slide-r{animation:slidein-r .2s cubic-bezier(.32,.72,0,1)}
              background-color .2s ease, box-shadow .2s ease}
 .seglens.held{background:var(--lens-held); box-shadow:0 1px 0 0 var(--glass-rim) inset, 0 3px 10px -2px rgba(16,24,40,.26)}
 .seg button{position:relative; z-index:1; border:0; background:transparent; padding:0 14px;
-  min-height:38px; font-size:12.5px; font-weight:500;
+  min-height:38px; font-size:12px; font-weight:500;
   color:var(--ink-3); cursor:pointer; white-space:nowrap; border-radius:9px;
   -webkit-tap-highlight-color:transparent; transition:color .2s ease}
 /* なぞって指が来た升。まだ決まっていなくても先に光って、行き先が見える */
@@ -160,7 +160,7 @@ main.slide-r{animation:slidein-r .2s cubic-bezier(.32,.72,0,1)}
 
 /* ---------- 入力 ---------- */
 .field{display:block; margin-bottom:12px}
-.field .lbl{display:block; font-size:11.5px; color:var(--ink-2); margin-bottom:5px; font-weight:500}
+.field .lbl{display:block; font-size:12px; color:var(--ink-2); margin-bottom:5px; font-weight:500}
 .inp{width:100%; min-width:0; background:var(--surface-2); border:1px solid transparent; border-radius:12px;
   padding:12px 13px; font-size:16px; color:var(--ink); min-height:46px}
 .inp:focus{border-color:var(--accent); background:var(--surface)}
@@ -169,13 +169,13 @@ main.slide-r{animation:slidein-r .2s cubic-bezier(.32,.72,0,1)}
 .row2{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:10px}
 .row3{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px}
 .row3 .inp{font-size:15px; padding:11px 9px}
-.hint{font-size:11.5px; color:var(--ink-3); margin-top:6px; line-height:1.45}
+.hint{font-size:12px; color:var(--ink-3); margin-top:6px; line-height:1.45}
 .hint b{color:var(--ink); font-weight:600}
 
 /* ---------- ボタン ---------- */
 .btn{display:inline-flex; align-items:center; justify-content:center; gap:7px;
   background:var(--surface-2); border:0; border-radius:12px;
-  padding:0 16px; min-height:44px; font-size:14.5px; font-weight:600; cursor:pointer; color:var(--ink-2)}
+  padding:0 16px; min-height:44px; font-size:15px; font-weight:600; cursor:pointer; color:var(--ink-2)}
 .btn:active{opacity:.75}
 .btn.primary{background:var(--accent); color:var(--accent-ink)}
 .btn.ghost{background:transparent; border:1px solid var(--line-strong)}
@@ -189,13 +189,13 @@ main.slide-r{animation:slidein-r .2s cubic-bezier(.32,.72,0,1)}
    チップは素のボタンのままだったので、見た目が付いていなかった */
 .todo{margin-bottom:14px}
 .chips{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:10px}
-.chiplbl{flex:none; font-size:11.5px; font-weight:500; color:var(--ink-3)}
+.chiplbl{flex:none; font-size:12px; font-weight:500; color:var(--ink-3)}
 .chip{display:inline-flex; align-items:center; justify-content:center;
   background:var(--surface); border:1px solid var(--line-strong); border-radius:var(--r-chip);
-  padding:0 13px; min-height:36px; font-size:12.5px; font-weight:500; color:var(--ink-2);
+  padding:0 13px; min-height:36px; font-size:12px; font-weight:500; color:var(--ink-2);
   cursor:pointer; white-space:nowrap; -webkit-tap-highlight-color:transparent}
 .chip:active{background:var(--surface-2)}
-.btn.chip{border:0; background:var(--surface-2); min-height:44px; font-size:14.5px; color:var(--ink-2)}
+.btn.chip{border:0; background:var(--surface-2); min-height:44px; font-size:15px; color:var(--ink-2)}
 .btn.chip[aria-pressed="true"]{background:var(--accent-soft); color:var(--accent)}
 
 /* 日付・月の送り。丸ボタンで 44px。
@@ -211,11 +211,11 @@ main.slide-r{animation:slidein-r .2s cubic-bezier(.32,.72,0,1)}
 .lrow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
 .lrow:last-child{border-bottom:0}
 .lrow .g{flex:1;min-width:0}
-.lrow .t{font-weight:500;font-size:14.5px}
-.lrow .s{font-size:11.5px;color:var(--ink-3)}
+.lrow .t{font-weight:500;font-size:15px}
+.lrow .s{font-size:12px;color:var(--ink-3)}
 .lrow .a{font-family:var(--font-num);font-variant-numeric:tabular-nums;font-weight:600}
 .total{border-top:1px solid var(--line-strong); margin-top:4px}
-.total .a{font-size:19px}
+.total .a{font-size:20px}
 .neg{color:var(--crit)}
 .muted{color:var(--ink-3)}
 .sec{margin-top:18px}
@@ -226,14 +226,14 @@ main.slide-r{animation:slidein-r .2s cubic-bezier(.32,.72,0,1)}
 .setrow:active{opacity:.7}
 .setrow .g{flex:1; min-width:0; display:block}
 .setrow .t{display:block; font-weight:500; font-size:15px}
-.setrow .s{display:block; font-size:11.5px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.setrow .s{display:block; font-size:12px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .chevi{flex:none; color:var(--ink-3)}
 
 /* ---------- 表 ---------- */
 .tw{overflow-x:auto; -webkit-overflow-scrolling:touch; margin:0 -2px}
-table{border-collapse:collapse; width:100%; font-size:12.5px}
+table{border-collapse:collapse; width:100%; font-size:12px}
 th,td{padding:9px 8px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--line)}
-th{font-size:10.5px; letter-spacing:.02em; color:var(--ink-3); font-weight:600; text-align:right}
+th{font-size:11px; letter-spacing:.02em; color:var(--ink-3); font-weight:600; text-align:right}
 th:first-child,td:first-child{text-align:left; padding-left:2px}
 td.n{font-family:var(--font-num); font-variant-numeric:tabular-nums}
 tr:last-child td{border-bottom:0}
@@ -246,13 +246,13 @@ tfoot td{font-weight:600; border-top:1px solid var(--line-strong); border-bottom
 /* ---------- グラフ ---------- */
 .chart{position:relative}
 .chart svg{display:block; width:100%; height:auto; overflow:visible}
-.legend{display:flex; flex-wrap:wrap; gap:11px; margin:10px 0 2px; font-size:10.5px; color:var(--ink-2)}
+.legend{display:flex; flex-wrap:wrap; gap:11px; margin:10px 0 2px; font-size:11px; color:var(--ink-2)}
 .legend span{display:flex; align-items:center; gap:5px}
 .legend i{display:inline-block;width:8px;height:8px;border-radius:2px}
 .xaxis{display:flex; justify-content:space-between; font-family:var(--font-num);
-  font-size:9.5px; color:var(--ink-3); margin-top:3px}
+  font-size:11px; color:var(--ink-3); margin-top:3px}
 .tip{position:absolute; pointer-events:none; z-index:5; background:var(--surface);
-  border:1px solid var(--line-strong); border-radius:10px; padding:8px 10px; font-size:11.5px;
+  border:1px solid var(--line-strong); border-radius:10px; padding:8px 10px; font-size:12px;
   box-shadow:var(--shadow-lg); min-width:124px; opacity:0; transition:opacity .1s}
 .tip.on{opacity:1}
 .tip .d{font-weight:600; margin-bottom:5px; font-size:12px}
@@ -261,13 +261,13 @@ tfoot td{font-weight:600; border-top:1px solid var(--line-strong); border-bottom
 
 /* ---------- カレンダー ---------- */
 .cal-head{display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:5px}
-.cal-head span{text-align:center; font-size:10px; font-weight:600; color:var(--ink-3)}
+.cal-head span{text-align:center; font-size:11px; font-weight:600; color:var(--ink-3)}
 .cal-grid{display:grid; grid-template-columns:repeat(7,1fr); gap:4px}
 .cal-cell{position:relative; border:0; border-radius:10px; background:var(--surface-2);
   padding:5px 4px 6px; min-height:54px; display:flex; flex-direction:column; align-items:stretch;
   gap:2px; cursor:pointer; text-align:left; font:inherit; color:inherit; overflow:hidden}
 .cal-cell.blank{background:transparent; pointer-events:none}
-.cal-cell .cd{font-size:10px; color:var(--ink-3); font-family:var(--font-num); line-height:1.2}
+.cal-cell .cd{font-size:11px; color:var(--ink-3); font-family:var(--font-num); line-height:1.2}
 .cal-cell .cv{font-size:11px; font-weight:600; font-family:var(--font-num);
   font-variant-numeric:tabular-nums; line-height:1.25; letter-spacing:-.02em; word-break:break-all}
 .cal-cell .cv.neg{color:var(--crit)}
@@ -284,7 +284,7 @@ tfoot td{font-weight:600; border-top:1px solid var(--line-strong); border-bottom
   cursor:pointer; text-align:left; -webkit-tap-highlight-color:transparent}
 .cdhead:active{opacity:.6}
 .cdhead .chevi{align-self:center; color:var(--ink-3); flex:none}
-.cdhead b{font-size:14.5px}
+.cdhead b{font-size:15px}
 .cdhead .num{margin-left:auto; font-size:20px; font-weight:600}
 .cdhead .num.neg{color:var(--crit)}
 
@@ -337,7 +337,7 @@ nav.tabs .glass.held{transform:translateY(-1px);
    1 段濃くして太らせ、どんな中身の上でも読めるようにしてある */
 nav.tabs button{position:relative; z-index:1; background:none; border:0;
   display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px;
-  height:54px; color:var(--ink-2); cursor:pointer; font-size:10.5px; font-weight:600;
+  height:54px; color:var(--ink-2); cursor:pointer; font-size:11px; font-weight:600;
   -webkit-tap-highlight-color:transparent;
   transition:color .2s ease}
 nav.tabs button svg{width:22px; height:22px; transition:transform var(--spring-touch-ms) var(--spring-touch)}
@@ -355,13 +355,13 @@ nav.tabs button:active svg{transform:scale(.92)}
 .app{padding-bottom:calc(92px + env(safe-area-inset-bottom))}
 
 /* ---------- 補助 ---------- */
-.pill{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;
   border-radius:999px;padding:3px 9px}
 .pill.ok{color:var(--good); background:var(--good-bg)}
 .pill.bad{color:var(--crit); background:var(--crit-bg)}
 .pill.warn{color:var(--warn); background:var(--surface-2)}
 .notice{display:flex; align-items:flex-start; gap:11px; border:0; border-radius:var(--r-tile);
-  background:var(--surface-2); padding:13px 14px; margin-bottom:12px; font-size:12.5px;
+  background:var(--surface-2); padding:13px 14px; margin-bottom:12px; font-size:12px;
   color:var(--ink-2); line-height:1.6}
 .notice .ic{flex:none; width:22px; height:22px; border-radius:999px; display:grid; place-items:center;
   background:var(--surface); color:var(--warn); margin-top:-1px}
@@ -374,7 +374,7 @@ nav.tabs button:active svg{transform:scale(.92)}
 .notice.bad .t{color:var(--crit)}
 /* 現金が合わないときの原因の候補。上に出るものが一番あやしい */
 .hintlist{list-style:none; margin:8px 0 0; padding:0; display:flex; flex-direction:column; gap:6px;
-  font-size:12.5px; color:var(--ink-2); line-height:1.6}
+  font-size:12px; color:var(--ink-2); line-height:1.6}
 .hintlist li{position:relative; padding-left:14px}
 .hintlist li::before{content:""; position:absolute; left:2px; top:.62em; width:5px; height:5px;
   border-radius:999px; background:currentColor; opacity:.45}

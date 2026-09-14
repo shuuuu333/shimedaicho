@@ -363,11 +363,13 @@ function CalGrid({ m, dim, lead, today, sel, onPick, cell }: {
               aria-label={`${Number(m.slice(5, 7))}月${d}日 ${st.total ? `${st.total}人 ${st.names.join("、")}` : "なし"}`}>
               <span className="cd">{d}</span>
               {/* 名前の頭 1 文字を出す。数字だけだと「何人か」は分かっても
-                  「誰か」が分からず、結局 1 日ずつ開くことになる */}
+                  「誰か」が分からず、結局 1 日ずつ開くことになる。
+                  3 人以上のときは頭 1 文字だけにする。2 文字＋「+3」は
+                  升（約 40px）に入りきらず、折り返して 2 行になっていた */}
               {st.total > 0 && (
                 <span className="cwho" aria-hidden="true">
-                  {st.names.slice(0, 2).map((n) => n[0]).join("")}
-                  {st.total > 2 ? <i>+{st.total - 2}</i> : null}
+                  {st.names.slice(0, st.total > 2 ? 1 : 2).map((n) => n[0]).join("")}
+                  {st.total > 2 ? <i>+{st.total - 1}</i> : null}
                 </span>
               )}
             </button>

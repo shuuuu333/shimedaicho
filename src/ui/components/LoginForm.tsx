@@ -47,7 +47,7 @@ export function LoginForm({ onDone }: { onDone?: () => void }) {
           <div className="g"><div className="t">届いた 6 桁を入れる</div><div className="s">件名は「締め台帳 ログインコード」</div></div></div>
 
         <label className="field" style={{ marginTop: 12 }}>
-          <input className="inp num big" style={{ textAlign: "center", letterSpacing: ".38em", fontSize: 30 }} type="text"
+          <input className="inp num big" style={{ textAlign: "center", letterSpacing: ".38em", fontSize: 28 }} type="text"
             inputMode="numeric" autoComplete="one-time-code" maxLength={10} placeholder="000000" value={code} autoFocus
             aria-label="メールに書かれたコード"
             onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}

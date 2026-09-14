@@ -52,7 +52,7 @@ export function CloudCard() {
           {c.error && <div style={{ marginTop: 8 }}><Notice bad>{c.error}</Notice></div>}
 
           <div className="sec">
-            <span className="lbl" style={{ display: "block", fontSize: 11.5, color: "var(--ink-2)", marginBottom: 4 }}>店</span>
+            <span className="lbl" style={{ display: "block", fontSize: 12, color: "var(--ink-2)", marginBottom: 4 }}>店</span>
             {c.shops.length > 0 && (
               <select className="inp" value={c.shopId ?? ""} onChange={(e) => c.selectShop(e.target.value || null)}>
                 <option value="">— 選んでください —</option>
@@ -91,10 +91,10 @@ export function CloudCard() {
                 return (
                   <div key={mb.email} style={{ borderBottom: "1px solid var(--line)", padding: "9px 0" }}>
                     <div className="lrow" style={{ padding: 0, borderBottom: 0 }}>
-                      <div className="g"><div className="t" style={{ fontSize: 13.5 }}>{label(mb)}</div>
+                      <div className="g"><div className="t" style={{ fontSize: 13 }}>{label(mb)}</div>
                         <div className="s">{mb.role === "owner" ? "オーナー" : mb.role === "cast" ? `キャスト${linked ? ` ・ ${linked.name}` : "（結び付け待ち）"}` : "スタッフ"}</div></div>
                       {mb.role === "cast" && (
-                        <select className="inp" style={{ width: 116, padding: "8px 6px", fontSize: 12.5, minHeight: 38 }}
+                        <select className="inp" style={{ width: 116, padding: "8px 6px", fontSize: 12, minHeight: 38 }}
                           aria-label="どのキャストか" value={linked?.id ?? ""} disabled={c.busy}
                           onChange={(e) => {
                             const id = e.target.value || null;
@@ -117,7 +117,7 @@ export function CloudCard() {
                     </div>
                     {mb.role === "cast" && (
                       <label className="lrow" style={{ padding: "6px 0 0", borderBottom: 0, cursor: "pointer" }}>
-                        <div className="g"><div className="t" style={{ fontSize: 12.5 }}>レジを打たせる</div>
+                        <div className="g"><div className="t" style={{ fontSize: 12 }}>レジを打たせる</div>
                           <div className="s">
                             {mb.can_register
                               ? "卓で会計できます。取消・値引き・ほかの子の打刻はできません"
