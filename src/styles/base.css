@@ -35,6 +35,10 @@ main{padding:0 var(--gutter)}
 @keyframes slidein-r{from{transform:translateX(-34px);opacity:.55}to{transform:none;opacity:1}}
 main.slide-l{animation:slidein-l .2s cubic-bezier(.32,.72,0,1)}
 main.slide-r{animation:slidein-r .2s cubic-bezier(.32,.72,0,1)}
+/* カレンダーの月送り。タブと同じ速さ・同じ曲線にしてある。
+   同じアプリの中に滑る速さが 2 つあると、作りが揃っていないように見える */
+.cal-slide-l{animation:slidein-l .2s cubic-bezier(.32,.72,0,1)}
+.cal-slide-r{animation:slidein-r .2s cubic-bezier(.32,.72,0,1)}
 .view{display:none} .view.on{display:block}
 
 /* 保存チップ */

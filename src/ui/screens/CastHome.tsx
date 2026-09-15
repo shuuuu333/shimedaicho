@@ -18,11 +18,13 @@ import { castBacks, castDays, castStats } from "../../domain/castStats";
 import { myDayState, planTimes } from "../../domain/plans";
 import { wishesOn } from "../../domain/wishes";
 import { payOf } from "../../domain/calc";
-import { WD, dayLabel, daysInMonth, jp, monthLabel, shiftMonth, todayISO, yen } from "../../domain/format";
+import { WD, dayLabel, daysInMonth, jp, monthLabel, shiftMonth, todayISO, untilLabel, yen } from "../../domain/format";
 import { MonthBar } from "../components/MonthBar";
 import { CastCumChart } from "../charts";
 import { WishCard } from "../components/WishCard";
 import { useSwipe } from "../useSwipe";
+import { useMonthSlide } from "../useMonthSlide";
+import { TimeStep } from "../components/TimeStep";
 import type { Cast, Ledger } from "../../domain/types";
 
 export function CastPay({ me }: { me: Cast }) {
@@ -171,6 +173,7 @@ export function CastShift({ me }: { me: Cast }) {
   const dim = daysInMonth(m);
   const lead = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1, 1).getDay();
   const swipe = useSwipe({ stop: true, onCommit: (dir) => { setUI({ month: shiftMonth(m, dir), calDay: null }); setSel(null); } });
+  const slide = useMonthSlide(m);
 
   return (
     <>
@@ -184,7 +187,7 @@ export function CastShift({ me }: { me: Cast }) {
         </div>
         <div className="cal-head">{WD.map((w) => <span key={w}>{w}</span>)}</div>
         {/* 払って前後の月へ。上の月送りまで指を伸ばさなくていい */}
-        <div className="cal-grid mycal" {...swipe.bind}>
+        <div className={`cal-grid mycal ${slide.className}`} key={slide.key} {...swipe.bind}>
           {Array.from({ length: lead }, (_, i) => <div key={"b" + i} className="cal-cell blank" aria-hidden="true" />)}
           {Array.from({ length: dim }, (_, i) => i + 1).map((d) => {
             const k = `${m}-${String(d).padStart(2, "0")}`;
@@ -213,16 +216,27 @@ export function CastShift({ me }: { me: Cast }) {
 
       {open && <DayCard L={L} me={me} date={open} today={today} />}
 
-      {/* 次のシフト。何時に行けばいいかが一番知りたいこと */}
+      {/* 次のシフト。何時に行けばいいかが一番知りたいこと。
+          いちばん近い 1 日だけを大きく出す。行が並んでいるだけだと、
+          「次はいつか」を自分で読み取ることになる */}
       <div className="card">
         <h2>次のシフト</h2>
-        {s.ahead.length ? s.ahead.slice(0, 4).map((d) => (
-          <button key={d.date} type="button" className="lrow" onClick={() => setSel(d.date)}>
-            <div className="g"><div className="t">{dayLabel(d.date)}</div>
-              <div className="s">{d.date === today ? "今日" : ""}</div></div>
-            <div className="a num">{d.planIn}-{d.planOut}</div>
-          </button>
-        )) : <div className="empty">これからの予定はまだ入っていません</div>}
+        {s.ahead.length ? (
+          <>
+            <button type="button" className="nextshift" onClick={() => setSel(s.ahead[0].date)}>
+              <span className="when">{untilLabel(s.ahead[0].date, today) || "つぎ"}</span>
+              <span className="d">{dayLabel(s.ahead[0].date)}</span>
+              <span className="t num">{s.ahead[0].planIn}<i> から</i></span>
+            </button>
+            {s.ahead.slice(1, 4).map((d) => (
+              <button key={d.date} type="button" className="lrow" onClick={() => setSel(d.date)}>
+                <div className="g"><div className="t">{dayLabel(d.date)}</div>
+                  <div className="s">{untilLabel(d.date, today)}</div></div>
+                <div className="a num">{d.planIn}-{d.planOut}</div>
+              </button>
+            ))}
+          </>
+        ) : <div className="empty">これからの予定はまだ入っていません</div>}
       </div>
 
       {/* 希望はいちばん下。上の 2 つ（いつ入るか）を見てから出す順になる */}
@@ -237,10 +251,13 @@ function DayCard({ L, me, date, today }: { L: Ledger; me: Cast; date: string; to
   const worked = !!sh?.on;
   const plan = planTimes(L, date, me.id);
   const w = wishesOn(L, date).find((x) => x.castId === me.id);
-  const wished = !!w;
+  const wished = !!w && !w.kind;
   const wishTime = w ? `${w.in || L.shop.openTime}-${w.out || L.shop.closeTime}` : "";
   const past = date < today;
   const p = worked && sh ? payOf(L, me.id, sh, date) : null;
+  /** 出している変更のお願い（あれば） */
+  const req = w && (w.kind === "change" || w.kind === "off")
+    ? { kind: w.kind, in: w.in, out: w.out } : null;
 
   return (
     <div className="card">
@@ -271,6 +288,70 @@ function DayCard({ L, me, date, today }: { L: Ledger; me: Cast; date: string; to
       ) : (
         <div className="empty">この日は入っていません</div>
       )}
+
+      {/* 決まった日を変えたいときの道。
+          いままでは画面の中に無く、LINE に戻るしかなかった。
+          過ぎた日には出さない（直すのは日報の仕事で、締めと食い違う）。
+          決まっていない日にも出さない（そこは「希望」で足りる） */}
+      {plan && !past && <RequestBox me={me} date={date} plan={plan} req={req} />}
+    </div>
+  );
+}
+
+/** 決まったシフトの変更をお願いする所。
+ *
+ *  決めるのは店のまま。ここから出るのは「お願い」で、予定は動かない。
+ *  出したあとに何が起きるかまで書く。出して終わりだと、返事が来るのか
+ *  分からないまま LINE でもう一度聞くことになる。 */
+function RequestBox({ me, date, plan, req }: {
+  me: Cast; date: string; plan: { in: string; out: string };
+  req: { kind: "change" | "off"; in?: string; out?: string } | null;
+}) {
+  const requestChange = useCloud((s) => s.requestChange);
+  const showToast = useApp((s) => s.showToast);
+  const [open, setOpen] = useState(false);
+  const [from, setFrom] = useState(plan.in);
+  const [to, setTo] = useState(plan.out);
+
+  if (req) {
+    return (
+      <>
+        <div className="lrow"><div className="g">
+          <div className="t">{req.kind === "off" ? "「休みたい」と出しています" : "「時間を変えたい」と出しています"}</div>
+          <div className="s">お店の返事を待っています</div>
+        </div><div className="a num">{req.kind === "off" ? "休み" : `${req.in || plan.in}-${req.out || plan.out}`}</div></div>
+        <button type="button" className="btn sm wide" style={{ marginTop: 8 }}
+          onClick={() => { void requestChange(me.id, date, null); showToast("お願いを取り下げました"); }}>
+          お願いを取り下げる
+        </button>
+      </>
+    );
+  }
+
+  if (open) {
+    return (
+      <div className="timebox">
+        <TimeStep label="入り" value={from} onChange={setFrom} />
+        <TimeStep label="上がり" value={to} onChange={setTo} />
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <button type="button" className="btn primary" style={{ flex: 1 }}
+            disabled={from === plan.in && to === plan.out}
+            onClick={() => { void requestChange(me.id, date, "change", { in: from, out: to }); setOpen(false); showToast("お願いを出しました"); }}>
+            {from}-{to} でお願いする
+          </button>
+          <button type="button" className="btn ghost" onClick={() => setOpen(false)}>やめる</button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+      <button type="button" className="btn" style={{ flex: 1 }} onClick={() => setOpen(true)}>時間を変えたい</button>
+      <button type="button" className="btn" style={{ flex: 1 }}
+        onClick={() => { void requestChange(me.id, date, "off"); showToast("「休みたい」と出しました"); }}>
+        この日は休みたい
+      </button>
     </div>
   );
 }

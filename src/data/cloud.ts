@@ -316,23 +316,25 @@ export function subscribeOps(shopId: string, cb: (op: CheckOp) => void): () => v
 /** キャスト本人が書ける唯一の置き場（shift_wishes）。
  *  台帳は owner/staff しか書けないので、希望だけは別のテーブルに置いている。
  *  詳しくは supabase/schema.sql の「シフト希望」の節。 */
-export interface WishWire { cast_id: string; d: string; in_at: string | null; out_at: string | null }
+export interface WishWire { cast_id: string; d: string; in_at: string | null; out_at: string | null; kind?: string | null }
 export interface WishDoneWire { cast_id: string; month: string }
 
 /** 店ぶんの希望を取ってくる。
  *  キャストの端末では RLS が効いて自分の行しか返らない。
  *  テーブルがまだ無い環境では null を返し、呼ぶ側は台帳のものだけで動く */
 export async function pullWishes(shopId: string): Promise<{ rows: WishWire[]; done: WishDoneWire[] } | null> {
-  const a = await sb().from("shift_wishes").select("cast_id, d, in_at, out_at").eq("shop_id", shopId);
+  const a = await sb().from("shift_wishes").select("cast_id, d, in_at, out_at, kind").eq("shop_id", shopId);
   if (a.error) return null;
   const b = await sb().from("shift_wish_done").select("cast_id, month").eq("shop_id", shopId);
   if (b.error) return null;
   return { rows: (a.data ?? []) as WishWire[], done: (b.data ?? []) as WishDoneWire[] };
 }
 
-export async function putWish(shopId: string, castId: string, date: string, t: { in?: string; out?: string }): Promise<void> {
+export async function putWish(shopId: string, castId: string, date: string,
+                              t: { in?: string; out?: string }, kind: string = "want"): Promise<void> {
   const { error } = await sb().from("shift_wishes").upsert(
-    { shop_id: shopId, cast_id: castId, d: date, in_at: t.in ?? null, out_at: t.out ?? null, updated_at: new Date().toISOString() },
+    { shop_id: shopId, cast_id: castId, d: date, in_at: t.in ?? null, out_at: t.out ?? null,
+      kind, updated_at: new Date().toISOString() },
     { onConflict: "shop_id,cast_id,d" },
   );
   if (error) fail(error, "希望を送れませんでした");

@@ -17,8 +17,9 @@ import { useCloud } from "../../state/cloud";
 import { isWishDone, wishDays, wishesOn, wishOf } from "../../domain/wishes";
 import { commonShifts, planFor } from "../../domain/plans";
 import { WD, dayLabel, daysInMonth, monthLabel, shiftMonth, todayISO } from "../../domain/format";
-import { TimeField } from "./TimeField";
+import { TimeStep } from "./TimeStep";
 import { useSwipe } from "../useSwipe";
+import { useMonthSlide } from "../useMonthSlide";
 import type { Cast } from "../../domain/types";
 
 export function WishCard({ me, month, onMonth }: { me: Cast; month: string; onMonth: (m: string) => void }) {
@@ -33,6 +34,8 @@ export function WishCard({ me, month, onMonth }: { me: Cast; month: string; onMo
   const [timeFor, setTimeFor] = useState<string | null>(null);
 
   const days = wishDays(L, month, me.id);
+  /** 出した希望のうち、店が予定にしたぶん */
+  const fixedCount = days.filter((k) => planFor(L, k, me.id)).length;
   const done = isWishDone(L, me.id, month);
   const dim = daysInMonth(month);
   const lead = new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1, 1).getDay();
@@ -78,6 +81,7 @@ export function WishCard({ me, month, onMonth }: { me: Cast; month: string; onMo
     showToast(dates.length > 1 ? `${dates.length}日ぶんの時間を決めました` : "時間を決めました");
   };
 
+  const slide = useMonthSlide(month);
   const swipe = useSwipe({ stop: true, onCommit: (dir) => { onMonth(shiftMonth(month, dir)); setTimeFor(null); } });
 
   /** その日の表示用の時間。空なら店の時間 */
@@ -93,6 +97,17 @@ export function WishCard({ me, month, onMonth }: { me: Cast; month: string; onMo
         {done ? <span className="pill ok">出しました</span> : days.length ? <span className="pill warn">下書き</span> : null}
       </div>
 
+      {/* 丸いしるしだけだと、出したのかどうかが読み取れない。1 行の日本語で言う */}
+      <div className="wstate">
+        {done
+          ? fixedCount > 0
+            ? <>{days.length}日のうち <b>{fixedCount}日が決まりました</b></>
+            : <>{days.length ? <>{monthLabel(month)}ぶん <b>{days.length}日を出しました</b></> : <><b>「入れない」と出しました</b></>}。お店が決めるのを待っています</>
+          : days.length
+            ? <>下書き・<b>{days.length}日</b>えらんでいます。下のボタンを押すまで、お店には出ません</>
+            : <>入れる日をえらんでください</>}
+      </div>
+
       <p className="sub">
         入れる日をタップしてください。押しても<b>予定にはなりません</b>。決めるのはお店です。
         <br /><b>長押し</b>すると、その日の時間をすぐ決められます。<b>左右に払う</b>と月が変わります。
@@ -100,7 +115,7 @@ export function WishCard({ me, month, onMonth }: { me: Cast; month: string; onMo
 
       <div className="cal-head">{WD.map((w) => <span key={w}>{w}</span>)}</div>
       {/* 払って前後の月へ。上の月送りまで指を伸ばさなくていい */}
-      <div className="cal-grid mycal" {...swipe.bind}>
+      <div className={`cal-grid mycal ${slide.className}`} key={slide.key} {...swipe.bind}>
         {Array.from({ length: lead }, (_, i) => <div key={"b" + i} className="cal-cell blank" aria-hidden="true" />)}
         {Array.from({ length: dim }, (_, i) => i + 1).map((d) => {
           const k = `${month}-${String(d).padStart(2, "0")}`;
@@ -193,13 +208,12 @@ export function WishCard({ me, month, onMonth }: { me: Cast; month: string; onMo
 
 /** 時間の選び方。
  *
- *  候補と「じぶんで決める」を、隠さずに並べる。
- *  前は自分で決めるのがもう 1 タップ奥にあったが、候補に無い時間は珍しくない
- *  （「21時に上がりたい」「今日は23時から」）。奥にあると、あきらめて
+ *  候補と、自分で決める欄を、隠さずに並べる。候補に無い時間は珍しくないし
+ *  （「21時に上がりたい」「今日は23時から」）、奥にあると、あきらめて
  *  近い候補を押すことになり、出した希望が本当のことでなくなる。
  *
- *  候補は、その店でよく使われている時間帯（commonShifts）。
- *  決め打ちの候補では、店によって時間帯が違うので当たらない。 */
+ *  数字は打たせない。＋−で動かすか、時刻を押して端末のピッカーを出す。
+ *  店側のシフトと同じ `TimeStep` を使う（同じことを 2 つの形で持たない）。 */
 function Times({ patterns, now, onPick }: {
   patterns: readonly { in: string; out: string }[];
   now: { in: string; out: string };
@@ -210,7 +224,7 @@ function Times({ patterns, now, onPick }: {
   const changed = from !== now.in || to !== now.out;
 
   return (
-    <div style={{ marginTop: 8, marginBottom: 10, padding: 12, borderRadius: 14, background: "var(--surface-2)" }}>
+    <div className="timebox">
       <div className="chipgrid">
         {patterns.map((p) => (
           <button key={`${p.in}-${p.out}`} type="button"
@@ -221,14 +235,8 @@ function Times({ patterns, now, onPick }: {
         ))}
         <button type="button" className="cchip" onClick={() => onPick({})}>お店の時間でいい</button>
       </div>
-
-      {/* 折り返させない。「から」「まで」が行になって落ちると、何の欄か分からなくなる */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap", marginTop: 10 }}>
-        <TimeField value={from} onChange={setFrom} ariaLabel="何時から" style={{ flex: 1, minWidth: 0 }} />
-        <span className="muted" style={{ flex: "none" }}>から</span>
-        <TimeField value={to} onChange={setTo} ariaLabel="何時まで" style={{ flex: 1, minWidth: 0 }} />
-        <span className="muted" style={{ flex: "none" }}>まで</span>
-      </div>
+      <TimeStep label="入り" value={from} onChange={setFrom} />
+      <TimeStep label="上がり" value={to} onChange={setTo} />
       <button type="button" className={`btn wide ${changed ? "primary" : ""}`} style={{ marginTop: 8 }}
         disabled={!from || !to || !changed}
         onClick={() => onPick({ in: from, out: to })}>

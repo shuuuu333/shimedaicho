@@ -654,3 +654,24 @@ button.posbadge.manual:active{background:var(--surface)}
 .bulkrow .numwrap{flex:none; width:104px}
 .bulkrow .numwrap .inp{padding-right:26px}
 .bulkrow .numwrap .clr{right:5px; width:20px; height:20px; font-size:12px}
+
+/* 希望の時間を決める箱。店側の予定を直す所（.planedit）と同じ形にしてある */
+.timebox{margin:8px 0 10px; padding:12px; border-radius:14px; background:var(--surface-2)}
+.timebox .tstep{margin-top:8px}
+/* 希望のいまの状態を 1 行で言う所 */
+.wstate{margin:2px 0 10px; font-size:13px; color:var(--ink-2); line-height:1.5}
+.wstate b{color:var(--ink); font-weight:700}
+
+/* 次のシフト。いちばん近い 1 日だけを大きく出す */
+.nextshift{display:grid; grid-template-columns:1fr auto; align-items:center; gap:2px 12px;
+  width:100%; border:0; background:var(--surface-2); border-radius:14px;
+  padding:14px 16px; text-align:left; margin:2px 0 8px}
+.nextshift .when{grid-column:1; font-size:13px; font-weight:700; color:var(--accent)}
+.nextshift .d{grid-column:1; font-size:20px; font-weight:800; color:var(--ink); letter-spacing:-.01em}
+.nextshift .t{grid-column:2; grid-row:1 / span 2; font-size:26px; font-weight:800; color:var(--ink)}
+.nextshift .t i{font-size:13px; font-weight:600; font-style:normal; color:var(--ink-3)}
+
+/* 変更のお願いの 1 件ぶん */
+.reqrow{border-bottom:1px solid var(--line); padding-bottom:10px; margin-bottom:6px}
+.reqrow:last-child{border-bottom:0; padding-bottom:0; margin-bottom:0}
+.reqrow .was{color:var(--ink-3); text-decoration:line-through}

@@ -80,3 +80,16 @@ export function caretAfterDigits(s: string, digits: number): number {
 export function digitsBefore(s: string, caret: number): number {
   return (s.slice(0, caret).match(/\d/g) ?? []).length;
 }
+
+/** 次の出勤までの言い方。「今日 / 明日 / あさって / あと3日」。
+ *  過ぎた日は空。日数だけ出すより、明日かどうかが一目で分かるほうが要る */
+export function untilLabel(date: string, today: string): string {
+  const a = new Date(today + "T00:00:00").getTime();
+  const b = new Date(date + "T00:00:00").getTime();
+  const d = Math.round((b - a) / 86400000);
+  if (d < 0) return "";
+  if (d === 0) return "今日";
+  if (d === 1) return "明日";
+  if (d === 2) return "あさって";
+  return `あと${d}日`;
+}

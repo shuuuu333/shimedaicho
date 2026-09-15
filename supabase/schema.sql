@@ -539,3 +539,10 @@ create policy wish_done_write on public.shift_wish_done for all
          or (coalesce(public.my_cast_id(shop_id), '') <> '' and cast_id = public.my_cast_id(shop_id)))
   with check (public.my_role(shop_id) in ('owner','staff')
          or (coalesce(public.my_cast_id(shop_id), '') <> '' and cast_id = public.my_cast_id(shop_id)));
+
+-- 変更のお願い（kind）。詳しくは supabase/patches/4-wish-kind.sql
+alter table public.shift_wishes add column if not exists kind text not null default 'want';
+
+alter table public.shift_wishes drop constraint if exists shift_wishes_kind_chk;
+alter table public.shift_wishes add constraint shift_wishes_kind_chk
+  check (kind in ('want', 'change', 'off'));

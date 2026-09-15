@@ -3,7 +3,7 @@ import { create } from "zustand";
 import type { Session } from "@supabase/supabase-js";
 import type { Ledger } from "../domain/types";
 import { migrate } from "../domain/migrate";
-import { markWishDone, mergeWishRows, setWishTime, toggleWish, wishOf } from "../domain/wishes";
+import { applyRequest, dropRequest, markWishDone, mergeWishRows, putRequest, setWishTime, toggleWish, wishOf } from "../domain/wishes";
 import * as api from "../data/cloud";
 import { diffDirty, emptyDirty, mergeLedger, parseDirty, serializeDirty, type Dirty } from "../data/merge";
 import { useApp } from "./store";
@@ -55,6 +55,12 @@ export interface CloudState {
   wishTimes(castId: string, dates: readonly string[], t: { in?: string; out?: string }): Promise<void>;
   /** その月ぶんを「出し終えた」にする・戻す */
   wishDoneSet(castId: string, month: string, done: boolean): Promise<void>;
+  /** 決まったシフトの変更をお願いする（キャスト側）。
+   *  kind を null にすると、お願いを取り下げる */
+  requestChange(castId: string, date: string, kind: "change" | "off" | null,
+                t?: { in?: string; out?: string }): Promise<void>;
+  /** お願いに返事をする（店側）。ok なら予定に反映、そうでなければ下ろすだけ */
+  answerRequest(castId: string, date: string, ok: boolean): Promise<void>;
   /** QR を作る（オーナー用） */
   makeInvite(role: "staff" | "cast", name: string, castId: string | null): Promise<api.InviteRow | null>;
   /** QR から入る。ログインしていなければ匿名でログインしてから加わる */
@@ -184,7 +190,11 @@ export const useCloud = create<CloudState>()((set, get) => {
     const L = useApp.getState().ledger;
     const merged = mergeWishRows(
       L.wishes, L.wishDone,
-      got.rows.map((r) => ({ castId: r.cast_id, date: r.d, in: r.in_at ?? undefined, out: r.out_at ?? undefined })),
+      got.rows.map((r) => ({
+        castId: r.cast_id, date: r.d,
+        in: r.in_at ?? undefined, out: r.out_at ?? undefined,
+        kind: r.kind === "change" || r.kind === "off" ? r.kind : undefined,
+      })),
       got.done.map((d) => ({ castId: d.cast_id, month: d.month })),
     );
     if (JSON.stringify(merged.wishes ?? null) === JSON.stringify(L.wishes ?? null)
@@ -472,6 +482,30 @@ export const useCloud = create<CloudState>()((set, get) => {
       if (!shopId || !api.cloudConfigured) return;
       try { await api.putWishDone(shopId, castId, month, done); }
       catch (e) { set({ error: msg(e) }); }
+    },
+
+    async requestChange(castId, date, kind, t = {}) {
+      useApp.getState().update((L) => {
+        if (kind) putRequest(L, date, castId, kind, t);
+        else toggleWish(L, date, castId);
+      });
+      const { shopId } = get();
+      if (!shopId || !api.cloudConfigured) return;
+      try {
+        if (kind) await api.putWish(shopId, castId, date, t, kind);
+        else await api.removeWish(shopId, castId, date);
+      } catch (e) { set({ error: msg(e) }); }
+    },
+
+    async answerRequest(castId, date, ok) {
+      useApp.getState().update((L) => {
+        if (ok) applyRequest(L, date, castId);
+        else dropRequest(L, date, castId);
+      });
+      const { shopId } = get();
+      if (!shopId || !api.cloudConfigured) return;
+      // 返事をしたお願いは置き場からも消す。残すと、次に取り込んだときに戻ってくる
+      try { await api.removeWish(shopId, castId, date); } catch (e) { set({ error: msg(e) }); }
     },
 
     async refreshWishes() {

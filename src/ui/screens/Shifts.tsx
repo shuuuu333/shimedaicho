@@ -6,12 +6,13 @@ import { useCloud } from "../../state/cloud";
 import { payOf } from "../../domain/calc";
 import type { Ledger } from "../../domain/types";
 import { commonShifts, lateLabel, lateMinutes, planFor, planTimes, plannedIds, spanLabel, spanMinutes, whoOn } from "../../domain/plans";
-import { applyWishes, diffTotal, pendingCasts, planDiff, wishRows, wishesOn } from "../../domain/wishes";
+import { applyWishes, changeRequests, diffTotal, pendingCasts, planDiff, wishRows, wishesOn } from "../../domain/wishes";
 import { Seg } from "../components/Seg";
 import { useSwipe } from "../useSwipe";
-import { addMinutes, dayLabel, daysInMonth, jp, monthLabel, shiftDay, shiftMonth, todayISO, uid, WD, yen } from "../../domain/format";
+import { useMonthSlide } from "../useMonthSlide";
+import { dayLabel, daysInMonth, jp, monthLabel, shiftDay, shiftMonth, todayISO, uid, WD, yen } from "../../domain/format";
 import { MonthBar } from "../components/MonthBar";
-import { TimeField } from "../components/TimeField";
+import { TimeStep } from "../components/TimeStep";
 import { ChevDown, ChevRight } from "../icons";
 import { CastShiftScreen } from "./CastHome";
 
@@ -167,6 +168,9 @@ export function Shifts() {
           onMonth={(mm) => setUI({ month: mm, calDay: null })}
           cell={(k) => ({ planned: planOf(k).length > 0, worked: workedOf(k).length > 0, ...whoOn(L, k) })} />
       </div>
+
+      {/* 変更のお願いは希望より先に出す。返事を待たせている相手がいる */}
+      <ChangeRequests L={L} month={m} onPick={(k) => { setUI({ calDay: k }); setJump(k); }} />
 
       <WishSummary L={L} month={m} onApply={applyMonth} onPick={(k) => { setUI({ calDay: k }); setMode("wish"); setJump(k); }} />
 
@@ -372,18 +376,6 @@ function PlanRow({ L, dk, castId, open, onToggle, onTime, onRemove }: {
   );
 }
 
-/** 時刻 1 つぶん。「−30 ｜ 21:00 ｜ +30」。数字を押すと端末のピッカーが出る */
-function TimeStep({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="tstep">
-      <span className="k">{label}</span>
-      <button type="button" className="sbtn" aria-label={`${label}を30分早める`} onClick={() => onChange(addMinutes(value, -30))}>−30分</button>
-      <TimeField value={value} ariaLabel={`${label}の時刻`} onChange={onChange} />
-      <button type="button" className="sbtn" aria-label={`${label}を30分遅らせる`} onClick={() => onChange(addMinutes(value, 30))}>+30分</button>
-    </div>
-  );
-}
-
 /** 予定と実績を出す月カレンダー。誰が入るのかを升の中に出す */
 function CalGrid({ m, dim, lead, today, sel, onPick, onMonth, cell }: {
   m: string; dim: number; lead: number; today: string; sel: string | null;
@@ -393,10 +385,11 @@ function CalGrid({ m, dim, lead, today, sel, onPick, onMonth, cell }: {
 }) {
   // 払って前後の月へ。月送りまで指を伸ばさなくていい
   const swipe = useSwipe({ stop: true, onCommit: (dir) => onMonth(shiftMonth(m, dir)) });
+  const slide = useMonthSlide(m);
   return (
     <>
       <div className="cal-head">{WD.map((w) => <span key={w}>{w}</span>)}</div>
-      <div className="cal-grid" {...swipe.bind}>
+      <div className={`cal-grid ${slide.className}`} key={slide.key} {...swipe.bind}>
         {Array.from({ length: lead }, (_, i) => <div key={"b" + i} className="cal-cell blank" aria-hidden="true" />)}
         {Array.from({ length: dim }, (_, i) => i + 1).map((d) => {
           const k = `${m}-${String(d).padStart(2, "0")}`;
@@ -492,6 +485,58 @@ function WishSummary({ L, month, onApply, onPick }: {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/** 変更のお願い（決まったシフトを変えてほしい）。
+ *
+ *  0 件のときはカードごと出さない。空の箱が毎日並ぶと、見なくなる。
+ *  承認するとその場で予定が変わり、升の色も変わる。 */
+function ChangeRequests({ L, month, onPick }: {
+  L: Ledger; month: string; onPick: (date: string) => void;
+}) {
+  const answer = useCloud((s) => s.answerRequest);
+  const showToast = useApp((s) => s.showToast);
+  const reqs = changeRequests(L, month);
+  if (!reqs.length) return null;
+
+  return (
+    <div className="card">
+      <div className="cardhead">
+        <h2>変更のお願い</h2>
+        <span className="pill warn">{reqs.length}件</span>
+      </div>
+      <p className="sub">キャストから来ています。決めるのはお店です。</p>
+      {reqs.map((r) => (
+        <div key={`${r.date}-${r.castId}`} className="reqrow">
+          <button type="button" className="lrow" onClick={() => onPick(r.date)}>
+            <div className="g">
+              <div className="t">{r.name || "（名前なし）"}・{dayLabel(r.date)}</div>
+              <div className="s">
+                {r.kind === "off"
+                  ? <>この日は<b>休みたい</b>（いまは {r.planFrom}-{r.planTo}）</>
+                  : <>時間を変えたい</>}
+              </div>
+            </div>
+            {r.kind === "change" && (
+              <div className="a num">
+                <span className="was">{r.planFrom}</span> → {r.from || r.planFrom}-{r.to || r.planTo}
+              </div>
+            )}
+          </button>
+          <div className="btnrow" style={{ marginTop: 6 }}>
+            <button type="button" className="btn sm primary"
+              onClick={() => { void answer(r.castId, r.date, true); showToast(r.kind === "off" ? `${r.name} を ${dayLabel(r.date)} の予定から外しました` : `${r.name} の時間を変えました`); }}>
+              承認する
+            </button>
+            <button type="button" className="btn sm"
+              onClick={() => { void answer(r.castId, r.date, false); showToast("お願いを下ろしました（予定はそのまま）"); }}>
+              却下する
+            </button>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

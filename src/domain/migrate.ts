@@ -1,7 +1,7 @@
 /** 旧アーティファクト(v1/v2, 文字列の数値) と v3 の JSON を 現行(v4) の Ledger に正規化する。
  *  旧 migrate() の振る舞い（v1 既定バック項目の置換・ドリンク名の改名・rateD 補完）も引き継ぐ。
  *  v3 の台帳にはレジのマスタが無いので、既定のメニュー・席・会計ルールを補う（backItems と同じ扱い）。 */
-import type { BackItem, Cast, DayRecord, DispatchRow, Expense, Ledger, MenuItem, MenuKind, PayMethod, PlanEntry, PosRule, Seat, SetPlan, Settlement, Shift, Shop, WageChange } from "./types";
+import type { BackItem, Cast, DayRecord, DispatchRow, Expense, Ledger, MenuItem, MenuKind, PayMethod, PlanEntry, PosRule, Seat, SetPlan, Settlement, Shift, Shop, WageChange, Wish } from "./types";
 import { todayISO, uid } from "./format";
 
 export function defaultBacks(): BackItem[] {
@@ -103,6 +103,26 @@ function toPlans(v: unknown, castIds: Set<string>): Record<string, PlanEntry[]> 
     if (rows.length) out[k] = rows;
   }
   return Object.keys(out).length ? out : undefined;
+}
+
+/** 希望の掃除。形は予定と同じ（castId / in / out）だが、kind を持つぶんだけ違う。
+ *  知らない kind は want に倒す。消すと「休みたい」が「入れます」に化けるより、
+ *  ふつうの希望として店に見えるほうが安全 */
+function toWishes(v: unknown, castIds: Set<string>): Record<string, Wish[]> | undefined {
+  const base = toPlans(v, castIds);
+  if (!base || !isObj(v)) return base as Record<string, Wish[]> | undefined;
+  const out: Record<string, Wish[]> = {};
+  for (const [date, rows] of Object.entries(base)) {
+    const raw = Array.isArray(v[date]) ? (v[date] as unknown[]) : [];
+    out[date] = rows.map((r) => {
+      const src = raw.find((x) => isObj(x) && str(x.castId) === r.castId);
+      const k = isObj(src) ? str(src.kind) : "";
+      const w: Wish = { ...r };
+      if (k === "change" || k === "off") w.kind = k;
+      return w;
+    });
+  }
+  return out;
 }
 
 /** 「希望を出し終えた月」の掃除。居ないキャストと、月の形でないものを落とす */
@@ -401,8 +421,7 @@ export function migrate(input: unknown): Ledger {
   const ids = new Set(casts.map((c) => c.id));
   const plans = toPlans(o.plans, ids);
   if (plans) out.plans = plans;
-  // 希望は予定と同じ形（castId / in / out）なので、掃除も同じもので足りる
-  const wishes = toPlans(o.wishes, ids);
+  const wishes = toWishes(o.wishes, ids);
   if (wishes) out.wishes = wishes;
   const wishDone = toWishDone(o.wishDone, ids);
   if (wishDone) out.wishDone = wishDone;

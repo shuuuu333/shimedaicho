@@ -28,7 +28,7 @@ export function wishOf(L: Ledger, date: string, castId: string): Wish | null {
 /** その月にその子が出している日（古い順） */
 export function wishDays(L: Ledger, month: string, castId: string): string[] {
   return Object.keys(L.wishes ?? {})
-    .filter((k) => k.startsWith(month) && wishesOn(L, k).some((w) => w.castId === castId))
+    .filter((k) => k.startsWith(month) && wishesOn(L, k).some((w) => w.castId === castId && isWant(w)))
     .sort();
 }
 
@@ -68,7 +68,7 @@ export function pendingCasts(L: Ledger, month: string): Cast[] {
 
 /** その日に入れると言っている人数。カレンダーの升に出す */
 export function wishCountOn(L: Ledger, date: string): number {
-  return wishesOn(L, date).length;
+  return wishesOn(L, date).filter(isWant).length;
 }
 
 export interface WishDiff {
@@ -87,11 +87,16 @@ export function planDiff(L: Ledger, month: string): WishDiff[] {
   const out: WishDiff[] = [];
   for (const date of Object.keys(L.wishes ?? {}).filter((k) => k.startsWith(month)).sort()) {
     const planned = new Set((L.plans?.[date] ?? []).map((p) => p.castId));
-    const adds = wishesOn(L, date).filter((w) => ids.has(w.castId) && !planned.has(w.castId));
+    // 変更のお願い（change / off）は混ぜない。まとめて入れるボタンに巻き込むと、
+    // 「休みたい」と言っている日を出勤日にしてしまう
+    const adds = wishesOn(L, date).filter((w) => isWant(w) && ids.has(w.castId) && !planned.has(w.castId));
     if (adds.length) out.push({ date, adds });
   }
   return out;
 }
+
+/** ふつうの希望か（変更のお願いではないか）。kind 無しは希望 */
+export const isWant = (w: Wish): boolean => !w.kind || w.kind === "want";
 
 /** 足される延べ人数。「12 人ぶんを予定に入れる」と出すため */
 export function diffTotal(diff: readonly WishDiff[]): number {
@@ -146,7 +151,7 @@ export function applyWishes(L: Ledger, month: string): number {
 /* ---------- サーバーの行との突き合わせ ---------- */
 
 /** サーバー（shift_wishes）の 1 行。domain はデータ層を知らないので、形だけ受ける */
-export interface WishRowIn { castId: string; date: string; in?: string; out?: string }
+export interface WishRowIn { castId: string; date: string; in?: string; out?: string; kind?: Wish["kind"] }
 
 /** 台帳に入っている希望と、サーバーの行を合わせる。
  *
@@ -178,6 +183,7 @@ export function mergeWishRows(
     const w: Wish = { castId: r.castId };
     if (r.in) w.in = r.in;
     if (r.out) w.out = r.out;
+    if (r.kind === "change" || r.kind === "off") w.kind = r.kind;
     wishes[r.date] = [...(wishes[r.date] ?? []), w];
   }
 
@@ -193,4 +199,84 @@ export function mergeWishRows(
     wishes: Object.keys(wishes).length ? wishes : undefined,
     wishDone: Object.keys(wishDone).length ? wishDone : undefined,
   };
+}
+
+/* ---------- 変更のお願い ---------- */
+
+/** 決まったシフトを変えてほしい、という申し出。
+ *
+ *  入れ物は希望（wishes）と同じ。予定がある日に出された希望は、
+ *  意味として変更のお願いそのもので、別に持つと同じことを 2 か所で持つことになる。
+ *  見分けは `Wish.kind`。出すときに書くので、あとから当てにいかない。 */
+export interface ChangeRequest {
+  date: string;
+  castId: string;
+  name: string;
+  kind: "change" | "off";
+  /** 変えてほしい時刻（off のときは空） */
+  from: string;
+  to: string;
+  /** いま決まっている時刻 */
+  planFrom: string;
+  planTo: string;
+}
+
+/** その月の変更のお願い。日付順。
+ *  予定から外れた日のぶんは出さない（店がもう外していれば、お願いは済んでいる） */
+export function changeRequests(L: Ledger, month: string): ChangeRequest[] {
+  const out: ChangeRequest[] = [];
+  for (const date of Object.keys(L.wishes ?? {}).filter((k) => k.startsWith(month)).sort()) {
+    for (const w of wishesOn(L, date)) {
+      if (isWant(w)) continue;
+      const plan = (L.plans?.[date] ?? []).find((p) => p.castId === w.castId);
+      if (!plan) continue;
+      const c = L.casts.find((x) => x.id === w.castId);
+      out.push({
+        date, castId: w.castId, name: c?.name ?? "",
+        kind: w.kind === "off" ? "off" : "change",
+        from: w.in ?? "", to: w.out ?? "",
+        planFrom: plan.in || L.shop.openTime, planTo: plan.out || L.shop.closeTime,
+      });
+    }
+  }
+  return out;
+}
+
+/** 承認する。休みたいなら予定から外し、時間なら予定の時刻を希望の時刻にする。
+ *  通したお願いは消す（残すと、何度でも承認できる一覧になる） */
+export function applyRequest(L: Ledger, date: string, castId: string): void {
+  const w = wishOf(L, date, castId);
+  if (!w || isWant(w)) return;
+  const rows = L.plans?.[date];
+  if (rows) {
+    if (w.kind === "off") {
+      L.plans![date] = rows.filter((p) => p.castId !== castId);
+      if (!L.plans![date].length) delete L.plans![date];
+      if (!Object.keys(L.plans!).length) delete L.plans;
+    } else {
+      const p = rows.find((x) => x.castId === castId);
+      if (p) {
+        if (w.in) p.in = w.in; else delete p.in;
+        if (w.out) p.out = w.out; else delete p.out;
+      }
+    }
+  }
+  toggleWish(L, date, castId);   // お願いを下ろす
+}
+
+/** 却下する。予定は動かさず、お願いだけ下ろす */
+export function dropRequest(L: Ledger, date: string, castId: string): void {
+  const w = wishOf(L, date, castId);
+  if (!w || isWant(w)) return;
+  toggleWish(L, date, castId);
+}
+
+/** お願いを出す（キャスト側）。すでに出ていれば上書きする */
+export function putRequest(L: Ledger, date: string, castId: string, kind: "change" | "off",
+                           t: { in?: string; out?: string } = {}): void {
+  if (!L.wishes) L.wishes = {};
+  const cur = (L.wishes[date] ?? []).filter((w) => w.castId !== castId);
+  const w: Wish = { castId, kind };
+  if (kind === "change") { if (t.in) w.in = t.in; if (t.out) w.out = t.out; }
+  L.wishes[date] = [...cur, w];
 }

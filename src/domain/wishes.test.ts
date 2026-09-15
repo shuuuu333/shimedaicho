@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { defaultLedger, migrate } from "./migrate";
 import {
   applyWishes, diffTotal, isWishDone, markWishDone, pendingCasts, planDiff, setWishTime,
-  mergeWishRows, toggleWish, wishCountOn, wishDays, wishOf, wishRows, wishesOn,
+  applyRequest, changeRequests, dropRequest, mergeWishRows, putRequest, toggleWish,
+  wishCountOn, wishDays, wishOf, wishRows, wishesOn,
 } from "./wishes";
 import type { Ledger } from "./types";
 
@@ -144,6 +145,22 @@ describe("希望の取り込み（壊れたデータを落とす）", () => {
     expect(L.wishDone).toEqual({ a: ["2026-10"] });
   });
 
+
+  it("kind は往復しても消えない。知らない kind は ふつうの希望に倒す", () => {
+    const L = migrate({
+      ...shop(),
+      wishes: {
+        "2026-10-18": [{ castId: "a", kind: "off" }, { castId: "k", kind: "なにこれ" }],
+        "2026-10-20": [{ castId: "a", in: "22:00", kind: "change" }],
+      },
+    });
+    expect(L.wishes).toEqual({
+      "2026-10-18": [{ castId: "a", kind: "off" }, { castId: "k" }],
+      "2026-10-20": [{ castId: "a", in: "22:00", kind: "change" }],
+    });
+    expect(migrate(JSON.parse(JSON.stringify(L))).wishes).toEqual(L.wishes);
+  });
+
   it("希望が 1 件も無ければ、欄そのものを持たない", () => {
     const L = migrate({ ...shop(), wishes: {}, wishDone: {} });
     expect(L.wishes).toBeUndefined();
@@ -260,5 +277,115 @@ describe("サーバーの行との突き合わせ", () => {
 
   it("何も無ければ欄そのものを持たない", () => {
     expect(mergeWishRows(undefined, undefined, [], [])).toEqual({ wishes: undefined, wishDone: undefined });
+  });
+});
+
+describe("変更のお願い", () => {
+  /** 10/18 に あい が 20:00-01:00 で決まっている店 */
+  function fixed(): Ledger {
+    const L = shop();
+    L.plans = { "2026-10-18": [{ castId: "a" }], "2026-10-20": [{ castId: "k", in: "20:00", out: "01:00" }] };
+    return L;
+  }
+
+  it("何も出ていなければ 0 件", () => {
+    expect(changeRequests(fixed(), "2026-10")).toEqual([]);
+  });
+
+  it("休みたいを拾う。いま決まっている時刻も一緒に返す", () => {
+    const L = fixed();
+    putRequest(L, "2026-10-18", "a", "off");
+    expect(changeRequests(L, "2026-10")).toEqual([{
+      date: "2026-10-18", castId: "a", name: "あい", kind: "off",
+      from: "", to: "", planFrom: "20:00", planTo: "01:00",
+    }]);
+  });
+
+  it("時間を変えたいを拾う", () => {
+    const L = fixed();
+    putRequest(L, "2026-10-20", "k", "change", { in: "22:00", out: "02:00" });
+    const r = changeRequests(L, "2026-10");
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ castId: "k", kind: "change", from: "22:00", to: "02:00", planFrom: "20:00" });
+  });
+
+  it("ふつうの希望は、お願いに混ざらない", () => {
+    const L = fixed();
+    toggleWish(L, "2026-10-18", "k");            // まだ決まっていない子の希望
+    expect(changeRequests(L, "2026-10")).toEqual([]);
+  });
+
+  it("店がもう予定から外していれば、お願いは出さない（済んでいる）", () => {
+    const L = fixed();
+    putRequest(L, "2026-10-18", "a", "off");
+    delete L.plans!["2026-10-18"];
+    expect(changeRequests(L, "2026-10")).toEqual([]);
+  });
+
+  it("承認: 休みたい → 予定から外れる。お願いも下りる", () => {
+    const L = fixed();
+    putRequest(L, "2026-10-18", "a", "off");
+    applyRequest(L, "2026-10-18", "a");
+    expect(L.plans?.["2026-10-18"]).toBeUndefined();
+    expect(changeRequests(L, "2026-10")).toEqual([]);
+    expect(wishOf(L, "2026-10-18", "a")).toBeNull();
+  });
+
+  it("承認: 時間 → 予定の時刻が希望の時刻になる", () => {
+    const L = fixed();
+    putRequest(L, "2026-10-20", "k", "change", { in: "22:00", out: "02:00" });
+    applyRequest(L, "2026-10-20", "k");
+    expect(L.plans!["2026-10-20"]).toEqual([{ castId: "k", in: "22:00", out: "02:00" }]);
+    expect(changeRequests(L, "2026-10")).toEqual([]);
+  });
+
+  it("却下: 予定は動かない。お願いだけ下りる", () => {
+    const L = fixed();
+    putRequest(L, "2026-10-20", "k", "change", { in: "22:00" });
+    dropRequest(L, "2026-10-20", "k");
+    expect(L.plans!["2026-10-20"]).toEqual([{ castId: "k", in: "20:00", out: "01:00" }]);
+    expect(changeRequests(L, "2026-10")).toEqual([]);
+  });
+
+  it("ふつうの希望を、承認・却下で触らない", () => {
+    const L = fixed();
+    toggleWish(L, "2026-10-22", "a");
+    applyRequest(L, "2026-10-22", "a");
+    dropRequest(L, "2026-10-22", "a");
+    expect(wishOf(L, "2026-10-22", "a")).toEqual({ castId: "a" });
+  });
+
+  it("お願いは「まとめて予定に入れる」に巻き込まれない（休みたい日を出勤日にしない）", () => {
+    const L = fixed();
+    putRequest(L, "2026-10-18", "a", "off");
+    toggleWish(L, "2026-10-25", "a");            // ふつうの希望は入る
+    const d = planDiff(L, "2026-10");
+    expect(d.map((x) => x.date)).toEqual(["2026-10-25"]);
+    expect(diffTotal(d)).toBe(1);
+  });
+
+  it("お願いは「出している日」に数えない", () => {
+    const L = fixed();
+    putRequest(L, "2026-10-18", "a", "off");
+    expect(wishDays(L, "2026-10", "a")).toEqual([]);
+    expect(wishCountOn(L, "2026-10-18")).toBe(0);
+  });
+
+  it("出し直すと上書きされる（2 つ並ばない）", () => {
+    const L = fixed();
+    putRequest(L, "2026-10-20", "k", "change", { in: "22:00" });
+    putRequest(L, "2026-10-20", "k", "off");
+    expect(wishesOn(L, "2026-10-20")).toHaveLength(1);
+    expect(changeRequests(L, "2026-10")[0].kind).toBe("off");
+  });
+
+  it("サーバーから来た kind も運ぶ", () => {
+    const r = mergeWishRows(undefined, undefined,
+      [{ castId: "a", date: "2026-10-18", kind: "off" },
+       { castId: "k", date: "2026-10-20", in: "22:00", kind: "change" }], []);
+    expect(r.wishes).toEqual({
+      "2026-10-18": [{ castId: "a", kind: "off" }],
+      "2026-10-20": [{ castId: "k", in: "22:00", kind: "change" }],
+    });
   });
 });

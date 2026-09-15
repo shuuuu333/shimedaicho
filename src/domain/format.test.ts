@@ -36,3 +36,22 @@ describe("打ちながら桁区切りを入れるときのカーソル", () => {
     expect(F.caretAfterDigits("18,800", before)).toBe(2);
   });
 });
+
+describe("次までの言い方", () => {
+  const T = "2026-09-15";
+  it("今日・明日・あさって", () => {
+    expect(F.untilLabel("2026-09-15", T)).toBe("今日");
+    expect(F.untilLabel("2026-09-16", T)).toBe("明日");
+    expect(F.untilLabel("2026-09-17", T)).toBe("あさって");
+  });
+  it("3 日より先は日数で言う", () => {
+    expect(F.untilLabel("2026-09-18", T)).toBe("あと3日");
+    expect(F.untilLabel("2026-10-01", T)).toBe("あと16日");
+  });
+  it("過ぎた日は何も言わない", () => {
+    expect(F.untilLabel("2026-09-14", T)).toBe("");
+  });
+  it("月をまたいでも数えられる", () => {
+    expect(F.untilLabel("2026-10-01", "2026-09-30")).toBe("明日");
+  });
+});
