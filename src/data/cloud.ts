@@ -311,3 +311,42 @@ export function subscribeOps(shopId: string, cb: (op: CheckOp) => void): () => v
     .subscribe();
   return () => { void sb().removeChannel(ch); };
 }
+
+/* ---------- シフト希望 ---------- */
+/** キャスト本人が書ける唯一の置き場（shift_wishes）。
+ *  台帳は owner/staff しか書けないので、希望だけは別のテーブルに置いている。
+ *  詳しくは supabase/schema.sql の「シフト希望」の節。 */
+export interface WishWire { cast_id: string; d: string; in_at: string | null; out_at: string | null }
+export interface WishDoneWire { cast_id: string; month: string }
+
+/** 店ぶんの希望を取ってくる。
+ *  キャストの端末では RLS が効いて自分の行しか返らない。
+ *  テーブルがまだ無い環境では null を返し、呼ぶ側は台帳のものだけで動く */
+export async function pullWishes(shopId: string): Promise<{ rows: WishWire[]; done: WishDoneWire[] } | null> {
+  const a = await sb().from("shift_wishes").select("cast_id, d, in_at, out_at").eq("shop_id", shopId);
+  if (a.error) return null;
+  const b = await sb().from("shift_wish_done").select("cast_id, month").eq("shop_id", shopId);
+  if (b.error) return null;
+  return { rows: (a.data ?? []) as WishWire[], done: (b.data ?? []) as WishDoneWire[] };
+}
+
+export async function putWish(shopId: string, castId: string, date: string, t: { in?: string; out?: string }): Promise<void> {
+  const { error } = await sb().from("shift_wishes").upsert(
+    { shop_id: shopId, cast_id: castId, d: date, in_at: t.in ?? null, out_at: t.out ?? null, updated_at: new Date().toISOString() },
+    { onConflict: "shop_id,cast_id,d" },
+  );
+  if (error) fail(error, "希望を送れませんでした");
+}
+
+export async function removeWish(shopId: string, castId: string, date: string): Promise<void> {
+  const { error } = await sb().from("shift_wishes").delete().eq("shop_id", shopId).eq("cast_id", castId).eq("d", date);
+  if (error) fail(error, "希望を取り消せませんでした");
+}
+
+export async function putWishDone(shopId: string, castId: string, month: string, done: boolean): Promise<void> {
+  const q = done
+    ? sb().from("shift_wish_done").upsert({ shop_id: shopId, cast_id: castId, month }, { onConflict: "shop_id,cast_id,month" })
+    : sb().from("shift_wish_done").delete().eq("shop_id", shopId).eq("cast_id", castId).eq("month", month);
+  const { error } = await q;
+  if (error) fail(error, "希望の送信を切り替えられませんでした");
+}

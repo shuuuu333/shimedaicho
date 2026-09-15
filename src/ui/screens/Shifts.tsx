@@ -6,8 +6,9 @@ import { useCloud } from "../../state/cloud";
 import { payOf } from "../../domain/calc";
 import type { Ledger } from "../../domain/types";
 import { commonShifts, lateLabel, lateMinutes, planFor, planTimes, plannedIds, spanLabel, spanMinutes, whoOn } from "../../domain/plans";
-import { applyWishes, diffTotal, pendingCasts, planDiff, toggleWish, wishRows, wishesOn } from "../../domain/wishes";
+import { applyWishes, diffTotal, pendingCasts, planDiff, wishRows, wishesOn } from "../../domain/wishes";
 import { Seg } from "../components/Seg";
+import { IS_CAST_APP } from "../../appMode";
 import { WD, addMinutes, dayLabel, daysInMonth, jp, monthLabel, shiftDay, todayISO, uid, yen } from "../../domain/format";
 import { MonthBar } from "../components/MonthBar";
 import { TimeField } from "../components/TimeField";
@@ -22,6 +23,8 @@ export function Shifts() {
   const openDay = useApp((s) => s.openDay);
   const showToast = useApp((s) => s.showToast);
   const role = useCloud((s) => s.role());
+  const wishSet = useCloud((s) => s.wishSet);
+  const shopId = useCloud((s) => s.shopId);
   const myCastId = useCloud((s) => s.myCastId());
   const m = ui.month;
   /** 予定の時刻を直しているキャスト */
@@ -43,9 +46,14 @@ export function Shifts() {
 
   /** キャストとしてログインしているなら、その本人 */
   const me = useMemo(() => {
-    if (role !== "cast" || !myCastId) return null;
-    return L.casts.find((c) => c.id === myCastId) ?? null;
-  }, [L.casts, myCastId, role]);
+    if (role !== "cast") return null;
+    if (myCastId) return L.casts.find((c) => c.id === myCastId) ?? null;
+    // キャスト手帳を、まだお店とつながっていない状態で開いたとき。
+    // 端末の中の最初の子として見せる（お試しデータを入れた直後がこれ）。
+    // つながっていないことは、希望のカードにも書いてある
+    if (IS_CAST_APP && !shopId && L.casts.length) return L.casts[0];
+    return null;
+  }, [L.casts, myCastId, role, shopId]);
 
   const dim = daysInMonth(m);
   const lead = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1, 1).getDay();
@@ -65,7 +73,9 @@ export function Shifts() {
       if (!Object.keys(LL.plans).length) delete LL.plans;
     });
 
-  const toggleWishOn = (k: string, castId: string) => update((LL) => toggleWish(LL, k, castId));
+  /** 希望を入れる／外す。キャストの端末にも届くよう、置き場にも書く */
+  const toggleWishOn = (k: string, castId: string) =>
+    void wishSet(castId, k, !wishesOn(L, k).some((w) => w.castId === castId));
 
   /** 希望をまとめて予定にする。足すだけで、店が入れた予定は消さない */
   const applyMonth = () => {

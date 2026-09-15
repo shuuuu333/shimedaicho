@@ -25,11 +25,22 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # 店用（締め台帳）。/<repo>/ に置く
       - run: npm run build
         env:
           VITE_BASE: /${{ github.event.repository.name }}/
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+      # キャスト用（キャスト手帳）。/<repo>/cast/ に置く。
+      # 同じコードから VITE_APP で出し分けている（src/appMode.ts）
+      - run: mv dist /tmp/shop-dist
+      - run: npm run build
+        env:
+          VITE_APP: cast
+          VITE_BASE: /${{ github.event.repository.name }}/cast/
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+      - run: mv dist /tmp/cast-dist && mv /tmp/shop-dist dist && mv /tmp/cast-dist dist/cast
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

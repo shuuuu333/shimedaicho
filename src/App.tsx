@@ -1,5 +1,6 @@
 import { useEffect, useState, type ComponentType } from "react";
 import { useApp, type Tab } from "./state/store";
+import { APP_NAME, IS_CAST_APP } from "./appMode";
 import { useCloud } from "./state/cloud";
 import { SaveStatus } from "./ui/components/SaveStatus";
 import { Toast } from "./ui/components/Toast";
@@ -117,7 +118,7 @@ export default function App() {
             <div className="brand"><b>設定</b></div>
           </>
         ) : (
-          <div className="brand"><b>{name || "締め台帳"}</b><span>{name ? "売上・給料・現金の締め" : ""}</span></div>
+          <div className="brand"><b>{name || APP_NAME}</b><span>{name ? (IS_CAST_APP ? "自分のシフトと給料" : "売上・給料・現金の締め") : ""}</span></div>
         )}
         <SaveStatus />
         {!onSettings && (

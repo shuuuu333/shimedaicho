@@ -3,9 +3,11 @@ import { create } from "zustand";
 import type { Session } from "@supabase/supabase-js";
 import type { Ledger } from "../domain/types";
 import { migrate } from "../domain/migrate";
+import { markWishDone, mergeWishRows, setWishTime, toggleWish, wishOf } from "../domain/wishes";
 import * as api from "../data/cloud";
 import { diffDirty, emptyDirty, mergeLedger, parseDirty, serializeDirty, type Dirty } from "../data/merge";
 import { useApp } from "./store";
+import { IS_CAST_APP } from "../appMode";
 import { LocalRepository } from "../data/localRepository";
 
 export type CloudStatus = "off" | "signedout" | "noshop" | "syncing" | "synced" | "offline" | "error";
@@ -42,6 +44,13 @@ export interface CloudState {
   /** メンバーの設定を変える（どのキャストか・レジを打たせるか）。オーナーだけ */
   setMember(email: string, patch: { cast_id?: string | null; can_register?: boolean }): Promise<void>;
   syncNow(): Promise<void>;
+  /** シフト希望を出す・取り消す。台帳と、キャストが書ける置き場（shift_wishes）の両方へ。
+   *  クラウドを使っていない店では台帳だけで動く */
+  wishSet(castId: string, date: string, on: boolean): Promise<void>;
+  /** 希望の時刻を直す。空文字で「店の時間でいい」に戻る */
+  wishTime(castId: string, date: string, key: "in" | "out", v: string): Promise<void>;
+  /** その月ぶんを「出し終えた」にする・戻す */
+  wishDoneSet(castId: string, month: string, done: boolean): Promise<void>;
   /** QR を作る（オーナー用） */
   makeInvite(role: "staff" | "cast", name: string, castId: string | null): Promise<api.InviteRow | null>;
   /** QR から入る。ログインしていなければ匿名でログインしてから加わる */
@@ -145,11 +154,34 @@ export const useCloud = create<CloudState>()((set, get) => {
    *  サーバーが削って返し、計算はこちらの calc.ts に任せる。
    *  同じコード・同じ数字のまま、他人の時給や店の利益がサーバーから出ない。
    *  書き込みは元から owner/staff だけなので、読むだけで終わる。 */
+  /** シフト希望をサーバーから取り込む。
+   *
+   *  希望はキャスト本人が書けないと意味がないので、台帳ではなく専用のテーブルに
+   *  置いてある（台帳は owner/staff しか書けない）。取り込んだものは端末の台帳に
+   *  重ねるだけで、送り返さない（applyLedger は dirty を立てない）。
+   *
+   *  テーブルがまだ無い環境では何もしない。店が代わりに書き留めるぶんは台帳側にある。 */
+  async function hydrateWishes(shopId: string): Promise<void> {
+    let got;
+    try { got = await api.pullWishes(shopId); } catch { return; }
+    if (!got) return;
+    const L = useApp.getState().ledger;
+    const merged = mergeWishRows(
+      L.wishes, L.wishDone,
+      got.rows.map((r) => ({ castId: r.cast_id, date: r.d, in: r.in_at ?? undefined, out: r.out_at ?? undefined })),
+      got.done.map((d) => ({ castId: d.cast_id, month: d.month })),
+    );
+    if (JSON.stringify(merged.wishes ?? null) === JSON.stringify(L.wishes ?? null)
+        && JSON.stringify(merged.wishDone ?? null) === JSON.stringify(L.wishDone ?? null)) return;
+    applyLedger({ ...L, wishes: merged.wishes, wishDone: merged.wishDone });
+  }
+
   async function pullAsCast(shopId: string): Promise<boolean> {
     const data = await api.pullCastLedger(shopId);
     if (data == null) return false;   // 関数がまだ無い環境では、今までの経路に落ちる
     setVersion(null);                 // キャストは push しないので版は持たない
     applyLedger(migrate(data));
+    await hydrateWishes(shopId);      // 自分の希望は台帳に入っていないので、ここで足す
     set({ status: "synced", lastSyncAt: new Date().toISOString() });
     return true;
   }
@@ -185,6 +217,8 @@ export const useCloud = create<CloudState>()((set, get) => {
         applyLedger(merged);
         if (dirty.days.size || dirty.meta) { await push(); return; }
       }
+      // キャスト本人が出した希望は台帳に入ってこない。ここで重ねる
+      await hydrateWishes(shopId);
       set({ status: "synced", lastSyncAt: new Date().toISOString() });
     } catch (e) {
       set({ status: navigator.onLine ? "error" : "offline", error: msg(e) });
@@ -380,6 +414,41 @@ export const useCloud = create<CloudState>()((set, get) => {
       lsSet(LS_JOIN, null);
       return get().joinByToken(token, false);
     },
+    /** 希望を出す・取り消す。
+     *
+     *  台帳と、キャストが書ける置き場の両方に書く。台帳だけだとキャストの端末では
+     *  次の取り込みで消える（キャストは台帳を送れない）。置き場だけだと
+     *  クラウドを使っていない店で使えない。
+     *
+     *  送れなかったときは画面に出す。黙って消えるのがいちばん困る。 */
+    async wishSet(castId, date, on) {
+      useApp.getState().update((L) => { toggleWish(L, date, castId); });
+      const { shopId } = get();
+      if (!shopId || !api.cloudConfigured) return;
+      try {
+        if (on) await api.putWish(shopId, castId, date, {});
+        else await api.removeWish(shopId, castId, date);
+      } catch (e) { set({ error: msg(e) }); }
+    },
+
+    async wishTime(castId, date, key, v) {
+      useApp.getState().update((L) => { setWishTime(L, date, castId, key, v); });
+      const { shopId } = get();
+      if (!shopId || !api.cloudConfigured) return;
+      const w = wishOf(useApp.getState().ledger, date, castId);
+      if (!w) return;
+      try { await api.putWish(shopId, castId, date, { in: w.in, out: w.out }); }
+      catch (e) { set({ error: msg(e) }); }
+    },
+
+    async wishDoneSet(castId, month, done) {
+      useApp.getState().update((L) => { markWishDone(L, castId, month, done); });
+      const { shopId } = get();
+      if (!shopId || !api.cloudConfigured) return;
+      try { await api.putWishDone(shopId, castId, month, done); }
+      catch (e) { set({ error: msg(e) }); }
+    },
+
     async syncNow() {
       if (dirty.days.size || dirty.meta) await push(); else await pull();
     },
@@ -434,6 +503,9 @@ export const useCloud = create<CloudState>()((set, get) => {
     },
 
     role() {
+      // キャスト手帳（別アプリ）は、何があってもキャストとして動く。
+      // 役割を取り違えて店の数字が出るほうが、使えないことより悪い
+      if (IS_CAST_APP) return "cast";
       const { session, shopId, members, email, me } = get();
       if (!session || !shopId) return "owner";
       if (get().isOwner()) return "owner";

@@ -18,6 +18,7 @@ import { castBacks, castDays, castStats } from "../../domain/castStats";
 import { WD, dayLabel, jp, monthLabel, shiftMonth, todayISO, yen } from "../../domain/format";
 import { MonthBar } from "../components/MonthBar";
 import { CastCumChart } from "../charts";
+import { WishCard } from "../components/WishCard";
 import type { Cast, Ledger } from "../../domain/types";
 
 export function CastHome({ me }: { me: Cast }) {
@@ -76,6 +77,10 @@ export function CastHome({ me }: { me: Cast }) {
           <div><div className="k">これからの予定</div><div className="v">{s.ahead.length}<span style={{ fontSize: 13 }}>日</span></div></div>
         </div>
       </div>
+
+      {/* 希望を出す。次のシフトのすぐ上に置く。
+          「次はいつ入るか」を見に来たときが、出し忘れに気づく所でもある */}
+      <WishCard me={me} />
 
       {/* 次のシフト。何時に行けばいいかが一番知りたいこと */}
       <div className="card">

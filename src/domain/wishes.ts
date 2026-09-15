@@ -142,3 +142,55 @@ export function applyWishes(L: Ledger, month: string): number {
   }
   return diffTotal(diff);
 }
+
+/* ---------- サーバーの行との突き合わせ ---------- */
+
+/** サーバー（shift_wishes）の 1 行。domain はデータ層を知らないので、形だけ受ける */
+export interface WishRowIn { castId: string; date: string; in?: string; out?: string }
+
+/** 台帳に入っている希望と、サーバーの行を合わせる。
+ *
+ *  **決まり: サーバーに行を持っている子は、その子ぶんをサーバーで置き換える。**
+ *  行を持っていない子は、台帳のものをそのまま残す。
+ *
+ *  なぜこの決まりか。希望を出せる場所が 2 つある。
+ *  ・キャスト本人のアプリ → サーバー（台帳は書けないので、ここしかない）
+ *  ・店が代わりに書き留める → 台帳（クラウドを使っていない店でも動く）
+ *  本人が出しているなら本人が正しい。取り消した日が台帳側に残っていると
+ *  「消したのに復活する」ことになるので、その子ぶんは丸ごと入れ替える。
+ *
+ *  「出し終えた」を出しただけで 1 日も入れない子も、本人が触った子として扱う
+ *  （そうしないと、店が書いた古い希望が残る）。 */
+export function mergeWishRows(
+  local: Ledger["wishes"],
+  localDone: Ledger["wishDone"],
+  rows: readonly WishRowIn[],
+  done: readonly { castId: string; month: string }[],
+): { wishes: Ledger["wishes"]; wishDone: Ledger["wishDone"] } {
+  const owned = new Set([...rows.map((r) => r.castId), ...done.map((d) => d.castId)]);
+
+  const wishes: Record<string, Wish[]> = {};
+  for (const [date, list] of Object.entries(local ?? {})) {
+    const keep = list.filter((w) => !owned.has(w.castId));
+    if (keep.length) wishes[date] = keep;
+  }
+  for (const r of rows) {
+    const w: Wish = { castId: r.castId };
+    if (r.in) w.in = r.in;
+    if (r.out) w.out = r.out;
+    wishes[r.date] = [...(wishes[r.date] ?? []), w];
+  }
+
+  const wishDone: Record<string, string[]> = {};
+  for (const [castId, months] of Object.entries(localDone ?? {})) {
+    if (!owned.has(castId) && months.length) wishDone[castId] = [...months];
+  }
+  for (const d of done) {
+    wishDone[d.castId] = [...new Set([...(wishDone[d.castId] ?? []), d.month])].sort();
+  }
+
+  return {
+    wishes: Object.keys(wishes).length ? wishes : undefined,
+    wishDone: Object.keys(wishDone).length ? wishDone : undefined,
+  };
+}

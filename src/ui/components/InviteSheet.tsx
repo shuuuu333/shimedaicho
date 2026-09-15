@@ -23,10 +23,16 @@ export function InviteSheet({ mode, onClose }: { mode: InviteMode; onClose: () =
   const [png, setPng] = useState("");
   const [left, setLeft] = useState(0);
 
+  /** QR の行き先。
+   *  キャストにはキャスト手帳（/cast/）を渡す。店用のアプリを開かせると、
+   *  入れてもシフトしか出ないのに「レジのアプリ」の顔で並ぶことになる。
+   *  スタッフは今まで通り店用のまま。 */
   const url = useMemo(() => {
     if (!invite) return "";
-    const base = window.location.origin + window.location.pathname;
-    return `${base}?join=${invite.token}`;
+    const path = window.location.pathname.replace(/index\.html$/, "");
+    const base = window.location.origin + (path.endsWith("/") ? path : path + "/");
+    const to = invite.role === "cast" ? `${base}cast/` : base;
+    return `${to}?join=${invite.token}`;
   }, [invite]);
 
   useEffect(() => {

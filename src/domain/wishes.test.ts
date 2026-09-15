@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { defaultLedger, migrate } from "./migrate";
 import {
   applyWishes, diffTotal, isWishDone, markWishDone, pendingCasts, planDiff, setWishTime,
-  toggleWish, wishCountOn, wishDays, wishOf, wishRows, wishesOn,
+  mergeWishRows, toggleWish, wishCountOn, wishDays, wishOf, wishRows, wishesOn,
 } from "./wishes";
 import type { Ledger } from "./types";
 
@@ -218,5 +218,47 @@ describe("希望の書き込み", () => {
     applyWishes(L, "2026-10");
     L.plans = {};                       // 店が外した
     expect(applyWishes(L, "2026-10")).toBe(1);
+  });
+});
+
+describe("サーバーの行との突き合わせ", () => {
+  it("サーバーに行のある子は、その子ぶんが丸ごと入れ替わる（消した日が復活しない）", () => {
+    const r = mergeWishRows(
+      { "2026-10-01": [{ castId: "a" }, { castId: "k" }], "2026-10-02": [{ castId: "a" }] },
+      undefined,
+      [{ castId: "a", date: "2026-10-05" }],   // あいは 5 日だけに出し直した
+      [],
+    );
+    // あいの 1日・2日 は消え、5日 が入る。かなは店が書いたままで残る
+    expect(r.wishes).toEqual({
+      "2026-10-01": [{ castId: "k" }],
+      "2026-10-05": [{ castId: "a" }],
+    });
+  });
+
+  it("時刻も持ってくる。空の時刻は持たない", () => {
+    const r = mergeWishRows(undefined, undefined,
+      [{ castId: "a", date: "2026-10-01", in: "21:00" }, { castId: "k", date: "2026-10-01" }], []);
+    expect(r.wishes).toEqual({ "2026-10-01": [{ castId: "a", in: "21:00" }, { castId: "k" }] });
+  });
+
+  it("1 日も出さずに「出し終えた」だけ出した子も、本人が触った子として扱う", () => {
+    const r = mergeWishRows(
+      { "2026-10-01": [{ castId: "a" }] },   // 店が書いた古い希望
+      undefined,
+      [],
+      [{ castId: "a", month: "2026-10" }],   // 本人は「この月は入れない」と出した
+    );
+    expect(r.wishes).toBeUndefined();
+    expect(r.wishDone).toEqual({ a: ["2026-10"] });
+  });
+
+  it("サーバーに居ない子の「出し終えた」は、台帳のものが残る", () => {
+    const r = mergeWishRows(undefined, { k: ["2026-10"] }, [{ castId: "a", date: "2026-10-01" }], []);
+    expect(r.wishDone).toEqual({ k: ["2026-10"] });
+  });
+
+  it("何も無ければ欄そのものを持たない", () => {
+    expect(mergeWishRows(undefined, undefined, [], [])).toEqual({ wishes: undefined, wishDone: undefined });
   });
 });
