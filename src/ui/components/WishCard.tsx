@@ -16,11 +16,11 @@ import { useApp } from "../../state/store";
 import { useCloud } from "../../state/cloud";
 import { isWishDone, wishDays, wishesOn, wishOf } from "../../domain/wishes";
 import { commonShifts, planFor } from "../../domain/plans";
-import { WD, dayLabel, daysInMonth, monthLabel, shiftMonth, todayISO } from "../../domain/format";
-import { Seg } from "./Seg";
+import { WD, dayLabel, daysInMonth, monthLabel, todayISO } from "../../domain/format";
+import { TimeField } from "./TimeField";
 import type { Cast } from "../../domain/types";
 
-export function WishCard({ me }: { me: Cast }) {
+export function WishCard({ me, month }: { me: Cast; month: string }) {
   const L = useApp((s) => s.ledger);
   const showToast = useApp((s) => s.showToast);
   const wishSet = useCloud((s) => s.wishSet);
@@ -28,11 +28,7 @@ export function WishCard({ me }: { me: Cast }) {
   const wishDoneSet = useCloud((s) => s.wishDoneSet);
   const shopId = useCloud((s) => s.shopId);
 
-  const thisMonth = todayISO().slice(0, 7);
-  const nextMonth = shiftMonth(thisMonth, 1);
-  /** 出すのはたいてい来月ぶん。今月の追加もあるので選べるようにしておく */
-  const [month, setMonth] = useState(nextMonth);
-  /** 時間を直している日。null なら「ぜんぶまとめて」 */
+  /** 時間を直している日。"*" なら「ぜんぶまとめて」 */
   const [timeFor, setTimeFor] = useState<string | null>(null);
 
   const days = wishDays(L, month, me.id);
@@ -68,14 +64,14 @@ export function WishCard({ me }: { me: Cast }) {
   return (
     <div className="card">
       <div className="cardhead">
-        <h2>シフト希望</h2>
+        <h2>{monthLabel(month)} の希望</h2>
         {done ? <span className="pill ok">出しました</span> : days.length ? <span className="pill warn">下書き</span> : null}
       </div>
 
-      <Seg label="いつのぶん" value={month} onChange={(v) => { setMonth(v); setTimeFor(null); }} wide
-        items={[{ id: thisMonth, label: monthLabel(thisMonth) }, { id: nextMonth, label: monthLabel(nextMonth) }]} />
-
-      <p className="sub">入れる日をタップしてください。押しても<b>予定にはなりません</b>。決めるのはお店です。</p>
+      <p className="sub">
+        入れる日をタップしてください。押しても<b>予定にはなりません</b>。決めるのはお店です。
+        {month <= today.slice(0, 7) ? <><br />来月ぶんを出すときは、<b>上の月送り</b>で月を変えてください。</> : null}
+      </p>
 
       <div className="cal-head">{WD.map((w) => <span key={w}>{w}</span>)}</div>
       <div className="cal-grid mycal">
@@ -115,7 +111,7 @@ export function WishCard({ me }: { me: Cast }) {
           <button type="button" className="btn sm wide" onClick={() => setTimeFor(timeFor === "*" ? null : "*")}>
             {timeFor === "*" ? "閉じる" : "ぜんぶ同じ時間にする"}
           </button>
-          {timeFor === "*" && <Times patterns={patterns} onPick={(t) => setTime(days, t)} />}
+          {timeFor === "*" && <Times patterns={patterns} now={timeOf(days[0])} onPick={(t) => setTime(days, t)} />}
 
           {days.map((k) => {
             const t = timeOf(k);
@@ -126,7 +122,7 @@ export function WishCard({ me }: { me: Cast }) {
                     <div className="s">{t.own ? "自分で決めた時間" : "お店の時間でいい"}</div></div>
                   <div className="a num">{t.in}-{t.out}</div>
                 </button>
-                {timeFor === k && <Times patterns={patterns} onPick={(tt) => setTime([k], tt)} />}
+                {timeFor === k && <Times patterns={patterns} now={t} onPick={(tt) => setTime([k], tt)} />}
               </div>
             );
           })}
@@ -166,13 +162,42 @@ export function WishCard({ me }: { me: Cast }) {
   );
 }
 
-/** 時間の選び方。数字は打たせない。
- *  並ぶのは、その店でよく使われている時間帯（commonShifts）。
- *  決め打ちの候補を出しても、店によって時間帯が違うので当たらない */
-function Times({ patterns, onPick }: {
+/** 時間の選び方。
+ *
+ *  まず押すだけで決まる候補を出す。並ぶのは、その店でよく使われている時間帯
+ *  （commonShifts）。決め打ちの候補では、店によって時間帯が違うので当たらない。
+ *
+ *  そのうえで「何時から何時まで」を自分で決められる。
+ *  「21時に上がりたい」「今日は 23 時から」は候補に無い。
+ *  ここが無いと、希望を出すという言葉に中身がなくなる。 */
+function Times({ patterns, now, onPick }: {
   patterns: readonly { in: string; out: string }[];
+  now: { in: string; out: string };
   onPick: (t: { in?: string; out?: string }) => void;
 }) {
+  const [free, setFree] = useState(false);
+  const [from, setFrom] = useState(now.in);
+  const [to, setTo] = useState(now.out);
+
+  if (free) {
+    return (
+      <div style={{ marginTop: 8, marginBottom: 8, padding: 12, borderRadius: 14, background: "var(--surface-2)" }}>
+        {/* 折り返させない。「から」「まで」が行になって落ちると、何の欄か分からなくなる */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap" }}>
+          <TimeField value={from} onChange={setFrom} ariaLabel="何時から" style={{ flex: 1, minWidth: 0 }} />
+          <span className="muted" style={{ flex: "none" }}>から</span>
+          <TimeField value={to} onChange={setTo} ariaLabel="何時まで" style={{ flex: 1, minWidth: 0 }} />
+          <span className="muted" style={{ flex: "none" }}>まで</span>
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+          <button type="button" className="btn primary" style={{ flex: 1 }} disabled={!from || !to}
+            onClick={() => onPick({ in: from, out: to })}>この時間にする</button>
+          <button type="button" className="btn ghost" onClick={() => setFree(false)}>やめる</button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="chipgrid" style={{ marginTop: 8, marginBottom: 8 }}>
       {patterns.map((p) => (
@@ -181,6 +206,7 @@ function Times({ patterns, onPick }: {
         </button>
       ))}
       <button type="button" className="cchip" onClick={() => onPick({})}>お店の時間でいい</button>
+      <button type="button" className="cchip add" onClick={() => setFree(true)}>じぶんで決める</button>
     </div>
   );
 }

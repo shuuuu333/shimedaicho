@@ -198,6 +198,11 @@
 .mycal .cal-cell.shiftcell.next{background:var(--accent-soft)}
 .mycal .cal-cell.shiftcell.next .cd{color:var(--accent); font-weight:700}
 .mycal .cal-cell.shiftcell.next .cwho,.mycal .cal-cell.shiftcell.next .cn{color:var(--accent)}
+/* 出しています（本人の希望。店はまだ決めていない）…
+   決まった日より弱く見せる。同じ強さにすると、決まったつもりになる */
+.mycal .cal-cell.shiftcell.wish{background:var(--surface-3)}
+.mycal .cal-cell.shiftcell.wish .cd{color:var(--ink-2); font-weight:700}
+.mycal .cal-cell.shiftcell.wish .cwho{color:var(--ink-3)}
 /* 今日 … 字で言う。下線は塗った升の上で消えるし、枠を足すと太さが混ざる */
 .mycal .cal-cell.shiftcell.today .cd{text-decoration:none; font-weight:800}
 .mycal .cal-cell.shiftcell.today .cn{font-weight:800}

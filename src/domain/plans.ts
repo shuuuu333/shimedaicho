@@ -101,11 +101,17 @@ export function whoOn(L: Ledger, date: string): { names: string[]; total: number
  *  from は「何時から」。実績があればその時刻、無ければ予定の時刻。
  *  開かなくても月を見渡せるように、升にも出している。 */
 export function myDayState(L: Ledger, castId: string, date: string, today: string):
-  { kind: "done" | "next" | ""; from: string; worked: boolean } {
+  { kind: "done" | "next" | "wish" | ""; from: string; worked: boolean } {
   const sh = L.days[date]?.shifts?.[castId];
   const worked = !!sh?.on;
   const plan = planTimes(L, date, castId);
-  if (!worked && !plan) return { kind: "", from: "", worked: false };
+  if (!worked && !plan) {
+    // 店がまだ決めていないが、本人が「入れます」と出している日。
+    // ここを空にしていたので、希望を出しても カレンダーが何も変わらなかった
+    const w = (L.wishes?.[date] ?? []).find((x) => x.castId === castId);
+    if (w) return { kind: "wish", from: w.in || L.shop.openTime, worked: false };
+    return { kind: "", from: "", worked: false };
+  }
   const from = (worked && sh?.in) || plan?.in || "";
   return { kind: date < today ? "done" : "next", from, worked };
 }

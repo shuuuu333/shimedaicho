@@ -159,6 +159,33 @@ describe("キャスト手帳のカレンダー（その日は何の日か）", (
     expect(myDayState(L, "a", "2026-09-09", TODAY).kind).toBe("");
   });
 
+  it("店がまだ決めていなくても、自分が出した希望は出す", () => {
+    // ここが空だったので、希望を出してもカレンダーが何も変わらなかった
+    const L = shop();
+    L.wishes = { "2026-09-20": [{ castId: "a", in: "21:00" }] };
+    expect(myDayState(L, "a", "2026-09-20", TODAY)).toEqual({ kind: "wish", from: "21:00", worked: false });
+  });
+
+  it("希望の時刻が空なら、店の開店時刻を出す", () => {
+    const L = shop();
+    L.wishes = { "2026-09-20": [{ castId: "a" }] };
+    expect(myDayState(L, "a", "2026-09-20", TODAY).from).toBe("20:00");
+  });
+
+  it("店が決めたら、希望ではなく予定として出す（決まったほうが強い）", () => {
+    const L = shop();
+    L.wishes = { "2026-09-20": [{ castId: "a", in: "21:00" }] };
+    L.plans = { "2026-09-20": [{ castId: "a", in: "22:00" }] };
+    expect(myDayState(L, "a", "2026-09-20", TODAY)).toEqual({ kind: "next", from: "22:00", worked: false });
+  });
+
+  it("ほかの子の希望は、自分の日にしない", () => {
+    const L = shop();
+    L.casts.push({ id: "k", name: "かな", wage: null, active: true });
+    L.wishes = { "2026-09-20": [{ castId: "k" }] };
+    expect(myDayState(L, "a", "2026-09-20", TODAY).kind).toBe("");
+  });
+
   it("ほかの子の予定や出勤は、自分の日にしない", () => {
     const L = shop();
     L.casts.push({ id: "k", name: "かな", wage: null, active: true });

@@ -191,7 +191,7 @@ export function CastShift({ me }: { me: Cast }) {
               <button key={k} type="button" onClick={() => setSel(open === k ? null : k)}
                 className={`cal-cell shiftcell ${dow === 0 || dow === 6 ? "wk" : ""} ${st.kind} ${k === today ? "today" : ""} ${open === k ? "sel" : ""}`}
                 aria-pressed={open === k}
-                aria-label={`${Number(m.slice(5, 7))}月${d}日 ${st.kind === "done" ? "入りました" : st.kind === "next" ? `入ります ${st.from}から` : "予定なし"}`}>
+                aria-label={`${Number(m.slice(5, 7))}月${d}日 ${st.kind === "done" ? "入りました" : st.kind === "next" ? `入ります ${st.from}から` : st.kind === "wish" ? `入れると出している ${st.from}から` : "予定なし"}`}>
                 <span className="cd">{d}</span>
                 {/* 何時からかは、開かなくても読めるようにしておく。
                     タップして初めて分かるのでは、月を見渡せない */}
@@ -204,6 +204,7 @@ export function CastShift({ me }: { me: Cast }) {
         <div className="legend" style={{ marginTop: 10 }}>
           <span><i style={{ background: "var(--accent)" }} />入りました</span>
           <span><i style={{ background: "var(--accent-soft)" }} />入ります</span>
+          <span><i style={{ background: "var(--surface-3)" }} />出しています</span>
         </div>
       </div>
 
@@ -222,7 +223,7 @@ export function CastShift({ me }: { me: Cast }) {
       </div>
 
       {/* 希望はいちばん下。上の 2 つ（いつ入るか）を見てから出す順になる */}
-      <WishCard me={me} />
+      <WishCard me={me} month={m} />
     </>
   );
 }
@@ -232,7 +233,9 @@ function DayCard({ L, me, date, today }: { L: Ledger; me: Cast; date: string; to
   const sh = L.days[date]?.shifts?.[me.id];
   const worked = !!sh?.on;
   const plan = planTimes(L, date, me.id);
-  const wished = wishesOn(L, date).some((w) => w.castId === me.id);
+  const w = wishesOn(L, date).find((x) => x.castId === me.id);
+  const wished = !!w;
+  const wishTime = w ? `${w.in || L.shop.openTime}-${w.out || L.shop.closeTime}` : "";
   const past = date < today;
   const p = worked && sh ? payOf(L, me.id, sh, date) : null;
 
@@ -257,11 +260,13 @@ function DayCard({ L, me, date, today }: { L: Ledger; me: Cast; date: string; to
           <div className="t">{past ? "入る予定でした" : "入ります"}</div>
           <div className="s">{past ? "お店の記録がまだです" : "この時間で決まっています"}</div>
         </div><div className="a num">{plan.in}-{plan.out}</div></div>
+      ) : wished ? (
+        <div className="lrow"><div className="g">
+          <div className="t">入れますと出しています</div>
+          <div className="s">お店が決めるのを待っています</div>
+        </div><div className="a num">{wishTime}</div></div>
       ) : (
-        <div className="empty">
-          この日は入っていません
-          {wished ? <><br /><span className="hint">「入れます」と出しています。決まるのを待っています</span></> : null}
-        </div>
+        <div className="empty">この日は入っていません</div>
       )}
     </div>
   );
