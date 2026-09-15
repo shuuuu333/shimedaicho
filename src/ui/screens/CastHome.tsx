@@ -22,6 +22,7 @@ import { WD, dayLabel, daysInMonth, jp, monthLabel, shiftMonth, todayISO, yen } 
 import { MonthBar } from "../components/MonthBar";
 import { CastCumChart } from "../charts";
 import { WishCard } from "../components/WishCard";
+import { useSwipe } from "../useSwipe";
 import type { Cast, Ledger } from "../../domain/types";
 
 export function CastPay({ me }: { me: Cast }) {
@@ -169,6 +170,7 @@ export function CastShift({ me }: { me: Cast }) {
 
   const dim = daysInMonth(m);
   const lead = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1, 1).getDay();
+  const swipe = useSwipe({ stop: true, onCommit: (dir) => { setUI({ month: shiftMonth(m, dir), calDay: null }); setSel(null); } });
 
   return (
     <>
@@ -181,7 +183,8 @@ export function CastShift({ me }: { me: Cast }) {
           <span className="pill">{s.row?.days ?? 0}日</span>
         </div>
         <div className="cal-head">{WD.map((w) => <span key={w}>{w}</span>)}</div>
-        <div className="cal-grid mycal">
+        {/* 払って前後の月へ。上の月送りまで指を伸ばさなくていい */}
+        <div className="cal-grid mycal" {...swipe.bind}>
           {Array.from({ length: lead }, (_, i) => <div key={"b" + i} className="cal-cell blank" aria-hidden="true" />)}
           {Array.from({ length: dim }, (_, i) => i + 1).map((d) => {
             const k = `${m}-${String(d).padStart(2, "0")}`;
@@ -223,7 +226,7 @@ export function CastShift({ me }: { me: Cast }) {
       </div>
 
       {/* 希望はいちばん下。上の 2 つ（いつ入るか）を見てから出す順になる */}
-      <WishCard me={me} month={m} />
+      <WishCard me={me} month={m} onMonth={(mm) => setUI({ month: mm, calDay: null })} />
     </>
   );
 }

@@ -8,7 +8,8 @@ import type { Ledger } from "../../domain/types";
 import { commonShifts, lateLabel, lateMinutes, planFor, planTimes, plannedIds, spanLabel, spanMinutes, whoOn } from "../../domain/plans";
 import { applyWishes, diffTotal, pendingCasts, planDiff, wishRows, wishesOn } from "../../domain/wishes";
 import { Seg } from "../components/Seg";
-import { WD, addMinutes, dayLabel, daysInMonth, jp, monthLabel, shiftDay, todayISO, uid, yen } from "../../domain/format";
+import { useSwipe } from "../useSwipe";
+import { addMinutes, dayLabel, daysInMonth, jp, monthLabel, shiftDay, shiftMonth, todayISO, uid, WD, yen } from "../../domain/format";
 import { MonthBar } from "../components/MonthBar";
 import { TimeField } from "../components/TimeField";
 import { ChevDown, ChevRight } from "../icons";
@@ -23,6 +24,7 @@ export function Shifts() {
   const showToast = useApp((s) => s.showToast);
   const role = useCloud((s) => s.role());
   const wishSet = useCloud((s) => s.wishSet);
+  const refreshWishes = useCloud((s) => s.refreshWishes);
   const m = ui.month;
   /** 予定の時刻を直しているキャスト */
   const [editing, setEditing] = useState<string | null>(null);
@@ -35,6 +37,15 @@ export function Shifts() {
    *  いまは希望が LINE で来るので、店が代わりに記録する形も要る */
   const [mode, setMode] = useState<"plan" | "wish">("plan");
   const dayCard = useRef<HTMLDivElement | null>(null);
+
+  /** 開いたときと、戻ってきたときに希望を取りに行く。
+   *  希望は台帳に載っていないので、台帳の同期では降りてこない */
+  useEffect(() => {
+    void refreshWishes();
+    const onShow = () => { if (document.visibilityState === "visible") void refreshWishes(); };
+    document.addEventListener("visibilitychange", onShow);
+    return () => document.removeEventListener("visibilitychange", onShow);
+  }, [refreshWishes]);
   useEffect(() => {
     if (!jump || !dayCard.current) return;
     dayCard.current.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -153,6 +164,7 @@ export function Shifts() {
           /* 日を変えたら開いていた時刻の欄は閉じる。前の日で開いていた子が
              そのまま開いた状態で出てくると、どの日を直しているのか分からなくなる */
           onPick={(k) => { setUI({ calDay: sel === k ? null : k }); setEditing(null); if (sel !== k) setJump(k); }}
+          onMonth={(mm) => setUI({ month: mm, calDay: null })}
           cell={(k) => ({ planned: planOf(k).length > 0, worked: workedOf(k).length > 0, ...whoOn(L, k) })} />
       </div>
 
@@ -373,15 +385,18 @@ function TimeStep({ label, value, onChange }: { label: string; value: string; on
 }
 
 /** 予定と実績を出す月カレンダー。誰が入るのかを升の中に出す */
-function CalGrid({ m, dim, lead, today, sel, onPick, cell }: {
+function CalGrid({ m, dim, lead, today, sel, onPick, onMonth, cell }: {
   m: string; dim: number; lead: number; today: string; sel: string | null;
   onPick: (k: string) => void;
+  onMonth: (m: string) => void;
   cell: (k: string) => { planned: boolean; worked: boolean; names: string[]; total: number };
 }) {
+  // 払って前後の月へ。月送りまで指を伸ばさなくていい
+  const swipe = useSwipe({ stop: true, onCommit: (dir) => onMonth(shiftMonth(m, dir)) });
   return (
     <>
       <div className="cal-head">{WD.map((w) => <span key={w}>{w}</span>)}</div>
-      <div className="cal-grid">
+      <div className="cal-grid" {...swipe.bind}>
         {Array.from({ length: lead }, (_, i) => <div key={"b" + i} className="cal-cell blank" aria-hidden="true" />)}
         {Array.from({ length: dim }, (_, i) => i + 1).map((d) => {
           const k = `${m}-${String(d).padStart(2, "0")}`;

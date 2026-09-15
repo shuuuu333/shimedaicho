@@ -117,7 +117,10 @@ main.slide-r{animation:slidein-r .2s cubic-bezier(.32,.72,0,1)}
 .titlebar .m{font-size:28px; font-weight:700; letter-spacing:-.01em; line-height:1.1}
 .titlebar .sp{margin-left:auto; font-size:12px; color:var(--ink-3)}
 .monthbar{display:flex; align-items:center; gap:10px; margin-bottom:12px}
-.monthbar .lbl{font-weight:700; font-size:22px; letter-spacing:-.01em}
+.monthbar .lbl{font-weight:700; font-size:22px; letter-spacing:-.01em;
+  display:inline-flex; align-items:baseline; gap:6px}
+.monthbar .lbl b{font-size:26px; font-weight:800; letter-spacing:-.02em}
+.monthbar .lbl i{font-size:13px; font-weight:600; font-style:normal; color:var(--ink-3)}
 .monthbar .sp{margin-left:auto; font-size:12px; color:var(--ink-3); text-align:right}
 .monthbar .sp b{display:block; font-size:20px; font-weight:600; color:var(--ink);
   font-family:var(--font-num)}

@@ -70,6 +70,9 @@ export interface SwipeOpts {
 
 export function useSwipe({ onCommit, enabled = true, stop = false }: SwipeOpts) {
   const st = useRef<{ id: number; x: number; y: number; t: number; axis: "" | "x" | "y" } | null>(null);
+  /** 送ったあとに続けて出るクリックを 1 回だけ飲む。
+   *  カレンダーの升の上から払うと、月が動いたうえにその日が開いてしまう */
+  const swallow = useRef(false);
 
   const reset = useCallback(() => { st.current = null; }, []);
 
@@ -79,6 +82,7 @@ export function useSwipe({ onCommit, enabled = true, stop = false }: SwipeOpts) 
     if (e.clientX < EDGE || e.clientX > window.innerWidth - EDGE) return;
     if (inHScroller(e.target, e.currentTarget as Element)) return;
     if (stop) e.stopPropagation();
+    swallow.current = false;   // 前の指の取りこぼしを持ち越さない
     st.current = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), axis: "" };
   }, [enabled, stop]);
 
@@ -103,12 +107,19 @@ export function useSwipe({ onCommit, enabled = true, stop = false }: SwipeOpts) 
     const dir: 1 | -1 = ddx < 0 ? 1 : -1;
     const go = s.axis === "x" && shouldCommit(ddx, performance.now() - s.t);
     reset();
-    if (go) onCommit(dir);
+    if (go) { swallow.current = true; onCommit(dir); }
   }, [onCommit, reset, stop]);
+
+  const onClickCapture = useCallback((e: React.MouseEvent) => {
+    if (!swallow.current) return;
+    swallow.current = false;
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
 
   return {
     bind: {
-      onPointerDown, onPointerMove, onPointerUp,
+      onPointerDown, onPointerMove, onPointerUp, onClickCapture,
       onPointerCancel: reset,
       // 横は自分で見る。縦のスクロールはブラウザに任せる
       style: { touchAction: "pan-y" as const },

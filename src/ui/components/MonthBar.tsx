@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { ChevLeft, ChevRight } from "../icons";
-import { monthLabel } from "../../domain/format";
 import { useSwipe } from "../useSwipe";
 
 interface Props { month: string; onChange: (m: string) => void; right?: ReactNode; yearMode?: boolean }
@@ -14,7 +13,11 @@ export function MonthBar({ month, onChange, right, yearMode = false }: Props) {
   return (
     <div className="monthbar" {...swipe.bind}>
       <button type="button" className="mb" aria-label={yearMode ? "前の年" : "前の月"} onClick={() => shift(-1)}><ChevLeft /></button>
-      <span className="lbl num">{yearMode ? `${y}年` : monthLabel(month)}</span>
+      {/* 「9月 2026」だと、どちらが月でどちらが年か一瞬止まる。
+          読むのはほとんど月なので、月を大きく、年は添えるだけにする */}
+      <span className="lbl num">
+        {yearMode ? `${y}年` : <><b>{mo}月</b><i>{y}</i></>}
+      </span>
       <button type="button" className="mb" aria-label={yearMode ? "次の年" : "次の月"} onClick={() => shift(1)}><ChevRight /></button>
       {right && <span className="sp">{right}</span>}
     </div>

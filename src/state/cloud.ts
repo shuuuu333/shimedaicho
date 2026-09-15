@@ -44,6 +44,9 @@ export interface CloudState {
   /** メンバーの設定を変える（どのキャストか・レジを打たせるか）。オーナーだけ */
   setMember(email: string, patch: { cast_id?: string | null; can_register?: boolean }): Promise<void>;
   syncNow(): Promise<void>;
+  /** 希望だけを取り込み直す。シフト画面を開いたときに呼ぶ。
+   *  台帳の同期と違って realtime に載せていないので、見に来たときに取りに行く */
+  refreshWishes(): Promise<void>;
   /** シフト希望を出す・取り消す。台帳と、キャストが書ける置き場（shift_wishes）の両方へ。
    *  クラウドを使っていない店では台帳だけで動く */
   wishSet(castId: string, date: string, on: boolean): Promise<void>;
@@ -135,6 +138,10 @@ export const useCloud = create<CloudState>()((set, get) => {
           for (const k of sentDirty.days) dirty.days.delete(k);
           if (sentDirty.meta) dirty.meta = false;
           saveDirty();
+          // 希望は台帳に載っていないので、送ったあとにも取り込む。
+          // ここが無いと、何か直すたびに pull が push で終わり、
+          // キャストが出した希望がいつまでも降りてこない
+          await hydrateWishes(shopId);
           set({ status: "synced", lastSyncAt: new Date().toISOString() });
           return;
         }
@@ -465,6 +472,12 @@ export const useCloud = create<CloudState>()((set, get) => {
       if (!shopId || !api.cloudConfigured) return;
       try { await api.putWishDone(shopId, castId, month, done); }
       catch (e) { set({ error: msg(e) }); }
+    },
+
+    async refreshWishes() {
+      const { shopId, session } = get();
+      if (!shopId || !session) return;
+      await hydrateWishes(shopId);
     },
 
     async syncNow() {

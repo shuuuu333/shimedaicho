@@ -11,16 +11,17 @@
  *  ・日は押すだけ。時間は「よく使う時間」から選ぶだけ（数字は打たせない）
  *  ・時間はまとめて入る。5 日ぶんを 1 日ずつ決めさせない
  *  ・今日がどこかは、升を数えなくても分かるようにする */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useApp } from "../../state/store";
 import { useCloud } from "../../state/cloud";
 import { isWishDone, wishDays, wishesOn, wishOf } from "../../domain/wishes";
 import { commonShifts, planFor } from "../../domain/plans";
-import { WD, dayLabel, daysInMonth, monthLabel, todayISO } from "../../domain/format";
+import { WD, dayLabel, daysInMonth, monthLabel, shiftMonth, todayISO } from "../../domain/format";
 import { TimeField } from "./TimeField";
+import { useSwipe } from "../useSwipe";
 import type { Cast } from "../../domain/types";
 
-export function WishCard({ me, month }: { me: Cast; month: string }) {
+export function WishCard({ me, month, onMonth }: { me: Cast; month: string; onMonth: (m: string) => void }) {
   const L = useApp((s) => s.ledger);
   const showToast = useApp((s) => s.showToast);
   const wishSet = useCloud((s) => s.wishSet);
@@ -39,6 +40,28 @@ export function WishCard({ me, month }: { me: Cast; month: string }) {
   /** その店がよく使っている時間帯。決め打ちの候補は店によって当たらない */
   const patterns = commonShifts(L, 4);
 
+  /** 升を長押しすると、その日の時間へ直行する。
+   *  タップ＝入れる／外す、長押し＝時間、と分けておくと、
+   *  下の一覧まで下りなくていい */
+  const press = useRef<{ t: number; x: number; y: number; k: string } | null>(null);
+  const holdFired = useRef(false);
+  const startHold = (k: string, e: React.PointerEvent) => {
+    holdFired.current = false;
+    const t = window.setTimeout(() => {
+      holdFired.current = true;
+      if (!wishesOn(L, k).some((w) => w.castId === me.id)) toggle(k);
+      setTimeFor(k);
+      if (navigator.vibrate) navigator.vibrate(8);
+    }, 450);
+    press.current = { t, x: e.clientX, y: e.clientY, k };
+  };
+  const moveHold = (e: React.PointerEvent) => {
+    const p = press.current;
+    if (!p) return;
+    if (Math.abs(e.clientX - p.x) > 10 || Math.abs(e.clientY - p.y) > 10) endHold();
+  };
+  const endHold = () => { if (press.current) { clearTimeout(press.current.t); press.current = null; } };
+
   const toggle = (k: string) => {
     const on = wishesOn(L, k).some((w) => w.castId === me.id);
     void wishSet(me.id, k, !on);
@@ -55,6 +78,8 @@ export function WishCard({ me, month }: { me: Cast; month: string }) {
     showToast(dates.length > 1 ? `${dates.length}日ぶんの時間を決めました` : "時間を決めました");
   };
 
+  const swipe = useSwipe({ stop: true, onCommit: (dir) => { onMonth(shiftMonth(month, dir)); setTimeFor(null); } });
+
   /** その日の表示用の時間。空なら店の時間 */
   const timeOf = (k: string) => {
     const w = wishOf(L, k, me.id);
@@ -70,11 +95,12 @@ export function WishCard({ me, month }: { me: Cast; month: string }) {
 
       <p className="sub">
         入れる日をタップしてください。押しても<b>予定にはなりません</b>。決めるのはお店です。
-        {month <= today.slice(0, 7) ? <><br />来月ぶんを出すときは、<b>上の月送り</b>で月を変えてください。</> : null}
+        <br /><b>長押し</b>すると、その日の時間をすぐ決められます。<b>左右に払う</b>と月が変わります。
       </p>
 
       <div className="cal-head">{WD.map((w) => <span key={w}>{w}</span>)}</div>
-      <div className="cal-grid mycal">
+      {/* 払って前後の月へ。上の月送りまで指を伸ばさなくていい */}
+      <div className="cal-grid mycal" {...swipe.bind}>
         {Array.from({ length: lead }, (_, i) => <div key={"b" + i} className="cal-cell blank" aria-hidden="true" />)}
         {Array.from({ length: dim }, (_, i) => i + 1).map((d) => {
           const k = `${month}-${String(d).padStart(2, "0")}`;
@@ -82,7 +108,10 @@ export function WishCard({ me, month }: { me: Cast; month: string }) {
           const fixed = !!planFor(L, k, me.id);
           const dow = (lead + d - 1) % 7;
           return (
-            <button key={k} type="button" onClick={() => toggle(k)}
+            <button key={k} type="button"
+              onClick={() => { if (holdFired.current) { holdFired.current = false; return; } toggle(k); }}
+              onPointerDown={(e) => startHold(k, e)} onPointerMove={moveHold}
+              onPointerUp={endHold} onPointerCancel={endHold}
               className={`cal-cell shiftcell ${dow === 0 || dow === 6 ? "wk" : ""} ${fixed ? "done" : wished ? "next" : ""} ${k === today ? "today" : ""}`}
               aria-pressed={wished}
               aria-label={`${Number(month.slice(5, 7))}月${d}日 ${fixed ? "お店が決めた出勤日" : wished ? "入れると出している" : "出していない"}`}>
@@ -164,49 +193,47 @@ export function WishCard({ me, month }: { me: Cast; month: string }) {
 
 /** 時間の選び方。
  *
- *  まず押すだけで決まる候補を出す。並ぶのは、その店でよく使われている時間帯
- *  （commonShifts）。決め打ちの候補では、店によって時間帯が違うので当たらない。
+ *  候補と「じぶんで決める」を、隠さずに並べる。
+ *  前は自分で決めるのがもう 1 タップ奥にあったが、候補に無い時間は珍しくない
+ *  （「21時に上がりたい」「今日は23時から」）。奥にあると、あきらめて
+ *  近い候補を押すことになり、出した希望が本当のことでなくなる。
  *
- *  そのうえで「何時から何時まで」を自分で決められる。
- *  「21時に上がりたい」「今日は 23 時から」は候補に無い。
- *  ここが無いと、希望を出すという言葉に中身がなくなる。 */
+ *  候補は、その店でよく使われている時間帯（commonShifts）。
+ *  決め打ちの候補では、店によって時間帯が違うので当たらない。 */
 function Times({ patterns, now, onPick }: {
   patterns: readonly { in: string; out: string }[];
   now: { in: string; out: string };
   onPick: (t: { in?: string; out?: string }) => void;
 }) {
-  const [free, setFree] = useState(false);
   const [from, setFrom] = useState(now.in);
   const [to, setTo] = useState(now.out);
-
-  if (free) {
-    return (
-      <div style={{ marginTop: 8, marginBottom: 8, padding: 12, borderRadius: 14, background: "var(--surface-2)" }}>
-        {/* 折り返させない。「から」「まで」が行になって落ちると、何の欄か分からなくなる */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap" }}>
-          <TimeField value={from} onChange={setFrom} ariaLabel="何時から" style={{ flex: 1, minWidth: 0 }} />
-          <span className="muted" style={{ flex: "none" }}>から</span>
-          <TimeField value={to} onChange={setTo} ariaLabel="何時まで" style={{ flex: 1, minWidth: 0 }} />
-          <span className="muted" style={{ flex: "none" }}>まで</span>
-        </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-          <button type="button" className="btn primary" style={{ flex: 1 }} disabled={!from || !to}
-            onClick={() => onPick({ in: from, out: to })}>この時間にする</button>
-          <button type="button" className="btn ghost" onClick={() => setFree(false)}>やめる</button>
-        </div>
-      </div>
-    );
-  }
+  const changed = from !== now.in || to !== now.out;
 
   return (
-    <div className="chipgrid" style={{ marginTop: 8, marginBottom: 8 }}>
-      {patterns.map((p) => (
-        <button key={`${p.in}-${p.out}`} type="button" className="cchip" onClick={() => onPick({ in: p.in, out: p.out })}>
-          {p.in}-{p.out}
-        </button>
-      ))}
-      <button type="button" className="cchip" onClick={() => onPick({})}>お店の時間でいい</button>
-      <button type="button" className="cchip add" onClick={() => setFree(true)}>じぶんで決める</button>
+    <div style={{ marginTop: 8, marginBottom: 10, padding: 12, borderRadius: 14, background: "var(--surface-2)" }}>
+      <div className="chipgrid">
+        {patterns.map((p) => (
+          <button key={`${p.in}-${p.out}`} type="button"
+            className={`cchip ${p.in === now.in && p.out === now.out ? "on" : ""}`}
+            onClick={() => onPick({ in: p.in, out: p.out })}>
+            {p.in}-{p.out}
+          </button>
+        ))}
+        <button type="button" className="cchip" onClick={() => onPick({})}>お店の時間でいい</button>
+      </div>
+
+      {/* 折り返させない。「から」「まで」が行になって落ちると、何の欄か分からなくなる */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap", marginTop: 10 }}>
+        <TimeField value={from} onChange={setFrom} ariaLabel="何時から" style={{ flex: 1, minWidth: 0 }} />
+        <span className="muted" style={{ flex: "none" }}>から</span>
+        <TimeField value={to} onChange={setTo} ariaLabel="何時まで" style={{ flex: 1, minWidth: 0 }} />
+        <span className="muted" style={{ flex: "none" }}>まで</span>
+      </div>
+      <button type="button" className={`btn wide ${changed ? "primary" : ""}`} style={{ marginTop: 8 }}
+        disabled={!from || !to || !changed}
+        onClick={() => onPick({ in: from, out: to })}>
+        {changed ? `${from}-${to} にする` : "この時間で決まっています"}
+      </button>
     </div>
   );
 }
