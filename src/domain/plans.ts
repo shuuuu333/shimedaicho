@@ -91,3 +91,21 @@ export function whoOn(L: Ledger, date: string): { names: string[]; total: number
   const names = ids.map((cid) => L.casts.find((c) => c.id === cid)?.name ?? "").filter(Boolean);
   return { names, total: ids.length };
 }
+
+/** その日が本人にとって何なのか（キャスト手帳のカレンダー）。
+ *
+ *  過ぎた日は「入りました」、まだの日（今日を含む）は「入ります」。
+ *  過ぎた日に予定だけあって店の記録がまだ無いことがあるが、
+ *  本人から見れば入った日なので同じ扱いにする。記録待ちなのは開いた所に書く。
+ *
+ *  from は「何時から」。実績があればその時刻、無ければ予定の時刻。
+ *  開かなくても月を見渡せるように、升にも出している。 */
+export function myDayState(L: Ledger, castId: string, date: string, today: string):
+  { kind: "done" | "next" | ""; from: string; worked: boolean } {
+  const sh = L.days[date]?.shifts?.[castId];
+  const worked = !!sh?.on;
+  const plan = planTimes(L, date, castId);
+  if (!worked && !plan) return { kind: "", from: "", worked: false };
+  const from = (worked && sh?.in) || plan?.in || "";
+  return { kind: date < today ? "done" : "next", from, worked };
+}

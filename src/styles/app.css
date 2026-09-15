@@ -182,6 +182,28 @@
 .cal-cell.shiftcell.today .cd{text-decoration:underline; text-underline-offset:3px}
 .cal-cell.shiftcell.sel{box-shadow:0 0 0 2px var(--accent)}
 
+/* キャスト手帳のカレンダー。
+   「今日がどこか」と「入っているか」が、目を止めずに読めることだけを狙う。
+   店のシフト表（誰が入るか）とは見るものが違うので、別に持つ */
+.mycal .cal-cell.shiftcell{min-height:56px; gap:1px}
+/* 入りました（過ぎた日）… 塗る */
+.mycal .cal-cell.shiftcell.done{background:var(--accent)}
+.mycal .cal-cell.shiftcell.done .cd,.mycal .cal-cell.shiftcell.done .cwho{color:var(--accent-ink)}
+.mycal .cal-cell.shiftcell.done .cwho{opacity:.85}
+/* 入ります（これから）… 薄く塗って縁も付ける。枠だけだと弱くて見落とす */
+.mycal .cal-cell.shiftcell.next{background:var(--accent-soft); box-shadow:inset 0 0 0 1.5px var(--accent)}
+.mycal .cal-cell.shiftcell.next .cd{color:var(--accent); font-weight:700}
+.mycal .cal-cell.shiftcell.next .cwho{color:var(--accent); font-weight:600}
+/* 今日 … 下線ではなく、囲って字も出す。下線は塗った升の上で消える */
+.mycal .cal-cell.shiftcell.today{box-shadow:inset 0 0 0 2px var(--ink)}
+.mycal .cal-cell.shiftcell.today.next{box-shadow:inset 0 0 0 2px var(--ink)}
+.mycal .cal-cell.shiftcell.today .cd{text-decoration:none; font-weight:700}
+.mycal .cal-cell.shiftcell .cn{font-size:10px; font-weight:700; color:var(--ink-2); line-height:1}
+.mycal .cal-cell.shiftcell.done .cn{color:var(--accent-ink)}
+.mycal .cal-cell.shiftcell.next .cn{color:var(--accent)}
+.mycal .cal-cell.shiftcell .cwho{font-size:11px; font-weight:600; color:var(--ink-3); line-height:1.1}
+.mycal .cal-cell.shiftcell.sel{box-shadow:0 0 0 2px var(--ink), inset 0 0 0 2px var(--ink)}
+
 /* シフトを組んでいる途中で新しい子を足す欄 */
 .cchip.add{background:transparent; box-shadow:inset 0 0 0 1.5px var(--line-strong); color:var(--ink-3); font-weight:500}
 .cchip.add:active{background:var(--surface-2)}

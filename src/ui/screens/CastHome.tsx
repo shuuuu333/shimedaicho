@@ -11,11 +11,13 @@
  *  - 「ドリンク 1本 ＋¥700」まで出す。1本いくらが見えると行動が変わる
  *
  *  数字はぜんぶ calc.ts と castStats.ts から。新しい計算は作っていない。 */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useApp } from "../../state/store";
 import { useCloud } from "../../state/cloud";
 import { castBacks, castDays, castStats } from "../../domain/castStats";
-import { planFor } from "../../domain/plans";
+import { myDayState, planTimes } from "../../domain/plans";
+import { wishesOn } from "../../domain/wishes";
+import { payOf } from "../../domain/calc";
 import { WD, dayLabel, daysInMonth, jp, monthLabel, shiftMonth, todayISO, yen } from "../../domain/format";
 import { MonthBar } from "../components/MonthBar";
 import { CastCumChart } from "../charts";
@@ -161,58 +163,107 @@ export function CastShift({ me }: { me: Cast }) {
   const today = todayISO();
   const s = useMemo(() => castStats(L, me.id, m, today), [L, me.id, m, today]);
 
+  /** 開いている日。はじめは今日（今月を見ているとき） */
+  const [sel, setSel] = useState<string | null>(null);
+  const open = sel && sel.startsWith(m) ? sel : (m === today.slice(0, 7) ? today : null);
+
   const dim = daysInMonth(m);
   const lead = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1, 1).getDay();
 
   return (
     <>
-      <MonthBar month={m} onChange={(mm) => setUI({ month: mm, calDay: null })}
+      <MonthBar month={m} onChange={(mm) => { setUI({ month: mm, calDay: null }); setSel(null); }}
         right={<>予定<b>{s.ahead.length}日</b></>} />
 
-      {/* この月のどこに入っているか。数えなくても一目で分かるように */}
       <div className="card">
         <div className="cardhead">
-          <h2>{monthLabel(m)} の出勤</h2>
+          <h2>{monthLabel(m)} のシフト</h2>
           <span className="pill">{s.row?.days ?? 0}日</span>
         </div>
         <div className="cal-head">{WD.map((w) => <span key={w}>{w}</span>)}</div>
-        <div className="cal-grid">
+        <div className="cal-grid mycal">
           {Array.from({ length: lead }, (_, i) => <div key={"b" + i} className="cal-cell blank" aria-hidden="true" />)}
           {Array.from({ length: dim }, (_, i) => i + 1).map((d) => {
             const k = `${m}-${String(d).padStart(2, "0")}`;
-            const worked = !!L.days[k]?.shifts?.[me.id]?.on;
-            const planned = !!planFor(L, k, me.id);
+            const st = myDayState(L, me.id, k, today);
             const dow = (lead + d - 1) % 7;
             return (
-              <div key={k}
-                className={`cal-cell shiftcell ${dow === 0 || dow === 6 ? "wk" : ""} ${worked ? "worked" : planned ? "planned" : ""} ${k === today ? "today" : ""}`}
-                aria-label={`${Number(m.slice(5, 7))}月${d}日 ${worked ? "出勤した" : planned ? "予定あり" : ""}`}>
+              <button key={k} type="button" onClick={() => setSel(open === k ? null : k)}
+                className={`cal-cell shiftcell ${dow === 0 || dow === 6 ? "wk" : ""} ${st.kind} ${k === today ? "today" : ""} ${open === k ? "sel" : ""}`}
+                aria-pressed={open === k}
+                aria-label={`${Number(m.slice(5, 7))}月${d}日 ${st.kind === "done" ? "入りました" : st.kind === "next" ? `入ります ${st.from}から` : "予定なし"}`}>
                 <span className="cd">{d}</span>
-              </div>
+                {/* 何時からかは、開かなくても読めるようにしておく。
+                    タップして初めて分かるのでは、月を見渡せない */}
+                {st.from ? <span className="cwho" aria-hidden="true">{st.from}</span> : null}
+                {k === today ? <span className="cn" aria-hidden="true">今日</span> : null}
+              </button>
             );
           })}
         </div>
         <div className="legend" style={{ marginTop: 10 }}>
-          <span><i style={{ background: "var(--accent)" }} />出勤した日</span>
-          <span><i style={{ background: "transparent", boxShadow: "inset 0 0 0 1.5px var(--accent)" }} />これからの予定</span>
+          <span><i style={{ background: "var(--accent)" }} />入りました</span>
+          <span><i style={{ background: "var(--accent-soft)", boxShadow: "inset 0 0 0 1.5px var(--accent)" }} />入ります</span>
         </div>
       </div>
+
+      {open && <DayCard L={L} me={me} date={open} today={today} />}
 
       {/* 次のシフト。何時に行けばいいかが一番知りたいこと */}
       <div className="card">
         <h2>次のシフト</h2>
         {s.ahead.length ? s.ahead.slice(0, 4).map((d) => (
-          <div key={d.date} className="lrow">
+          <button key={d.date} type="button" className="lrow" onClick={() => setSel(d.date)}>
             <div className="g"><div className="t">{dayLabel(d.date)}</div>
               <div className="s">{d.date === today ? "今日" : ""}</div></div>
             <div className="a num">{d.planIn}-{d.planOut}</div>
-          </div>
+          </button>
         )) : <div className="empty">これからの予定はまだ入っていません</div>}
       </div>
 
       {/* 希望はいちばん下。上の 2 つ（いつ入るか）を見てから出す順になる */}
       <WishCard me={me} />
     </>
+  );
+}
+
+/** 開いた日の中身。何時から何時までと、入ったぶんの額 */
+function DayCard({ L, me, date, today }: { L: Ledger; me: Cast; date: string; today: string }) {
+  const sh = L.days[date]?.shifts?.[me.id];
+  const worked = !!sh?.on;
+  const plan = planTimes(L, date, me.id);
+  const wished = wishesOn(L, date).some((w) => w.castId === me.id);
+  const past = date < today;
+  const p = worked && sh ? payOf(L, me.id, sh, date) : null;
+
+  return (
+    <div className="card">
+      <div className="cardhead">
+        <h2>{dayLabel(date)}</h2>
+        {date === today ? <span className="pill">今日</span> : null}
+      </div>
+
+      {worked && sh ? (
+        <>
+          <div className="lrow"><div className="g">
+            <div className="t">{past ? "入りました" : "入っています"}</div>
+            <div className="s">{sh.in && sh.out ? `${sh.in}-${sh.out}` : "時刻は記録されていません"}</div>
+          </div><div className="a num">{p ? `${p.hours.toFixed(1)}時間` : ""}</div></div>
+          {p && <div className="lrow total"><div className="g"><div className="t">この日のぶん</div></div>
+            <div className="a num">{yen(p.gross)}</div></div>}
+        </>
+      ) : plan ? (
+        <div className="lrow"><div className="g">
+          <div className="t">{past ? "入る予定でした" : "入ります"}</div>
+          <div className="s">{past ? "お店の記録がまだです" : "この時間で決まっています"}</div>
+        </div><div className="a num">{plan.in}-{plan.out}</div></div>
+      ) : (
+        <div className="empty">
+          この日は入っていません
+          {wished ? <><br /><span className="hint">「入れます」と出しています。決まるのを待っています</span></> : null}
+        </div>
+      )}
+    </div>
   );
 }
 
