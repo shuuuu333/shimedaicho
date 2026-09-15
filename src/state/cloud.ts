@@ -47,8 +47,9 @@ export interface CloudState {
   /** シフト希望を出す・取り消す。台帳と、キャストが書ける置き場（shift_wishes）の両方へ。
    *  クラウドを使っていない店では台帳だけで動く */
   wishSet(castId: string, date: string, on: boolean): Promise<void>;
-  /** 希望の時刻を直す。空文字で「店の時間でいい」に戻る */
-  wishTime(castId: string, date: string, key: "in" | "out", v: string): Promise<void>;
+  /** 希望の時刻を決める。空を渡すと「店の時間でいい」に戻る。
+   *  出退勤はいつも 2 つで 1 組なので、まとめて受ける */
+  wishTimes(castId: string, dates: readonly string[], t: { in?: string; out?: string }): Promise<void>;
   /** その月ぶんを「出し終えた」にする・戻す */
   wishDoneSet(castId: string, month: string, done: boolean): Promise<void>;
   /** QR を作る（オーナー用） */
@@ -109,9 +110,17 @@ export const useCloud = create<CloudState>()((set, get) => {
     const { shopId, session } = get();
     if (!shopId || !session || pushing) return;
     // キャストは台帳を書けない（schema.sql の ledgers_update で弾かれる）。
-    // 送っても 42501 が返るだけなので、送らずに受け取るだけにする。
-    // dirty は消さない（役割の判定を取り違えたときに入力を捨てないため）
-    if (get().role() === "cast") { await pull(); return; }
+    // 送っても 42501 が返るだけなので、送らない。
+    // dirty は消さない（役割の判定を取り違えたときに入力を捨てないため）。
+    //
+    // **ここから pull() を呼ばない。** 呼ぶと pull → push → pull … と回り続け、
+    // 右上が「同期中」のまま止まる。キャスト手帳を店のアカウントで開いたときに
+    // 必ず起きていた（my_cast_ledger がオーナーには例外を返すので、
+    // pull がふつうの経路へ落ち、dirty が残っていて push を呼び返す）
+    if (get().role() === "cast") {
+      if (get().status === "syncing") set({ status: "synced", lastSyncAt: new Date().toISOString() });
+      return;
+    }
     if (!navigator.onLine) { set({ status: "offline" }); return; }
     pushing = true;
     set({ status: "syncing", error: null });
@@ -215,7 +224,8 @@ export const useCloud = create<CloudState>()((set, get) => {
         const merged = mergeLedger(remoteL, local, dirty);
         setVersion(remote.version);
         applyLedger(merged);
-        if (dirty.days.size || dirty.meta) { await push(); return; }
+        // キャストの端末からは送れない。ここで push を呼ぶと回り続ける
+        if ((dirty.days.size || dirty.meta) && get().role() !== "cast") { await push(); return; }
       }
       // キャスト本人が出した希望は台帳に入ってこない。ここで重ねる
       await hydrateWishes(shopId);
@@ -431,14 +441,22 @@ export const useCloud = create<CloudState>()((set, get) => {
       } catch (e) { set({ error: msg(e) }); }
     },
 
-    async wishTime(castId, date, key, v) {
-      useApp.getState().update((L) => { setWishTime(L, date, castId, key, v); });
+    async wishTimes(castId, dates, t) {
+      useApp.getState().update((L) => {
+        for (const d of dates) {
+          setWishTime(L, d, castId, "in", t.in ?? "");
+          setWishTime(L, d, castId, "out", t.out ?? "");
+        }
+      });
       const { shopId } = get();
       if (!shopId || !api.cloudConfigured) return;
-      const w = wishOf(useApp.getState().ledger, date, castId);
-      if (!w) return;
-      try { await api.putWish(shopId, castId, date, { in: w.in, out: w.out }); }
-      catch (e) { set({ error: msg(e) }); }
+      const L = useApp.getState().ledger;
+      try {
+        for (const d of dates) {
+          const w = wishOf(L, d, castId);
+          if (w) await api.putWish(shopId, castId, d, { in: w.in, out: w.out });
+        }
+      } catch (e) { set({ error: msg(e) }); }
     },
 
     async wishDoneSet(castId, month, done) {

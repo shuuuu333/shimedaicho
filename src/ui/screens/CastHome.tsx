@@ -203,7 +203,7 @@ export function CastShift({ me }: { me: Cast }) {
         </div>
         <div className="legend" style={{ marginTop: 10 }}>
           <span><i style={{ background: "var(--accent)" }} />入りました</span>
-          <span><i style={{ background: "var(--accent-soft)", boxShadow: "inset 0 0 0 1.5px var(--accent)" }} />入ります</span>
+          <span><i style={{ background: "var(--accent-soft)" }} />入ります</span>
         </div>
       </div>
 
