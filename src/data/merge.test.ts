@@ -81,4 +81,33 @@ describe("merge", () => {
     expect(back.meta).toBe(true);
     expect(parseDirty("garbage").days.size).toBe(0);
   });
+
+  it("シフト希望も同期で消えない（plans と同じ穴を開けない）", () => {
+    // plans は v3 まで出力に入っておらず、同期のたびに消えていた。
+    // wishes / wishDone を足したときに同じことを繰り返さないための見張り
+    const remote = defaultLedger();
+    remote.wishes = { "2026-10-01": [{ castId: "c1" }] };
+    remote.wishDone = { c1: ["2026-10"] };
+    const local = defaultLedger();
+    local.wishes = { "2026-10-02": [{ castId: "c2" }] };
+    local.wishDone = { c2: ["2026-10"] };
+
+    // この端末で触っていなければ remote のものが残る
+    const keep = mergeLedger(remote, local, emptyDirty());
+    expect(keep.wishes).toEqual({ "2026-10-01": [{ castId: "c1" }] });
+    expect(keep.wishDone).toEqual({ c1: ["2026-10"] });
+
+    // 触っていれば local が勝つ
+    const mine = mergeLedger(remote, local, { days: new Set<string>(), meta: true });
+    expect(mine.wishes).toEqual({ "2026-10-02": [{ castId: "c2" }] });
+    expect(mine.wishDone).toEqual({ c2: ["2026-10"] });
+  });
+
+  it("希望を触ると meta が立つ（立たないと送られない）", () => {
+    const a = defaultLedger();
+    const b = produce(a, (L) => { L.wishes = { "2026-10-01": [{ castId: "c1" }] }; });
+    expect(diffDirty(a, b, emptyDirty()).meta).toBe(true);
+    const c = produce(b, (L) => { L.wishDone = { c1: ["2026-10"] }; });
+    expect(diffDirty(b, c, emptyDirty()).meta).toBe(true);
+  });
 });

@@ -75,6 +75,15 @@ export interface PlanEntry {
   out?: string;
 }
 
+/** シフト希望の 1 件。キャスト本人が「この日は入れます」と出したもの。
+ *  予定（PlanEntry）とは別に持つ。出しただけの日を、店が決めた予定と
+ *  取り違えないため。時刻が空なら「店の時間でいい」の意 */
+export interface Wish {
+  castId: string;
+  in?: string;
+  out?: string;
+}
+
 /** 営業中に LINE へ送る通知の決まり。
  *  LINE の無料枠は月 200 通なので、既定は「1 時間ぶんをまとめて 1 通」にしてある。
  *  1 件ずつ送ると、1 日 10 組の店で月 600 通を超えて送れなくなる */
@@ -170,6 +179,12 @@ export interface Ledger {
   days: Record<string, DayRecord>;
   /** YYYY-MM-DD → その日のシフト予定。実績は days[].shifts */
   plans?: Record<string, PlanEntry[]>;
+  /** YYYY-MM-DD → その日に「入れます」と出ているキャスト。
+   *  オーナーが予定に写すまで、予定には影響しない */
+  wishes?: Record<string, Wish[]>;
+  /** castId → 希望を出し終えた月（YYYY-MM）。
+   *  「まだ出していない」と「その日は入れない」を分けるために要る */
+  wishDone?: Record<string, string[]>;
   /** レジの商品 */
   menu?: MenuItem[];
   /** レジの席 */

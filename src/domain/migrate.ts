@@ -105,6 +105,20 @@ function toPlans(v: unknown, castIds: Set<string>): Record<string, PlanEntry[]> 
   return Object.keys(out).length ? out : undefined;
 }
 
+/** 「希望を出し終えた月」の掃除。居ないキャストと、月の形でないものを落とす */
+function toWishDone(v: unknown, castIds: Set<string>): Record<string, string[]> | undefined {
+  if (!isObj(v)) return undefined;
+  const out: Record<string, string[]> = {};
+  for (const k of Object.keys(v)) {
+    if (!castIds.has(k)) continue;
+    const list = v[k];
+    if (!Array.isArray(list)) continue;
+    const months = [...new Set(list.filter((x): x is string => typeof x === "string" && MONTH_RE.test(x)))].sort();
+    if (months.length) out[k] = months;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 export function defaultLedger(): Ledger {
   return { v: 4, shop: defaultShop(), backItems: defaultBacks(), casts: [], days: {},
            menu: defaultMenu(), seats: defaultSeats(), posRule: defaultPosRule() };
@@ -384,8 +398,14 @@ export function migrate(input: unknown): Ledger {
     : defaultSeats();
 
   const out: Ledger = { v: 4, shop, backItems: items, casts, days, menu, seats, posRule: toPosRule(o.posRule) };
-  const plans = toPlans(o.plans, new Set(casts.map((c) => c.id)));
+  const ids = new Set(casts.map((c) => c.id));
+  const plans = toPlans(o.plans, ids);
   if (plans) out.plans = plans;
+  // 希望は予定と同じ形（castId / in / out）なので、掃除も同じもので足りる
+  const wishes = toPlans(o.wishes, ids);
+  if (wishes) out.wishes = wishes;
+  const wishDone = toWishDone(o.wishDone, ids);
+  if (wishDone) out.wishDone = wishDone;
   return out;
 }
 

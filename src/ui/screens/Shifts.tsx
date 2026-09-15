@@ -6,7 +6,9 @@ import { useCloud } from "../../state/cloud";
 import { payOf } from "../../domain/calc";
 import type { Ledger } from "../../domain/types";
 import { commonShifts, lateLabel, lateMinutes, planFor, planTimes, plannedIds, spanLabel, spanMinutes, whoOn } from "../../domain/plans";
-import { WD, addMinutes, dayLabel, daysInMonth, jp, shiftDay, todayISO, uid, yen } from "../../domain/format";
+import { applyWishes, diffTotal, pendingCasts, planDiff, toggleWish, wishRows, wishesOn } from "../../domain/wishes";
+import { Seg } from "../components/Seg";
+import { WD, addMinutes, dayLabel, daysInMonth, jp, monthLabel, shiftDay, todayISO, uid, yen } from "../../domain/format";
 import { MonthBar } from "../components/MonthBar";
 import { TimeField } from "../components/TimeField";
 import { ChevDown, ChevRight } from "../icons";
@@ -29,6 +31,9 @@ export function Shifts() {
   const [jump, setJump] = useState<string | null>(null);
   /** 新しい子を入れている最中か */
   const [adding, setAdding] = useState(false);
+  /** 日のカードで、予定を組んでいるのか希望を書き留めているのか。
+   *  いまは希望が LINE で来るので、店が代わりに記録する形も要る */
+  const [mode, setMode] = useState<"plan" | "wish">("plan");
   const dayCard = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!jump || !dayCard.current) return;
@@ -59,6 +64,16 @@ export function Shifts() {
       if (!LL.plans[k].length) delete LL.plans[k];
       if (!Object.keys(LL.plans).length) delete LL.plans;
     });
+
+  const toggleWishOn = (k: string, castId: string) => update((LL) => toggleWish(LL, k, castId));
+
+  /** 希望をまとめて予定にする。足すだけで、店が入れた予定は消さない */
+  const applyMonth = () => {
+    const n = diffTotal(planDiff(L, m));
+    if (!n) { showToast("入れるものはありません"); return; }
+    update((LL) => { applyWishes(LL, m); });
+    showToast(`${n}人ぶんを予定に入れました`);
+  };
 
   /** シフトを組んでいる途中で新しい子を足す。
    *
@@ -120,6 +135,9 @@ export function Shifts() {
   /* ---------- オーナー・スタッフの画面 ---------- */
   const selPlan = sel ? planOf(sel) : [];
   const selWorked = sel ? workedOf(sel) : [];
+  const selWish = sel ? wishesOn(L, sel).map((w) => w.castId) : [];
+  /** その日の希望のうち、まだ予定に入っていないぶん */
+  const dayLeft = sel ? (planDiff(L, m).find((d) => d.date === sel)?.adds ?? []) : [];
   const totalPlanned = Object.keys(L.plans ?? {}).filter((k) => k.startsWith(m)).length;
 
   /** 先週の同じ曜日をそのまま写す。月ぶんを組むときは同じ並びの繰り返しになるので、
@@ -152,25 +170,53 @@ export function Shifts() {
           cell={(k) => ({ planned: planOf(k).length > 0, worked: workedOf(k).length > 0, ...whoOn(L, k) })} />
       </div>
 
+      <WishSummary L={L} month={m} onApply={applyMonth} onPick={(k) => { setUI({ calDay: k }); setMode("wish"); setJump(k); }} />
+
       {sel ? (
         <div className="card" ref={dayCard}>
           <div className="cardhead">
             <h2>{dayLabel(sel)}</h2>
             <button type="button" className="btn sm" onClick={() => openDay(sel, 1)}>日報を開く<ChevRight size={14} /></button>
           </div>
-          <p className="sub">名前をタップで予定に入れる／外す。時刻は下の行を開いて直します。</p>
+          <Seg label="この日に入れるもの" value={mode} onChange={setMode} wide
+            items={[{ id: "plan", label: "予定" }, { id: "wish", label: "希望" }] as const} />
+          <p className="sub">
+            {mode === "plan"
+              ? "名前をタップで予定に入れる／外す。時刻は下の行を開いて直します。"
+              : "「この日は入れます」と言ってきた子をタップします。予定にはまだ入りません。"}
+          </p>
           <div className="chipgrid">
             {active.map((c) => {
-              const on = selPlan.includes(c.id);
+              const planned = selPlan.includes(c.id);
+              const wished = selWish.includes(c.id);
+              const on = mode === "plan" ? planned : wished;
               const worked = selWorked.includes(c.id);
               return (
-                <button key={c.id} type="button" className={`cchip ${on ? "on" : ""}`} aria-pressed={on} onClick={() => togglePlan(sel, c.id)}>
-                  {on ? "✓ " : ""}{c.name || "（名前なし）"}{worked ? <span className="chiptime">出勤済み</span> : null}
+                <button key={c.id} type="button" className={`cchip ${on ? "on" : ""}`} aria-pressed={on}
+                  onClick={() => (mode === "plan" ? togglePlan(sel, c.id) : toggleWishOn(sel, c.id))}>
+                  {on ? "✓ " : ""}{c.name || "（名前なし）"}
+                  {/* 予定を組んでいるときは「この子は入れると言っている」が見えた方が速い。
+                      希望を書き留めているときは、もう予定に入っているかどうかを出す */}
+                  {mode === "plan" && wished && !planned ? <span className="chiptime">入れると言っている</span> : null}
+                  {mode === "wish" && planned ? <span className="chiptime">予定に入り済み</span> : null}
+                  {mode === "plan" && worked ? <span className="chiptime">出勤済み</span> : null}
                 </button>
               );
             })}
             <button type="button" className="cchip add" onClick={() => setAdding(true)}>＋ 新しい子</button>
           </div>
+
+          {/* この日の希望のうち、まだ予定に入っていないぶん。1 タップで入れられる */}
+          {dayLeft.length > 0 && (
+            <button type="button" className="btn wide" style={{ marginTop: 4 }}
+              onClick={() => update((LL) => {
+                if (!LL.plans) LL.plans = {};
+                LL.plans[sel] = [...(LL.plans[sel] ?? []), ...dayLeft.map((w) => ({ ...w }))];
+                showToast(`${dayLeft.length}人を予定に入れました`);
+              })}>
+              入れると言っている {dayLeft.length}人を、この日の予定に入れる
+            </button>
+          )}
           {adding && <AddCast onAdd={(nm) => addCast(nm, sel)} onCancel={() => setAdding(false)} wage={L.shop.defaultWage} />}
           {!active.length && !adding && <div className="hint" style={{ marginTop: -6 }}>まだ誰も登録されていません。「＋ 新しい子」から足せます。</div>}
 
@@ -381,5 +427,70 @@ function CalGrid({ m, dim, lead, today, sel, onPick, cell }: {
         <span><i style={{ background: "transparent", boxShadow: "inset 0 0 0 1.5px var(--accent)" }} />これからの予定</span>
       </div>
     </>
+  );
+}
+
+/** 月の希望のまとめ。
+ *
+ *  オーナーがこの画面を開く理由は 2 つ。**誰がまだ出していないか**と、
+ *  **出そろったから予定に写したい**。その 2 つだけを出す。
+ *
+ *  並びは「まだの人が上」。催促する相手を探しに来ているので、
+ *  出し終えた人を上に置くと毎回スクロールすることになる。 */
+function WishSummary({ L, month, onApply, onPick }: {
+  L: Ledger; month: string; onApply: () => void; onPick: (date: string) => void;
+}) {
+  const rows = wishRows(L, month);
+  const left = diffTotal(planDiff(L, month));
+  const pending = pendingCasts(L, month);
+  const anyWish = rows.some((r) => r.days.length > 0 || r.done);
+
+  if (!L.casts.some((c) => c.active !== false)) return null;
+
+  return (
+    <div className="card">
+      <div className="cardhead">
+        <h2>{monthLabel(month)} の希望</h2>
+        {anyWish ? <span className={`pill ${pending.length ? "warn" : "ok"}`}>
+          {pending.length ? `まだ ${pending.length}人` : "出そろい"}
+        </span> : null}
+      </div>
+
+      {!anyWish ? (
+        <div className="empty">
+          まだ誰も出していません<br />
+          <span className="hint">日をタップして「希望」に切り替えると、店が代わりに書き留められます</span>
+        </div>
+      ) : (
+        <>
+          {rows.map((r) => (
+            <button key={r.castId} type="button" className="lrow"
+              onClick={() => r.days.length && onPick(r.days[0])}>
+              <div className="g">
+                <div className="t">{r.name || "（名前なし）"}</div>
+                <div className="s">
+                  {r.days.length
+                    ? `${r.days.slice(0, 6).map((d) => Number(d.slice(8))).join("・")}日${r.days.length > 6 ? ` ほか${r.days.length - 6}日` : ""}`
+                    : r.done ? "この月は入れないと出しています" : "まだ出していません"}
+                </div>
+              </div>
+              <div className="a num">{r.days.length ? `${r.days.length}日` : r.done ? "—" : ""}</div>
+            </button>
+          ))}
+
+          {/* 予定に入っていないぶんだけを出す。押すたびに減って、0 になったら消える */}
+          {left > 0 ? (
+            <button type="button" className="btn primary wide" style={{ marginTop: 10 }} onClick={onApply}>
+              {left}人ぶんを予定に入れる
+            </button>
+          ) : (
+            <div className="hint" style={{ marginTop: 10 }}>出ている希望は、ぜんぶ予定に入っています</div>
+          )}
+          <div className="hint" style={{ marginTop: 6 }}>
+            予定は<b>足すだけ</b>です。店が入れた予定は消えません。
+          </div>
+        </>
+      )}
+    </div>
   );
 }
