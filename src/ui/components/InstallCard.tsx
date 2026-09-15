@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { APP_NAME } from "../../appMode";
 
 interface BIPEvent extends Event { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> }
 
@@ -58,7 +59,7 @@ export function InstallCard() {
           <div className="lrow"><div className="g"><div className="t">2.「ホーム画面に追加」を選ぶ</div>
             <div className="s">一覧を下にスクロールすると出てきます</div></div></div>
           <div className="lrow" style={{ borderBottom: 0 }}><div className="g"><div className="t">3.「追加」を押す</div>
-            <div className="s">ホーム画面に締め台帳のアイコンが並びます</div></div></div>
+            <div className="s">ホーム画面に{APP_NAME}のアイコンが並びます</div></div></div>
           <div className="hint">Safari で開いているときだけ追加できます。ほかのブラウザで見ている場合は Safari で開き直してください。</div>
         </>
       ) : (

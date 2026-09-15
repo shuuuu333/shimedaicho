@@ -151,6 +151,10 @@ begin
   if inv is null then raise exception 'この招待は見つかりません'; end if;
   if inv.used_at is not null then raise exception 'この招待は使用済みです'; end if;
   if inv.expires_at < now() then raise exception 'この招待は期限切れです'; end if;
+  -- 自分の店に、自分をキャストとして足さない。役割が 2 つになって壊れる
+  if public.my_role(inv.shop_id) = 'owner' then
+    raise exception 'この店のオーナーです。キャスト手帳は、ログインしたまま「どの子として見るか」を選べます';
+  end if;
 
   insert into public.shop_members as sm (shop_id, email, role, user_id, name)
   values (inv.shop_id, 'qr:' || uid::text, inv.role, uid, inv.name)
@@ -340,6 +344,8 @@ language sql stable security definer set search_path = public as $$
   from public.shop_members m
   where m.shop_id = sid
     and (m.user_id = auth.uid() or lower(m.email) = public.my_email())
+  -- 役割が 2 つあるときは強いほうを返す（オーナーが自分の QR を読んだ場合など）
+  order by case m.role when 'owner' then 0 when 'staff' then 1 else 2 end
   limit 1;
 $$;
 revoke all on function public.my_member(uuid) from public;

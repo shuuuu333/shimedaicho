@@ -15,13 +15,14 @@ import { useMemo } from "react";
 import { useApp } from "../../state/store";
 import { useCloud } from "../../state/cloud";
 import { castBacks, castDays, castStats } from "../../domain/castStats";
-import { WD, dayLabel, jp, monthLabel, shiftMonth, todayISO, yen } from "../../domain/format";
+import { planFor } from "../../domain/plans";
+import { WD, dayLabel, daysInMonth, jp, monthLabel, shiftMonth, todayISO, yen } from "../../domain/format";
 import { MonthBar } from "../components/MonthBar";
 import { CastCumChart } from "../charts";
 import { WishCard } from "../components/WishCard";
 import type { Cast, Ledger } from "../../domain/types";
 
-export function CastHome({ me }: { me: Cast }) {
+export function CastPay({ me }: { me: Cast }) {
   const L = useApp((s) => s.ledger);
   const ui = useApp((s) => s.ui);
   const setUI = useApp((s) => s.setUI);
@@ -76,22 +77,6 @@ export function CastHome({ me }: { me: Cast }) {
           <div><div className="k">時間</div><div className="v">{(s.row?.hours ?? 0).toFixed(1)}<span style={{ fontSize: 13 }}>h</span></div></div>
           <div><div className="k">これからの予定</div><div className="v">{s.ahead.length}<span style={{ fontSize: 13 }}>日</span></div></div>
         </div>
-      </div>
-
-      {/* 希望を出す。次のシフトのすぐ上に置く。
-          「次はいつ入るか」を見に来たときが、出し忘れに気づく所でもある */}
-      <WishCard me={me} />
-
-      {/* 次のシフト。何時に行けばいいかが一番知りたいこと */}
-      <div className="card">
-        <h2>次のシフト</h2>
-        {s.ahead.length ? s.ahead.slice(0, 4).map((d) => (
-          <div key={d.date} className="lrow">
-            <div className="g"><div className="t">{dayLabel(d.date)}</div>
-              <div className="s">{d.date === today ? "今日" : ""}</div></div>
-            <div className="a num">{d.planIn}-{d.planOut}</div>
-          </div>
-        )) : <div className="empty">これからの予定はまだ入っていません</div>}
       </div>
 
       {/* 内訳。「1本いくら」が見えると行動が変わる */}
@@ -161,4 +146,157 @@ export function CastNotLinked({ L }: { L: Ledger }) {
       </div>
     </div>
   );
+}
+
+/** キャスト手帳の「シフト」。いつ入るかと、希望を出す所。
+ *
+ *  給料と分けてある。見に来る理由が違うから。
+ *  給料は「いくらになったか」、シフトは「次はいつ行くのか」。
+ *  1 枚にすると、次の出勤を見るたびに金額まで開くことになる。 */
+export function CastShift({ me }: { me: Cast }) {
+  const L = useApp((s) => s.ledger);
+  const ui = useApp((s) => s.ui);
+  const setUI = useApp((s) => s.setUI);
+  const m = ui.month;
+  const today = todayISO();
+  const s = useMemo(() => castStats(L, me.id, m, today), [L, me.id, m, today]);
+
+  const dim = daysInMonth(m);
+  const lead = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1, 1).getDay();
+
+  return (
+    <>
+      <MonthBar month={m} onChange={(mm) => setUI({ month: mm, calDay: null })}
+        right={<>予定<b>{s.ahead.length}日</b></>} />
+
+      {/* この月のどこに入っているか。数えなくても一目で分かるように */}
+      <div className="card">
+        <div className="cardhead">
+          <h2>{monthLabel(m)} の出勤</h2>
+          <span className="pill">{s.row?.days ?? 0}日</span>
+        </div>
+        <div className="cal-head">{WD.map((w) => <span key={w}>{w}</span>)}</div>
+        <div className="cal-grid">
+          {Array.from({ length: lead }, (_, i) => <div key={"b" + i} className="cal-cell blank" aria-hidden="true" />)}
+          {Array.from({ length: dim }, (_, i) => i + 1).map((d) => {
+            const k = `${m}-${String(d).padStart(2, "0")}`;
+            const worked = !!L.days[k]?.shifts?.[me.id]?.on;
+            const planned = !!planFor(L, k, me.id);
+            const dow = (lead + d - 1) % 7;
+            return (
+              <div key={k}
+                className={`cal-cell shiftcell ${dow === 0 || dow === 6 ? "wk" : ""} ${worked ? "worked" : planned ? "planned" : ""} ${k === today ? "today" : ""}`}
+                aria-label={`${Number(m.slice(5, 7))}月${d}日 ${worked ? "出勤した" : planned ? "予定あり" : ""}`}>
+                <span className="cd">{d}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="legend" style={{ marginTop: 10 }}>
+          <span><i style={{ background: "var(--accent)" }} />出勤した日</span>
+          <span><i style={{ background: "transparent", boxShadow: "inset 0 0 0 1.5px var(--accent)" }} />これからの予定</span>
+        </div>
+      </div>
+
+      {/* 次のシフト。何時に行けばいいかが一番知りたいこと */}
+      <div className="card">
+        <h2>次のシフト</h2>
+        {s.ahead.length ? s.ahead.slice(0, 4).map((d) => (
+          <div key={d.date} className="lrow">
+            <div className="g"><div className="t">{dayLabel(d.date)}</div>
+              <div className="s">{d.date === today ? "今日" : ""}</div></div>
+            <div className="a num">{d.planIn}-{d.planOut}</div>
+          </div>
+        )) : <div className="empty">これからの予定はまだ入っていません</div>}
+      </div>
+
+      {/* 希望はいちばん下。上の 2 つ（いつ入るか）を見てから出す順になる */}
+      <WishCard me={me} />
+    </>
+  );
+}
+
+/** 本人を決める。
+ *
+ *  ふつうは「ログインしている人に結び付いているキャスト」。
+ *  それが無いときに 2 つだけ助ける。
+ *
+ *  ・お店とつながっていないとき（お試しデータを入れた直後）… 端末の最初の子
+ *  ・店の人がキャスト手帳を開いたとき … どの子として見るかを選べる
+ *
+ *  2 つめが要るのは、**同じ端末・同じアカウントでは役割を 2 つ持てない**から。
+ *  1 台でためすには、店の人が「この子として見る」しかない。 */
+export function useCastMe(): Cast | null {
+  const L = useApp((s) => s.ledger);
+  const asCast = useApp((s) => s.ui.asCast);
+  const myCastId = useCloud((s) => s.myCastId());
+  const shopId = useCloud((s) => s.shopId);
+  return useMemo(() => {
+    const find = (id: string | null) => (id ? L.casts.find((c) => c.id === id) ?? null : null);
+    return find(myCastId) ?? find(asCast) ?? (!shopId && L.casts.length ? L.casts[0] : null);
+  }, [L.casts, myCastId, asCast, shopId]);
+}
+
+/** 本人が決まっていないときの画面。店の人には選ばせる */
+function CastGate() {
+  const L = useApp((s) => s.ledger);
+  const setUI = useApp((s) => s.setUI);
+  const canPick = useCloud((s) => s.isOwner()) || useCloud((s) => s.me?.role) === "staff";
+  const active = L.casts.filter((c) => c.active !== false);
+
+  if (!canPick || !active.length) return <CastNotLinked L={L} />;
+  return (
+    <div className="card">
+      <h2>どの子として見ますか</h2>
+      <p className="sub">
+        あなたは<b>お店の人</b>としてログインしています。
+        1 台でためすために、キャストの画面をそのまま見られます。
+      </p>
+      <div className="chipgrid">
+        {active.map((c) => (
+          <button key={c.id} type="button" className="cchip" onClick={() => setUI({ asCast: c.id })}>
+            {c.name || "（名前なし）"}
+          </button>
+        ))}
+      </div>
+      <div className="hint" style={{ marginTop: 10 }}>
+        ここで出した希望は、その子が出したものとして店の一覧に並びます。
+      </div>
+    </div>
+  );
+}
+
+/** 店の人が「この子として」見ているときの帯。
+ *  本人の画面と見分けが付かないと、自分の給料だと思い込む */
+function AsCastBar({ me }: { me: Cast }) {
+  const asCast = useApp((s) => s.ui.asCast);
+  const setUI = useApp((s) => s.setUI);
+  if (!asCast) return null;
+  return (
+    <div className="card" style={{ paddingTop: 12, paddingBottom: 12 }}>
+      <div className="lrow" style={{ padding: 0 }}>
+        <div className="g"><div className="t">{me.name} さんとして見ています</div>
+          <div className="s">お店の人としてログインしています</div></div>
+        <button type="button" className="btn sm" onClick={() => setUI({ asCast: null })}>やめる</button>
+      </div>
+    </div>
+  );
+}
+
+/** タブの「給料」 */
+export function CastPayScreen() {
+  const me = useCastMe();
+  const m = useApp((s) => s.ui.month);
+  const setUI = useApp((s) => s.setUI);
+  if (!me) return (<><MonthBar month={m} onChange={(mm) => setUI({ month: mm, calDay: null })} /><CastGate /></>);
+  return (<><AsCastBar me={me} /><CastPay me={me} /></>);
+}
+
+/** タブの「シフト」 */
+export function CastShiftScreen() {
+  const me = useCastMe();
+  const m = useApp((s) => s.ui.month);
+  const setUI = useApp((s) => s.setUI);
+  if (!me) return (<><MonthBar month={m} onChange={(mm) => setUI({ month: mm, calDay: null })} /><CastGate /></>);
+  return (<><AsCastBar me={me} /><CastShift me={me} /></>);
 }

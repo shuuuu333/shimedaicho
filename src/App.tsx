@@ -8,13 +8,14 @@ import { Welcome } from "./ui/components/Welcome";
 import { PinPad } from "./ui/components/PinPad";
 import { JoinSheet } from "./ui/components/JoinSheet";
 import { hasPin, isUnlocked } from "./data/pin";
-import { ChevLeft, IcoCast, IcoDay, IcoMonth, IcoReg, IcoSet, IcoShift } from "./ui/icons";
+import { ChevLeft, IcoCast, IcoDay, IcoMonth, IcoPay, IcoReg, IcoSet, IcoShift } from "./ui/icons";
 import { TabBar } from "./ui/components/TabBar";
 import { Register } from "./ui/screens/Register";
 import { Month } from "./ui/screens/Month";
 import { DayReport } from "./ui/screens/DayReport";
 import { Casts } from "./ui/screens/Casts";
 import { Shifts } from "./ui/screens/Shifts";
+import { CastPayScreen } from "./ui/screens/CastHome";
 import { Settings } from "./ui/screens/Settings";
 
 /** 下のタブに並ぶ4つ。設定は右上の歯車から開く */
@@ -24,6 +25,8 @@ const TABS: { id: Tab; label: string; Icon: ComponentType; Screen: ComponentType
   { id: "day", label: "日報", Icon: IcoDay, Screen: DayReport },
   { id: "shift", label: "シフト", Icon: IcoShift, Screen: Shifts },
   { id: "cast", label: "キャスト", Icon: IcoCast, Screen: Casts },
+  // キャスト手帳だけで使う。店用には出ない
+  { id: "pay", label: "給料", Icon: IcoPay, Screen: CastPayScreen },
 ];
 
 /** 暗証番号で隠す画面。給料と利益が見えるところだけ。
@@ -77,7 +80,11 @@ export default function App() {
   }, [joinByToken, showToast]);
 
   // 見える画面は 3 段階。レジを打つキャストにはレジも出す（給料と売上は自分のぶんだけ）
-  const tabs = role === "cast"
+  const tabs = IS_CAST_APP
+    // キャスト手帳は 2 つ。シフト（いつ入るか）と 給料（いくらになったか）。
+    // レジを打つ子には、それも出す
+    ? TABS.filter((t) => t.id === "shift" || t.id === "pay" || (canRegister && t.id === "reg"))
+    : role === "cast"
     ? TABS.filter((t) => t.id === "shift" || (canRegister && t.id === "reg"))
     : role === "staff" ? TABS.filter((t) => t.id === "reg" || t.id === "day" || t.id === "shift")
     : TABS;

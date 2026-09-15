@@ -11,7 +11,7 @@ import { LocalRepository } from "../data/localRepository";
 export type SaveState = "loading" | "saving" | "saved" | "error";
 /** 見た目: 端末に合わせる / 明るい / 暗い */
 export type Theme = "auto" | "light" | "dark";
-export type Tab = "reg" | "month" | "day" | "shift" | "cast" | "set";
+export type Tab = "reg" | "month" | "day" | "shift" | "cast" | "pay" | "set";
 export type Sheet = { kind: "cast"; id: string } | { kind: "disp"; id: string } | null;
 
 export interface UIState {
@@ -27,6 +27,9 @@ export interface UIState {
   castDetail: string | null;
   /** 設定画面で強調するセクション id */
   setFocus: string | null;
+  /** キャスト手帳を、店の人が「この子として」見ているときの castId。
+   *  1 台でためすときに要る（同じ端末・同じアカウントでは役割を 2 つ持てない） */
+  asCast: string | null;
   sheet: Sheet;
 }
 
@@ -130,7 +133,7 @@ export function createAppStore(repo: Repository) {
       save: "loading",
       lastSavedAt: null,
       lastBackupAt: null,
-      ui: { tab: "month", month: t.slice(0, 7), monthView: "month", day: t, step: 0, monthMode: "chart", calDay: null, castDetail: null, setFocus: null, sheet: null },
+      ui: { tab: "month", month: t.slice(0, 7), monthView: "month", day: t, step: 0, monthMode: "chart", calDay: null, castDetail: null, setFocus: null, asCast: null, sheet: null },
       toast: null,
       theme: readTheme(),
 

@@ -8,12 +8,11 @@ import type { Ledger } from "../../domain/types";
 import { commonShifts, lateLabel, lateMinutes, planFor, planTimes, plannedIds, spanLabel, spanMinutes, whoOn } from "../../domain/plans";
 import { applyWishes, diffTotal, pendingCasts, planDiff, wishRows, wishesOn } from "../../domain/wishes";
 import { Seg } from "../components/Seg";
-import { IS_CAST_APP } from "../../appMode";
 import { WD, addMinutes, dayLabel, daysInMonth, jp, monthLabel, shiftDay, todayISO, uid, yen } from "../../domain/format";
 import { MonthBar } from "../components/MonthBar";
 import { TimeField } from "../components/TimeField";
 import { ChevDown, ChevRight } from "../icons";
-import { CastHome, CastNotLinked } from "./CastHome";
+import { CastShiftScreen } from "./CastHome";
 
 export function Shifts() {
   const L = useApp((s) => s.ledger);
@@ -24,8 +23,6 @@ export function Shifts() {
   const showToast = useApp((s) => s.showToast);
   const role = useCloud((s) => s.role());
   const wishSet = useCloud((s) => s.wishSet);
-  const shopId = useCloud((s) => s.shopId);
-  const myCastId = useCloud((s) => s.myCastId());
   const m = ui.month;
   /** 予定の時刻を直しているキャスト */
   const [editing, setEditing] = useState<string | null>(null);
@@ -43,17 +40,6 @@ export function Shifts() {
     dayCard.current.scrollIntoView({ block: "start", behavior: "smooth" });
     setJump(null);
   }, [jump]);
-
-  /** キャストとしてログインしているなら、その本人 */
-  const me = useMemo(() => {
-    if (role !== "cast") return null;
-    if (myCastId) return L.casts.find((c) => c.id === myCastId) ?? null;
-    // キャスト手帳を、まだお店とつながっていない状態で開いたとき。
-    // 端末の中の最初の子として見せる（お試しデータを入れた直後がこれ）。
-    // つながっていないことは、希望のカードにも書いてある
-    if (IS_CAST_APP && !shopId && L.casts.length) return L.casts[0];
-    return null;
-  }, [L.casts, myCastId, role, shopId]);
 
   const dim = daysInMonth(m);
   const lead = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1, 1).getDay();
@@ -130,17 +116,7 @@ export function Shifts() {
   /* ---------- キャスト本人の画面 ---------- */
   // 本人向けは資産運用アプリの形にしてある（CastHome）。
   // ここはオーナー・スタッフ向けのシフト表なので、分岐して渡すだけ
-  if (role === "cast") {
-    if (!me) {
-      return (
-        <>
-          <MonthBar month={m} onChange={(mm) => setUI({ month: mm, calDay: null })} />
-          <CastNotLinked L={L} />
-        </>
-      );
-    }
-    return <CastHome me={me} />;
-  }
+  if (role === "cast") return <CastShiftScreen />;
 
   /* ---------- オーナー・スタッフの画面 ---------- */
   const selPlan = sel ? planOf(sel) : [];

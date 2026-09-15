@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { APP_NAME } from "../../appMode";
 import { useApp } from "../../state/store";
 import { NumberField } from "../components/NumberField";
 import { TimeField } from "../components/TimeField";
@@ -260,7 +261,7 @@ export function Settings() {
         <div className="card" id="set-version">
         <h2>アプリの版</h2>
         <div className="lrow">
-          <div className="g"><div className="t">締め台帳 v{__APP_VERSION__}</div>
+          <div className="g"><div className="t">{APP_NAME} v{__APP_VERSION__}</div>
             <div className="s num">{new Date(__BUILD_TIME__).toLocaleString("ja-JP", { year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} の版</div></div>
           <button type="button" className="btn sm" disabled={checking} onClick={checkUpdate}>{checking ? "確認中…" : "更新を確認"}</button>
         </div>
@@ -489,7 +490,7 @@ export function Settings() {
       <div className="card" id="set-version">
         <h2>アプリの版</h2>
         <div className="lrow">
-          <div className="g"><div className="t">締め台帳 v{__APP_VERSION__}</div>
+          <div className="g"><div className="t">{APP_NAME} v{__APP_VERSION__}</div>
             <div className="s num">{new Date(__BUILD_TIME__).toLocaleString("ja-JP", { year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })} の版</div></div>
           <button type="button" className="btn sm" disabled={checking} onClick={checkUpdate}>{checking ? "確認中…" : "更新を確認"}</button>
         </div>
